@@ -18,8 +18,8 @@ try{
 let respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer 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",
-"Content-Type": "application/json"
+  "Authorization": "Bearer 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",
+  "Content-Type": "application/json"
 },
 body: JSON.stringify({
 model: "mistralai/mistral-7b-instruct:free",
