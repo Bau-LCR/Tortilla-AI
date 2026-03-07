@@ -11,28 +11,31 @@ input.value = "";
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
-chat.scrollTop = chat.scrollHeight;
-
 try {
 
-const respuesta = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer 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",
-"Content-Type": "application/json"
+"Content-Type": "application/json",
+"Authorization": "Bearer TU_API_KEY_GROQ"
 },
 body: JSON.stringify({
 model: "llama3-8b-8192",
 messages: [
 {
+role: "system",
+content: "Eres Tortilla-AI, una IA amigable creada por Bautista López. Explica todo simple."
+},
+{
 role: "user",
 content: mensaje
 }
-]
+],
+temperature: 0.7
 })
 });
 
-const data = await respuesta.json();
+const data = await response.json();
 
 console.log(data);
 
@@ -49,7 +52,7 @@ chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${texto}</div>`;
 } catch (error) {
 
 document.getElementById("pensando").remove();
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error al conectar.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error al conectar con la IA.</div>`;
 
 }
 
