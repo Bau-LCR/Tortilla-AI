@@ -16,7 +16,7 @@ chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...
 let respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer TU_API_KEY",
+"Authorization": "Bearer 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",
 "Content-Type": "application/json"
 },
 body: JSON.stringify({
@@ -24,7 +24,7 @@ model: "mistralai/mistral-7b-instruct",
 messages: [
 {
 role: "system",
-content: "Tu nombre es Tortilla-AI. Eres una inteligencia artificial amigable creada por Bautista. Explicas las cosas de forma simple y clara."
+content: "Tu nombre es Tortilla-AI. Eres una inteligencia artificial amigable creada por Bautista López. Explicas las cosas de forma simple y clara."
 },
 {
 role: "user",
