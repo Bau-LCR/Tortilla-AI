@@ -20,7 +20,7 @@ try {
 const respuesta = await fetch("https://api.groq.com/openai/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer TU_API_KEY_GROQ",
+"Authorization": "Bearer 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",
 "Content-Type": "application/json"
 },
 body: JSON.stringify({
