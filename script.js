@@ -5,14 +5,12 @@ const chat = document.getElementById("chat");
 
 const mensaje = input.value.trim();
 
-if (mensaje === "") return;
+if (!mensaje) return;
 
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${mensaje}</div>`;
-
 input.value = "";
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
-
 chat.scrollTop = chat.scrollHeight;
 
 try {
@@ -28,28 +26,35 @@ model: "llama3-8b-8192",
 messages: [
 {
 role: "system",
-content: "Tu nombre es Tortilla-AI. Eres una inteligencia artificial amigable creada por Bautista López. Explicas las cosas de forma simple y clara."
+content: "Tu nombre es Tortilla-AI. Eres una IA amigable creada por Bautista López. Responde simple y claro."
 },
 {
 role: "user",
 content: mensaje
 }
-]
+],
+temperature: 0.7,
+max_tokens: 512
 })
 });
 
 const data = await respuesta.json();
 
+console.log(data); // para ver errores
+
 document.getElementById("pensando").remove();
 
-let texto = data.choices?.[0]?.message?.content || "No se recibió respuesta.";
+let texto = "No se recibió respuesta.";
+
+if (data.choices && data.choices[0]) {
+texto = data.choices[0].message.content;
+}
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${texto}</div>`;
 
 } catch (error) {
 
 document.getElementById("pensando").remove();
-
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error al conectar con la IA.</div>`;
 
 }
