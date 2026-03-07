@@ -1,25 +1,29 @@
-async function enviar(){
+async function enviar() {
 
-let input = document.getElementById("mensaje");
-let chat = document.getElementById("chat");
+const input = document.getElementById("mensaje");
+const chat = document.getElementById("chat");
 
-let mensaje = input.value.trim();
+const mensaje = input.value.trim();
 
-if(mensaje === "") return;
+if (mensaje === "") return;
 
+// Mostrar mensaje del usuario
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${mensaje}</div>`;
 
 input.value = "";
 
+// Mensaje de pensando
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
-try{
+chat.scrollTop = chat.scrollHeight;
 
-let respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+try {
+
+const respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
 method: "POST",
 headers: {
-  "Authorization": "Bearer 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",
-  "Content-Type": "application/json"
+"Authorization": "Bearer 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",
+"Content-Type": "application/json"
 },
 body: JSON.stringify({
 model: "mistralai/mistral-7b-instruct:free",
@@ -36,15 +40,25 @@ content: mensaje
 })
 });
 
-let data = await respuesta.json();
+const data = await respuesta.json();
 
-let texto = data.choices?.[0]?.message?.content || "Hubo un error al responder.";
+// quitar "pensando..."
+document.getElementById("pensando").remove();
 
-document.getElementById("pensando").innerHTML = `<b>Tortilla-AI:</b> ${texto}`;
+let texto = "No se recibió respuesta.";
 
-}catch(error){
+if (data.choices && data.choices.length > 0) {
+texto = data.choices[0].message.content;
+}
 
-document.getElementById("pensando").innerHTML = `<b>Tortilla-AI:</b> Error al conectar con la IA.`;
+// mostrar respuesta
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${texto}</div>`;
+
+} catch (error) {
+
+document.getElementById("pensando").remove();
+
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error al conectar con la IA.</div>`;
 
 }
 
