@@ -22,7 +22,7 @@ try {
 const respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer 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",
+"Authorization": "Bearer 30992787c497d45f6366edda59526db58e7f20fcb62f9b31346a4a1ddeb518b6",
 "Content-Type": "application/json"
 },
 body: JSON.stringify({
