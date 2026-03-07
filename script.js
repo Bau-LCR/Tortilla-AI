@@ -17,7 +17,7 @@ const response = await fetch("https://api.groq.com/openai/v1/chat/completions", 
 method: "POST",
 headers: {
 "Content-Type": "application/json",
-"Authorization": "Bearer TU_API_KEY_GROQ"
+"Authorization": "Bearer gsk_SCJkfrW5eBAu2363CuVRWGdyb3FYo8B9CRJ6j0ujCFGsrXqlIL8"
 },
 body: JSON.stringify({
 model: "llama3-8b-8192",
