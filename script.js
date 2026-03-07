@@ -1,4 +1,4 @@
-function enviar(){
+async function enviar(){
 
 let input = document.getElementById("mensaje");
 let chat = document.getElementById("chat");
@@ -9,29 +9,37 @@ if(mensaje === "") return;
 
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${mensaje}</div>`;
 
-let respuesta = responder(mensaje);
-
-setTimeout(() => {
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
-chat.scrollTop = chat.scrollHeight;
-}, 500);
-
 input.value = "";
 
+chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
+
+let respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+method: "POST",
+headers: {
+"Authorization": "Bearer TU_API_KEY",
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+model: "mistralai/mistral-7b-instruct",
+messages: [
+{
+role: "system",
+content: "Tu nombre es Tortilla-AI. Eres una inteligencia artificial amigable creada por Bautista. Explicas las cosas de forma simple y clara."
+},
+{
+role: "user",
+content: mensaje
 }
+]
+})
+});
 
-function responder(m){
+let data = await respuesta.json();
 
-m = m.toLowerCase();
+let texto = data.choices[0].message.content;
 
-if(m.includes("hola")) return "Hola 👋 Soy Tortilla-AI. ¿En qué puedo ayudarte?";
+document.getElementById("pensando").innerHTML = `<b>Tortilla-AI:</b> ${texto}`;
 
-if(m.includes("quien eres")) return "Soy Tortilla-AI, una inteligencia artificial creada por Bautista.";
-
-if(m.includes("minecraft")) return "Minecraft es uno de los mejores juegos para construir y explorar.";
-
-if(m.includes("programar")) return "Programar es como darle instrucciones a una computadora para que haga cosas.";
-
-return "Interesante... todavía estoy aprendiendo. 🤔";
+chat.scrollTop = chat.scrollHeight;
 
 }
