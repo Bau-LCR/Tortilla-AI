@@ -13,10 +13,12 @@ input.value = "";
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
+try{
+
 let respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
 method: "POST",
 headers: {
-"Authorization": "Bearer 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",
+"Authorization": "Bearer TU_API_KEY",
 "Content-Type": "application/json"
 },
 body: JSON.stringify({
@@ -36,9 +38,15 @@ content: mensaje
 
 let data = await respuesta.json();
 
-let texto = data.choices[0].message.content;
+let texto = data.choices?.[0]?.message?.content || "Hubo un error al responder.";
 
 document.getElementById("pensando").innerHTML = `<b>Tortilla-AI:</b> ${texto}`;
+
+}catch(error){
+
+document.getElementById("pensando").innerHTML = `<b>Tortilla-AI:</b> Error al conectar con la IA.`;
+
+}
 
 chat.scrollTop = chat.scrollHeight;
 
