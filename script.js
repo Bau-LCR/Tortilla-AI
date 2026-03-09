@@ -1,12 +1,12 @@
-let generator;
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
 
-async function iniciarIA(){
+let generator;
 
 const chat = document.getElementById("chat");
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
+async function iniciarIA(){
 
-const { pipeline } = window.transformers;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
 
 generator = await pipeline(
 "text-generation",
@@ -19,11 +19,9 @@ chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hab
 
 iniciarIA();
 
-async function enviar(){
+window.enviar = async function(){
 
 const input = document.getElementById("mensaje");
-const chat = document.getElementById("chat");
-
 const mensaje = input.value.trim();
 
 if(!mensaje) return;
@@ -44,7 +42,7 @@ document.getElementById("pensando").remove();
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${resultado[0].generated_text}</div>`;
 
-}catch(error){
+}catch(err){
 
 document.getElementById("pensando").remove();
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
