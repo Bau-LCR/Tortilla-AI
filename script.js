@@ -9,7 +9,7 @@ let historial = [];
 
 async function iniciarIA(){
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando modelo de inteligencia artificial...</div>`;
 
 generator = await pipeline(
 "text-generation",
@@ -32,23 +32,27 @@ input.value="";
 
 historial.push(`Usuario: ${mensaje}`);
 
-let contexto = historial.slice(-6).join("\n");
+let contexto = historial.slice(-4).join("\n");
 
 const prompt = `
 Conversación en español.
-La IA se llama Tortilla-AI.
+
+Usuario: Hola
+Tortilla-AI: Hola, soy Tortilla-AI. ¿En qué puedo ayudarte?
 
 ${contexto}
 Tortilla-AI:
 `;
 
-chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
+chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> escribiendo...</div>`;
 
 try{
 
 const resultado = await generator(prompt,{
-max_new_tokens:40,
-temperature:0.7
+max_new_tokens:50,
+temperature:0.6,
+top_p:0.9,
+repetition_penalty:1.2
 });
 
 const p = document.getElementById("pensando");
@@ -58,8 +62,8 @@ let texto = resultado[0].generated_text;
 
 let respuesta = texto.replace(prompt,"").split("\n")[0].trim();
 
-if(respuesta.length < 2){
-respuesta = "Todavía estoy aprendiendo a responder mejor.";
+if(respuesta.length < 3){
+respuesta = "Estoy aprendiendo todavía. ¿Puedes preguntarlo de otra forma?";
 }
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
@@ -73,7 +77,7 @@ chat.scrollTop = chat.scrollHeight;
 const p = document.getElementById("pensando");
 if(p) p.remove();
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error al generar la respuesta.</div>`;
 
 }
 
@@ -82,9 +86,7 @@ chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error.</div>`
 boton.onclick = enviar;
 
 input.addEventListener("keypress",function(e){
-
 if(e.key==="Enter"){
 enviar();
 }
-
 });
