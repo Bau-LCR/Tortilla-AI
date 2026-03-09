@@ -1,30 +1,52 @@
-async function enviar() {
+let generator;
+
+async function iniciarIA(){
+
+const { pipeline } = window.transformers;
+
+const chat = document.getElementById("chat");
+chat.innerHTML += "<div><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>";
+
+generator = await pipeline(
+"text-generation",
+"Xenova/distilgpt2"
+);
+
+chat.innerHTML += "<div><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hablar conmigo.</div>";
+
+}
+
+iniciarIA();
+
+async function enviar(){
 
 const input = document.getElementById("mensaje");
 const chat = document.getElementById("chat");
 
 const mensaje = input.value.trim();
-if (!mensaje) return;
+
+if(!mensaje) return;
 
 chat.innerHTML += `<div><b>Tú:</b> ${mensaje}</div>`;
-input.value = "";
+
+input.value="";
 
 chat.innerHTML += `<div id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
-try {
+try{
 
-const res = await fetch("https://api.affiliateplus.xyz/api/chatbot?message=" + encodeURIComponent(mensaje) + "&botname=Tortilla-AI&ownername=Tu");
-
-const data = await res.json();
-
-document.getElementById("pensando").remove();
-
-chat.innerHTML += `<div><b>Tortilla-AI:</b> ${data.message}</div>`;
-
-} catch (error) {
+const resultado = await generator(mensaje,{
+max_new_tokens:50
+});
 
 document.getElementById("pensando").remove();
-chat.innerHTML += `<div><b>Tortilla-AI:</b> Error al responder.</div>`;
+
+chat.innerHTML += `<div><b>Tortilla-AI:</b> ${resultado[0].generated_text}</div>`;
+
+}catch(error){
+
+document.getElementById("pensando").remove();
+chat.innerHTML += `<div><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
 
 }
 
