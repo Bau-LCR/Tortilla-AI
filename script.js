@@ -1,26 +1,15 @@
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
-
-let generator;
-let historial = [];
-
 const chat = document.getElementById("chat");
 const input = document.getElementById("mensaje");
 const boton = document.getElementById("btnEnviar");
 
-async function iniciarIA(){
+const API_KEY = "TU_API_KEY";
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
-
-generator = await pipeline(
-"text-generation",
-"Xenova/distilgpt2"
-);
-
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. Estoy lista para conversar contigo.</div>`;
-
+let historial = [
+{
+role: "system",
+content: "Te llamas Tortilla-AI. Eres una inteligencia artificial que habla español de forma clara, amigable y útil."
 }
-
-iniciarIA();
+];
 
 async function enviar(){
 
@@ -30,53 +19,58 @@ if(!mensaje) return;
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${mensaje}</div>`;
 input.value="";
 
-historial.push(`Usuario: ${mensaje}`);
-
-let contexto = historial.slice(-6).join("\n");
-
-const prompt = `
-Esta es una conversación en español.
-
-La inteligencia artificial se llama Tortilla-AI.
-Tortilla-AI responde de forma clara y breve.
-
-${contexto}
-Tortilla-AI:
-`;
+historial.push({
+role:"user",
+content:mensaje
+});
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
 try{
 
-const resultado = await generator(prompt,{
-max_new_tokens:40,
-temperature:0.6,
-top_p:0.9
+const respuesta = await fetch("https://api.openai.com/v1/chat/completions",{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer " + API_KEY
+},
+
+body:JSON.stringify({
+
+model:"gpt-4o-mini",
+
+messages:historial,
+
+temperature:0.7
+
+})
+
 });
+
+const data = await respuesta.json();
 
 document.getElementById("pensando").remove();
 
-let texto = resultado[0].generated_text;
+const texto = data.choices[0].message.content;
 
-let respuesta = texto.replace(prompt,"").split("\n")[0].trim();
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${texto}</div>`;
 
-if(respuesta.length < 2){
-respuesta = "Todavía estoy aprendiendo a responder mejor.";
-}
+historial.push({
+role:"assistant",
+content:texto
+});
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
-
-historial.push(`Tortilla-AI: ${respuesta}`);
+chat.scrollTop = chat.scrollHeight;
 
 }catch(err){
 
 document.getElementById("pensando").remove();
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error al generar la respuesta.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hubo un error al generar la respuesta.</div>`;
 
 }
-
-chat.scrollTop = chat.scrollHeight;
 
 }
 
