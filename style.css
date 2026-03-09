@@ -8,29 +8,37 @@ padding:0;
 overflow:hidden;
 }
 
-/* fondo de puntos */
-body::before{
-content:"";
+/* contenedor de partículas */
+
+#particles{
 position:fixed;
 top:0;
 left:0;
 width:100%;
 height:100%;
-background-image:
-radial-gradient(rgba(255,255,255,0.5) 2px, transparent 2px),
-radial-gradient(rgba(255,255,255,0.5) 3px, transparent 3px),
-radial-gradient(rgba(255,255,255,0.5) 1px, transparent 1px);
-background-size:80px 80px,120px 120px,60px 60px;
-animation: subir 25s linear infinite;
 z-index:-1;
+overflow:hidden;
 }
+
+/* cada punto */
+
+.particle{
+position:absolute;
+width:4px;
+height:4px;
+background:rgba(255,255,255,0.5);
+border-radius:50%;
+animation: subir linear infinite;
+}
+
+/* animación */
 
 @keyframes subir{
 from{
-transform:translateY(0);
+transform:translateY(100vh);
 }
 to{
-transform:translateY(-200px);
+transform:translateY(-10vh);
 }
 }
 
@@ -51,13 +59,11 @@ overflow-y:auto;
 text-align:left;
 }
 
-/* usuario blanco */
 .user{
 color:white;
 margin:10px 0;
 }
 
-/* bot rojo */
 .ai{
 color:#ff3b3b;
 margin:10px 0;
