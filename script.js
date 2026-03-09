@@ -16,7 +16,7 @@ generator = await pipeline(
 "Xenova/distilgpt2"
 );
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hablar conmigo.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. Estoy lista para conversar contigo.</div>`;
 
 }
 
@@ -35,7 +35,10 @@ historial.push(`Usuario: ${mensaje}`);
 let contexto = historial.slice(-6).join("\n");
 
 const prompt = `
-Responde en español.
+Esta es una conversación en español.
+
+La inteligencia artificial se llama Tortilla-AI.
+Tortilla-AI responde de forma clara y breve.
 
 ${contexto}
 Tortilla-AI:
@@ -46,8 +49,8 @@ chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...
 try{
 
 const resultado = await generator(prompt,{
-max_new_tokens:50,
-temperature:0.7,
+max_new_tokens:40,
+temperature:0.6,
 top_p:0.9
 });
 
@@ -58,7 +61,7 @@ let texto = resultado[0].generated_text;
 let respuesta = texto.replace(prompt,"").split("\n")[0].trim();
 
 if(respuesta.length < 2){
-respuesta = "No estoy segura de cómo responder eso.";
+respuesta = "Todavía estoy aprendiendo a responder mejor.";
 }
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
@@ -68,7 +71,8 @@ historial.push(`Tortilla-AI: ${respuesta}`);
 }catch(err){
 
 document.getElementById("pensando").remove();
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
+
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error al generar la respuesta.</div>`;
 
 }
 
@@ -78,8 +82,10 @@ chat.scrollTop = chat.scrollHeight;
 
 boton.onclick = enviar;
 
-input.addEventListener("keypress", function(e){
-if(e.key === "Enter"){
+input.addEventListener("keypress",function(e){
+
+if(e.key==="Enter"){
 enviar();
 }
+
 });
