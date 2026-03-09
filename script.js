@@ -9,14 +9,14 @@ let historial = [];
 
 async function iniciarIA(){
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando modelo de inteligencia artificial...</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
 
 generator = await pipeline(
 "text-generation",
 "Xenova/distilgpt2"
 );
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. Estoy lista para conversar contigo.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. ¿En qué puedo ayudarte?</div>`;
 
 }
 
@@ -34,25 +34,21 @@ historial.push(`Usuario: ${mensaje}`);
 
 let contexto = historial.slice(-4).join("\n");
 
-const prompt = `
-Conversación en español.
-
-Usuario: Hola
-Tortilla-AI: Hola, soy Tortilla-AI. ¿En qué puedo ayudarte?
+const prompt =
+`Conversación entre un usuario y una inteligencia artificial llamada Tortilla-AI.
 
 ${contexto}
-Tortilla-AI:
-`;
+Tortilla-AI:`;
+
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> escribiendo...</div>`;
 
 try{
 
 const resultado = await generator(prompt,{
-max_new_tokens:50,
-temperature:0.6,
-top_p:0.9,
-repetition_penalty:1.2
+max_new_tokens:40,
+temperature:0.7,
+top_p:0.9
 });
 
 const p = document.getElementById("pensando");
@@ -60,10 +56,16 @@ if(p) p.remove();
 
 let texto = resultado[0].generated_text;
 
-let respuesta = texto.replace(prompt,"").split("\n")[0].trim();
+let respuesta = texto.replace(prompt,"");
+
+if(respuesta.includes("Usuario:")){
+respuesta = respuesta.split("Usuario:")[0];
+}
+
+respuesta = respuesta.trim();
 
 if(respuesta.length < 3){
-respuesta = "Estoy aprendiendo todavía. ¿Puedes preguntarlo de otra forma?";
+respuesta = "Todavía estoy aprendiendo a responder mejor.";
 }
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
@@ -77,7 +79,7 @@ chat.scrollTop = chat.scrollHeight;
 const p = document.getElementById("pensando");
 if(p) p.remove();
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error al generar la respuesta.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error generando respuesta.</div>`;
 
 }
 
