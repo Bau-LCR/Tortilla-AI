@@ -5,7 +5,6 @@ const input = document.getElementById("mensaje");
 const boton = document.getElementById("btnEnviar");
 
 let generator;
-let translator;
 let historial = [];
 
 async function iniciarIA(){
@@ -17,12 +16,7 @@ generator = await pipeline(
 "Xenova/distilgpt2"
 );
 
-translator = await pipeline(
-"translation",
-"Xenova/opus-mt-en-es"
-);
-
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. Estoy lista para conversar contigo.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. ¿En qué puedo ayudarte?</div>`;
 
 }
 
@@ -41,7 +35,7 @@ historial.push(`Usuario: ${mensaje}`);
 let contexto = historial.slice(-4).join("\n");
 
 const prompt =
-`Conversation between a user and an AI called Tortilla-AI.
+`Conversación entre un usuario y una inteligencia artificial llamada Tortilla-AI.
 
 ${contexto}
 Tortilla-AI:`;
@@ -53,21 +47,26 @@ try{
 
 const resultado = await generator(prompt,{
 max_new_tokens:40,
-temperature:0.7
+temperature:0.7,
+top_p:0.9
 });
-
-let texto = resultado[0].generated_text.replace(prompt,"").trim();
-
-if(texto.includes("Usuario:")){
-texto = texto.split("Usuario:")[0];
-}
-
-const traduccion = await translator(texto);
-
-let respuesta = traduccion[0].translation_text;
 
 const p = document.getElementById("pensando");
 if(p) p.remove();
+
+let texto = resultado[0].generated_text;
+
+let respuesta = texto.replace(prompt,"");
+
+if(respuesta.includes("Usuario:")){
+respuesta = respuesta.split("Usuario:")[0];
+}
+
+respuesta = respuesta.trim();
+
+if(respuesta.length < 3){
+respuesta = "Todavía estoy aprendiendo a responder mejor.";
+}
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`;
 
@@ -80,7 +79,7 @@ chat.scrollTop = chat.scrollHeight;
 const p = document.getElementById("pensando");
 if(p) p.remove();
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error generando respuesta.</div>`;
 
 }
 
