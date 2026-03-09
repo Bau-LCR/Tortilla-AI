@@ -2,7 +2,7 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("mensaje");
 const boton = document.getElementById("btnEnviar");
 
-const API_KEY = "TU_API_KEY";
+const API_KEY = "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";
 
 let historial = [
 {
