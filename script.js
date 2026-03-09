@@ -16,7 +16,7 @@ generator = await pipeline(
 "Xenova/distilgpt2"
 );
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla-AI. ¿En qué puedo ayudarte?</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Hola, soy Tortilla - AI, una Inteligencia Artificial con respuestas muy limitadas, debido a la poca inraestructura que tengo, asi que sé paciente con mis respuestas, en caso de que no funcione, reinicia la página. ¿En qué puedo ayudarte?</div>`;
 
 }
 
