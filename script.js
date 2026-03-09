@@ -13,7 +13,7 @@ chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia art
 
 generator = await pipeline(
 "text-generation",
-"DeepESP/gpt2-spanish"
+"Xenova/distilgpt2"
 );
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hablar conmigo.</div>`;
@@ -35,7 +35,7 @@ historial.push(`Usuario: ${mensaje}`);
 let contexto = historial.slice(-6).join("\n");
 
 const prompt = `
-Conversación en español:
+Responde en español.
 
 ${contexto}
 Tortilla-AI:
@@ -47,7 +47,8 @@ try{
 
 const resultado = await generator(prompt,{
 max_new_tokens:50,
-temperature:0.7
+temperature:0.7,
+top_p:0.9
 });
 
 document.getElementById("pensando").remove();
@@ -67,7 +68,7 @@ historial.push(`Tortilla-AI: ${respuesta}`);
 }catch(err){
 
 document.getElementById("pensando").remove();
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Ocurrió un error generando respuesta.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
 
 }
 
