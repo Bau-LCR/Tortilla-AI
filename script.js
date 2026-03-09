@@ -2,17 +2,18 @@ let generator;
 
 async function iniciarIA(){
 
-const { pipeline } = window.transformers;
-
 const chat = document.getElementById("chat");
-chat.innerHTML += "<div><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>";
+
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Cargando inteligencia artificial...</div>`;
+
+const { pipeline } = window.transformers;
 
 generator = await pipeline(
 "text-generation",
 "Xenova/distilgpt2"
 );
 
-chat.innerHTML += "<div><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hablar conmigo.</div>";
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ¡Estoy lista! Puedes hablar conmigo.</div>`;
 
 }
 
@@ -27,11 +28,11 @@ const mensaje = input.value.trim();
 
 if(!mensaje) return;
 
-chat.innerHTML += `<div><b>Tú:</b> ${mensaje}</div>`;
+chat.innerHTML += `<div class="user"><b>Tú:</b> ${mensaje}</div>`;
 
 input.value="";
 
-chat.innerHTML += `<div id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
+chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`;
 
 try{
 
@@ -41,12 +42,12 @@ max_new_tokens:50
 
 document.getElementById("pensando").remove();
 
-chat.innerHTML += `<div><b>Tortilla-AI:</b> ${resultado[0].generated_text}</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${resultado[0].generated_text}</div>`;
 
 }catch(error){
 
 document.getElementById("pensando").remove();
-chat.innerHTML += `<div><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> Error generando respuesta.</div>`;
 
 }
 
