@@ -38,23 +38,23 @@ if(pensando) pensando.remove()
 
 let respuesta = generarRespuesta(msg.toLowerCase())
 
-/* animacion escritura */
+/* crear mensaje del bot */
 
-chat.innerHTML += `<div class="ai" id="respuestaAI"><b>Tortilla-AI:</b> </div>`
+chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> <span id="textoBot"></span></div>`
 
-let div = document.getElementById("respuestaAI")
+let span = document.getElementById("textoBot")
 
 let i = 0
 
 let escribir = setInterval(()=>{
 
-div.innerHTML = `<b>Tortilla-AI:</b> ` + respuesta.substring(0,i)
+span.textContent += respuesta.charAt(i)
 
 i++
 
 chat.scrollTop = chat.scrollHeight
 
-if(i > respuesta.length){
+if(i >= respuesta.length){
 
 clearInterval(escribir)
 
