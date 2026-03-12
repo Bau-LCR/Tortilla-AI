@@ -16,33 +16,28 @@ chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`
 
 input.value=""
 
-/* mensaje pensando */
+/* pensando */
 
-const pensando = document.createElement("div")
-pensando.className = "ai"
-pensando.id = "pensando"
-pensando.innerHTML = "<b>Tortilla-AI:</b> pensando..."
-chat.appendChild(pensando)
-
-chat.scrollTop = chat.scrollHeight
+chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
 
 let respuesta = generarRespuesta(msg.toLowerCase())
 
 setTimeout(()=>{
 
-document.getElementById("pensando").remove()
+const pensando = document.getElementById("pensando")
+if(pensando) pensando.remove()
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
 
 chat.scrollTop = chat.scrollHeight
 
-},700)
+},600)
 
 }
 
 function generarRespuesta(msg){
 
-/* memoria nombre */
+/* memoria simple */
 
 if(msg.startsWith("me llamo")){
 
@@ -52,15 +47,15 @@ return `Encantada de conocerte ${nombreUsuario}.`
 
 }
 
-/* recordar mensajes */
+/* recordar mensaje */
 
-if(msg.includes("que dije antes") || msg.includes("que dije recien")){
+if(msg.includes("que dije antes")){
 
 if(historial.length > 1){
 return `Antes dijiste: "${historial[historial.length-2]}"`
+}else{
+return "Todavía no dijiste mucho."
 }
-
-return "Aún no dijiste mucho."
 
 }
 
@@ -111,13 +106,13 @@ return "JavaScript es uno de los lenguajes más importantes del desarrollo web."
 
 if(msg.includes("html")){
 
-return "HTML se usa para estructurar páginas web."
+return "HTML sirve para estructurar páginas web."
 
 }
 
 if(msg.includes("css")){
 
-return "CSS sirve para diseñar y dar estilo a una página web."
+return "CSS se usa para diseñar páginas web."
 
 }
 
@@ -135,7 +130,7 @@ return "Fortnite es un juego muy popular de batalla real."
 
 }
 
-/* despedidas */
+/* despedida */
 
 if(msg.includes("adios") || msg.includes("bye")){
 
@@ -148,24 +143,13 @@ return "Hasta luego."
 const respuestas = [
 
 "Interesante. Cuéntame más.",
-
 "No estoy completamente segura, pero suena interesante.",
-
 "¿Por qué piensas eso?",
-
 "Esa es una buena pregunta.",
-
 "Podrías explicarlo un poco más.",
-
 "No tengo toda la información, pero intento aprender.",
-
 "Tal vez tengas razón.",
-
-"Eso suena curioso.",
-
-"Me gustaría saber más sobre eso.",
-
-"Eso suena interesante."
+"Eso suena curioso."
 
 ]
 
