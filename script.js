@@ -29,20 +29,55 @@ input.value=""
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
 
-let respuesta = generarRespuesta(msg.toLowerCase())
+chat.scrollTop = chat.scrollHeight
 
 setTimeout(()=>{
 
 const pensando = document.getElementById("pensando")
 if(pensando) pensando.remove()
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
+let respuesta = generarRespuesta(msg.toLowerCase())
+
+/* crear mensaje del bot */
+
+const mensajeBot = document.createElement("div")
+mensajeBot.className = "ai"
+
+const titulo = document.createElement("b")
+titulo.textContent = "Tortilla-AI: "
+
+const texto = document.createElement("span")
+
+mensajeBot.appendChild(titulo)
+mensajeBot.appendChild(texto)
+
+chat.appendChild(mensajeBot)
 
 chat.scrollTop = chat.scrollHeight
+
+/* animacion escritura */
+
+let i = 0
+
+let intervalo = setInterval(()=>{
+
+texto.textContent += respuesta.charAt(i)
+
+i++
+
+chat.scrollTop = chat.scrollHeight
+
+if(i >= respuesta.length){
+
+clearInterval(intervalo)
 
 /* guardar chat */
 
 localStorage.setItem("chat", chat.innerHTML)
+
+}
+
+},20)
 
 },600)
 
