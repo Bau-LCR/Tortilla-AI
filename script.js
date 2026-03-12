@@ -158,6 +158,11 @@ return "Hasta luego."
 const respuestas = [
 
 "Interesante. Cuéntame más.",
+"Si, creo.",
+"Si.",
+"No.",
+"Absolutamente.",
+"67.",
 "No estoy completamente segura, pero suena interesante.",
 "¿Por qué piensas eso?",
 "Esa es una buena pregunta.",
