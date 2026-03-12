@@ -97,6 +97,16 @@ return `Encantada de conocerte ${nombreUsuario}.`
 
 }
 
+function resetChat(){
+
+chat.innerHTML=""
+
+historial=[]
+
+localStorage.removeItem("chat")
+
+}
+
 /* recordar mensaje */
 
 if(msg.includes("que dije antes")){
