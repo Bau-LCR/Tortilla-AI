@@ -29,20 +29,42 @@ input.value=""
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
 
-let respuesta = generarRespuesta(msg.toLowerCase())
+chat.scrollTop = chat.scrollHeight
 
 setTimeout(()=>{
 
 const pensando = document.getElementById("pensando")
 if(pensando) pensando.remove()
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
+let respuesta = generarRespuesta(msg.toLowerCase())
+
+/* animacion escritura */
+
+chat.innerHTML += `<div class="ai" id="respuestaAI"><b>Tortilla-AI:</b> </div>`
+
+let div = document.getElementById("respuestaAI")
+
+let i = 0
+
+let escribir = setInterval(()=>{
+
+div.innerHTML = `<b>Tortilla-AI:</b> ` + respuesta.substring(0,i)
+
+i++
 
 chat.scrollTop = chat.scrollHeight
+
+if(i > respuesta.length){
+
+clearInterval(escribir)
 
 /* guardar chat */
 
 localStorage.setItem("chat", chat.innerHTML)
+
+}
+
+},20)
 
 },600)
 
@@ -169,6 +191,18 @@ const respuestas = [
 ]
 
 return respuestas[Math.floor(Math.random()*respuestas.length)]
+
+}
+
+/* NUEVO CHAT */
+
+function nuevoChat(){
+
+chat.innerHTML = ""
+
+historial = []
+
+localStorage.removeItem("chat")
 
 }
 
