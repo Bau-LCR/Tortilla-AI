@@ -1,215 +1,167 @@
-const chat = document.getElementById("chat")
-const input = document.getElementById("input")
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
 
-let nombreUsuario = localStorage.getItem("nombreUsuario")
-let historial = JSON.parse(localStorage.getItem("historial")) || []
+function enviarMensaje(){
 
-/* restaurar chat al recargar */
+let texto = input.value.trim();
 
-const chatGuardado = localStorage.getItem("chat")
-if(chatGuardado){
-chat.innerHTML = chatGuardado
-}
+if(texto === "") return;
 
-function sendMessage(){
+agregarMensaje("Tú: " + texto,"user");
 
-const msg = input.value.trim()
+input.value="";
 
-if(!msg) return
+let typing = document.createElement("div");
+typing.className="ai";
+typing.id="typing";
+typing.innerText="Tortilla-AI está escribiendo...";
+chat.appendChild(typing);
 
-historial.push(msg)
-
-localStorage.setItem("historial", JSON.stringify(historial))
-
-chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`
-
-input.value=""
-
-/* pensando */
-
-chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
-
-let respuesta = generarRespuesta(msg.toLowerCase())
+chat.scrollTop = chat.scrollHeight;
 
 setTimeout(()=>{
 
-const pensando = document.getElementById("pensando")
-if(pensando) pensando.remove()
+typing.remove();
 
-chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
+let respuesta = generarRespuesta(texto);
 
-chat.scrollTop = chat.scrollHeight
+escribirMensaje("Tortilla-AI: " + respuesta,"ai");
 
-/* guardar chat */
-
-localStorage.setItem("chat", chat.innerHTML)
-
-},600)
+},800);
 
 }
 
-function generarRespuesta(msg){
+function agregarMensaje(texto,clase){
 
-/* memoria simple */
+let msg=document.createElement("div");
 
-if(msg.startsWith("me llamo")){
+msg.className=clase;
 
-nombreUsuario = msg.replace("me llamo","").trim()
+msg.innerText=texto;
 
-localStorage.setItem("nombreUsuario", nombreUsuario)
+chat.appendChild(msg);
 
-return `Encantada de conocerte ${nombreUsuario}.`
-
-}
-
-/* recordar mensaje */
-
-if(msg.includes("que dije antes")){
-
-if(historial.length > 1){
-return `Antes dijiste: "${historial[historial.length-2]}"`
-}else{
-return "Todavía no dijiste mucho."
-}
+chat.scrollTop=chat.scrollHeight;
 
 }
 
-/* saludos */
+function escribirMensaje(texto,clase){
 
-if(msg.includes("hola") || msg.includes("hi")){
+let msg=document.createElement("div");
 
-if(nombreUsuario)
-return `Hola ${nombreUsuario}, ¿cómo estás?`
+msg.className=clase;
 
-return "Hola. Soy Tortilla-AI."
+chat.appendChild(msg);
 
-}
+let i=0;
 
-/* preguntas */
+let intervalo=setInterval(()=>{
 
-if(msg.includes("como estas") || msg.includes("how are you")){
+msg.innerText+=texto.charAt(i);
 
-return "Estoy funcionando correctamente."
+i++;
 
-}
+chat.scrollTop=chat.scrollHeight;
 
-if(msg.includes("quien eres")){
+if(i>=texto.length){
 
-return "Soy Tortilla-AI, una inteligencia artificial simple que funciona sin internet."
-
-}
-
-if(msg.includes("que puedes hacer")){
-
-return "Puedo conversar contigo y responder preguntas simples."
+clearInterval(intervalo);
 
 }
 
-/* programación */
-
-if(msg.includes("programar") || msg.includes("programacion")){
-
-return "La programación es una habilidad muy poderosa. Aprender JavaScript es un gran comienzo."
+},18);
 
 }
 
-if(msg.includes("javascript")){
+/* IA BASICA */
 
-return "JavaScript es uno de los lenguajes más importantes del desarrollo web."
+function generarRespuesta(texto){
 
-}
+texto=texto.toLowerCase();
 
-if(msg.includes("html")){
+/* SALUDOS */
 
-return "HTML sirve para estructurar páginas web."
+if(texto.includes("hola")||texto.includes("buenas")){
 
-}
-
-if(msg.includes("css")){
-
-return "CSS se usa para diseñar páginas web."
+return "Hola. ¿En qué estás pensando?";
 
 }
 
-/* juegos */
+/* COMO ESTAS */
 
-if(msg.includes("minecraft")){
+if(texto.includes("como estas")||texto.includes("cómo estás")){
 
-return "Minecraft es uno de los juegos más creativos que existen."
-
-}
-
-if(msg.includes("fortnite")){
-
-return "Fortnite es un juego muy popular de batalla real."
+return "Estoy funcionando correctamente.";
 
 }
 
-/* despedida */
+/* NOMBRE */
 
-if(msg.includes("adios") || msg.includes("bye")){
+if(texto.includes("tu nombre")){
 
-return "Hasta luego."
+return "Soy Tortilla-AI.";
 
 }
 
-/* respuestas aleatorias */
+/* PROGRAMACION */
 
-const respuestas = [
+if(texto.includes("programar")||texto.includes("codigo")){
 
-"Interesante. Cuéntame más.",
-"Si, creo.",
-"Si.",
-"No.",
-"Absolutamente.",
-"67.",
-"No estoy completamente segura, pero suena interesante.",
-"¿Por qué piensas eso?",
-"Esa es una buena pregunta.",
-"Podrías explicarlo un poco más.",
-"No tengo toda la información, pero intento aprender.",
+return "Programar es resolver problemas usando lógica.";
+
+}
+
+/* QUIEN ERES */
+
+if(texto.includes("quien eres")){
+
+return "Soy una inteligencia artificial simple creada para conversar.";
+
+}
+
+/* EDAD */
+
+if(texto.includes("edad")){
+
+return "No tengo edad. Soy un programa.";
+
+}
+
+/* DEFAULT */
+
+let respuestas=[
+
+"Interesante.",
+"Podrías explicar un poco más.",
+"No estoy completamente seguro.",
 "Tal vez tengas razón.",
-"Eso suena curioso."
+"Eso suena lógico.",
+"¿Por qué piensas eso?",
+"Absolutamente.",
+"Sí, creo que sí."
 
-]
+];
 
-return respuestas[Math.floor(Math.random()*respuestas.length)]
+return respuestas[Math.floor(Math.random()*respuestas.length)];
 
 }
 
-/* ENTER */
+/* NUEVO CHAT */
 
-input.addEventListener("keypress",function(e){
+function nuevoChat(){
+
+chat.innerHTML="";
+
+}
+
+/* ENTER PARA ENVIAR */
+
+input.addEventListener("keydown",function(e){
 
 if(e.key==="Enter"){
 
-sendMessage()
+enviarMensaje();
 
 }
 
-})
-
-/* PARTICULAS */
-
-const container = document.getElementById("particles")
-
-for(let i=0;i<90;i++){
-
-let p=document.createElement("div")
-
-p.className="particle"
-
-p.style.left=Math.random()*100+"%"
-
-let size = 2 + Math.random()*4
-
-p.style.width=size+"px"
-p.style.height=size+"px"
-
-p.style.bottom=Math.random()*100+"%"
-
-p.style.animationDuration=(5+Math.random()*10)+"s"
-
-container.appendChild(p)
-
-}
+});
