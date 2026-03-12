@@ -158,3 +158,5 @@ const msg = input.value.trim()
 historial.push(msg)
 
 }
+
+chat.innerHTML += `<div class="ai">Tortilla-AI: pensando...</div>`
