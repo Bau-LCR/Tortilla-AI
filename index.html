@@ -2,23 +2,44 @@
 <html lang="es">
 
 <head>
+
 <meta charset="UTF-8">
-<title>Tortilla - AI</title>
+<title>Tortilla-AI</title>
+
 <link rel="stylesheet" href="style.css">
+
 </head>
 
 <body>
 
-<h1>Tortilla - AI</h1>
+<div id="particles"></div>
 
-<div id="chat"></div>
+<h1>Tortilla-AI</h1>
 
-<div class="input-area">
-<input id="mensaje" placeholder="Habla con Tortilla - AI..." autocomplete="off">
-<button id="btnEnviar">Enviar</button>
+<div id="chat">
+
+<div class="ai">
+Hola. Soy <b>Tortilla-AI</b>.  
+Puedes hablar conmigo.
 </div>
 
-<script type="module" src="script.js"></script>
+</div>
+
+<div class="input-area">
+
+<input
+id="input"
+placeholder="Escribe un mensaje..."
+autocomplete="off"
+/>
+
+<button onclick="sendMessage()">
+Enviar
+</button>
+
+</div>
+
+<script src="script.js"></script>
 
 </body>
 </html>
