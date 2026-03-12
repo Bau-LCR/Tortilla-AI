@@ -97,16 +97,6 @@ return `Encantada de conocerte ${nombreUsuario}.`
 
 }
 
-function resetChat(){
-
-chat.innerHTML=""
-
-historial=[]
-
-localStorage.removeItem("chat")
-
-}
-
 /* recordar mensaje */
 
 if(msg.includes("que dije antes")){
@@ -251,5 +241,15 @@ p.style.bottom=Math.random()*100+"%"
 p.style.animationDuration=(5+Math.random()*10)+"s"
 
 container.appendChild(p)
+
+}
+
+function resetChat(){
+
+chat.innerHTML=""
+
+historial=[]
+
+localStorage.removeItem("chat")
 
 }
