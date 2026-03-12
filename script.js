@@ -148,15 +148,3 @@ p.style.animationDuration=(5+Math.random()*10)+"s"
 container.appendChild(p)
 
 }
-
-let historial = []
-
-function sendMessage(){
-
-const msg = input.value.trim()
-
-historial.push(msg)
-
-}
-
-chat.innerHTML += `<div class="ai">Tortilla-AI: pensando...</div>`
