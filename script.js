@@ -1,16 +1,15 @@
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
 
-function enviarMensaje(){
 let nombreUsuario = localStorage.getItem("nombreUsuario")
 let historial = JSON.parse(localStorage.getItem("historial")) || []
+function enviarMensaje(){
 
-let texto = input.value.trim();
 /* restaurar chat al recargar */
+let texto = input.value.trim();
 
-if(texto === "") return;
 const chatGuardado = localStorage.getItem("chat")
 if(chatGuardado){
 chat.innerHTML = chatGuardado
@@ -23,253 +22,255 @@ const msg = input.value.trim()
 if(!msg) return
 
 historial.push(msg)
+if(texto === "") return;
 
-agregarMensaje("Tú: " + texto,"user");
 localStorage.setItem("historial", JSON.stringify(historial))
+agregarMensaje("Tú: " + texto,"user");
 
-input.value="";
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`
+input.value="";
 
+input.value=""
 let typing = document.createElement("div");
 typing.className="ai";
 typing.id="typing";
 typing.innerText="Tortilla-AI está escribiendo...";
 chat.appendChild(typing);
-input.value=""
 
-chat.scrollTop = chat.scrollHeight;
 /* pensando */
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
 
 let respuesta = generarRespuesta(msg.toLowerCase())
+chat.scrollTop = chat.scrollHeight;
 
 setTimeout(()=>{
 
-typing.remove();
 const pensando = document.getElementById("pensando")
 if(pensando) pensando.remove()
 
 chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
 
 chat.scrollTop = chat.scrollHeight
+typing.remove();
 
-let respuesta = generarRespuesta(texto);
 /* guardar chat */
+let respuesta = generarRespuesta(texto);
 
-escribirMensaje("Tortilla-AI: " + respuesta,"ai");
 localStorage.setItem("chat", chat.innerHTML)
+escribirMensaje("Tortilla-AI: " + respuesta,"ai");
 
-},800);
 },600)
+},800);
 
 }
 
-function agregarMensaje(texto,clase){
 function generarRespuesta(msg){
+function agregarMensaje(texto,clase){
 
-let msg=document.createElement("div");
 /* memoria simple */
+let msg=document.createElement("div");
 
-msg.className=clase;
 if(msg.startsWith("me llamo")){
+msg.className=clase;
 
-msg.innerText=texto;
 nombreUsuario = msg.replace("me llamo","").trim()
+msg.innerText=texto;
 
-chat.appendChild(msg);
 localStorage.setItem("nombreUsuario", nombreUsuario)
+chat.appendChild(msg);
 
-chat.scrollTop=chat.scrollHeight;
 return `Encantada de conocerte ${nombreUsuario}.`
+chat.scrollTop=chat.scrollHeight;
 
 }
 
-function escribirMensaje(texto,clase){
 /* recordar mensaje */
+function escribirMensaje(texto,clase){
 
-let msg=document.createElement("div");
 if(msg.includes("que dije antes")){
+let msg=document.createElement("div");
 
-msg.className=clase;
 if(historial.length > 1){
 return `Antes dijiste: "${historial[historial.length-2]}"`
 }else{
 return "Todavía no dijiste mucho."
 }
+msg.className=clase;
 
 }
-
 chat.appendChild(msg);
+
 /* saludos */
-
 let i=0;
-if(msg.includes("hola") || msg.includes("hi")){
 
+if(msg.includes("hola") || msg.includes("hi")){
 let intervalo=setInterval(()=>{
+
 if(nombreUsuario)
 return `Hola ${nombreUsuario}, ¿cómo estás?`
-
 msg.innerText+=texto.charAt(i);
+
 return "Hola. Soy Tortilla-AI."
-
 i++;
+
 }
-
 chat.scrollTop=chat.scrollHeight;
-/* preguntas */
 
+/* preguntas */
 if(i>=texto.length){
+
 if(msg.includes("como estas") || msg.includes("how are you")){
 
-clearInterval(intervalo);
 return "Estoy funcionando correctamente."
+clearInterval(intervalo);
 
 }
 
-},18);
 if(msg.includes("quien eres")){
 
 return "Soy Tortilla-AI, una inteligencia artificial simple que funciona sin internet."
+},18);
 
 }
 
-/* IA BASICA */
 if(msg.includes("que puedes hacer")){
+/* IA BASICA */
 
-function generarRespuesta(texto){
 return "Puedo conversar contigo y responder preguntas simples."
+function generarRespuesta(texto){
 
+}
 texto=texto.toLowerCase();
-}
 
-/* SALUDOS */
 /* programación */
+/* SALUDOS */
 
-if(texto.includes("hola")||texto.includes("buenas")){
 if(msg.includes("programar") || msg.includes("programacion")){
+if(texto.includes("hola")||texto.includes("buenas")){
 
-return "Hola. ¿En qué estás pensando?";
 return "La programación es una habilidad muy poderosa. Aprender JavaScript es un gran comienzo."
+return "Hola. ¿En qué estás pensando?";
 
 }
 
-/* COMO ESTAS */
 if(msg.includes("javascript")){
 
-if(texto.includes("como estas")||texto.includes("cómo estás")){
-
-return "Estoy funcionando correctamente.";
 return "JavaScript es uno de los lenguajes más importantes del desarrollo web."
 
 }
+/* COMO ESTAS */
 
-/* NOMBRE */
 if(msg.includes("html")){
+if(texto.includes("como estas")||texto.includes("cómo estás")){
 
 return "HTML sirve para estructurar páginas web."
+return "Estoy funcionando correctamente.";
 
-if(texto.includes("tu nombre")){
 }
 
 if(msg.includes("css")){
+/* NOMBRE */
+
+return "CSS se usa para diseñar páginas web."
+if(texto.includes("tu nombre")){
 
 return "Soy Tortilla-AI.";
-return "CSS se usa para diseñar páginas web."
 
 }
 
-/* PROGRAMACION */
 /* juegos */
+/* PROGRAMACION */
 
-if(texto.includes("programar")||texto.includes("codigo")){
 if(msg.includes("minecraft")){
+if(texto.includes("programar")||texto.includes("codigo")){
 
-return "Programar es resolver problemas usando lógica.";
 return "Minecraft es uno de los juegos más creativos que existen."
+return "Programar es resolver problemas usando lógica.";
 
 }
 
+if(msg.includes("fortnite")){
 /* QUIEN ERES */
 
 if(texto.includes("quien eres")){
-if(msg.includes("fortnite")){
 
-return "Soy una inteligencia artificial simple creada para conversar.";
 return "Fortnite es un juego muy popular de batalla real."
+return "Soy una inteligencia artificial simple creada para conversar.";
 
 }
 
-/* EDAD */
 /* despedida */
+/* EDAD */
 
-if(texto.includes("edad")){
 if(msg.includes("adios") || msg.includes("bye")){
+if(texto.includes("edad")){
 
-return "No tengo edad. Soy un programa.";
 return "Hasta luego."
+return "No tengo edad. Soy un programa.";
 
 }
 
-/* DEFAULT */
 /* respuestas aleatorias */
+/* DEFAULT */
 
-let respuestas=[
 const respuestas = [
+let respuestas=[
 
+"Interesante. Cuéntame más.",
+"Si, creo.",
+"Si.",
+"No.",
+"Absolutamente.",
+"67.",
+"No estoy completamente segura, pero suena interesante.",
+"¿Por qué piensas eso?",
+"Esa es una buena pregunta.",
+"Podrías explicarlo un poco más.",
+"No tengo toda la información, pero intento aprender.",
 "Interesante.",
 "Podrías explicar un poco más.",
 "No estoy completamente seguro.",
 "Tal vez tengas razón.",
+"Eso suena curioso."
 "Eso suena lógico.",
-"Interesante. Cuéntame más.",
-"No estoy completamente segura, pero suena interesante.",
 "¿Por qué piensas eso?",
 "Absolutamente.",
 "Sí, creo que sí."
-"Esa es una buena pregunta.",
-"Podrías explicarlo un poco más.",
-"No tengo toda la información, pero intento aprender.",
-"Tal vez tengas razón.",
-"Eso suena curioso."
 
-];
 ]
+];
 
-return respuestas[Math.floor(Math.random()*respuestas.length)];
 return respuestas[Math.floor(Math.random()*respuestas.length)]
+return respuestas[Math.floor(Math.random()*respuestas.length)];
 
 }
 
-/* NUEVO CHAT */
 /* ENTER */
 
-function nuevoChat(){
 input.addEventListener("keypress",function(e){
+/* NUEVO CHAT */
 
-chat.innerHTML="";
 if(e.key==="Enter"){
+function nuevoChat(){
 
 sendMessage()
+chat.innerHTML="";
 
 }
 
-/* ENTER PARA ENVIAR */
 })
 
-input.addEventListener("keydown",function(e){
 /* PARTICULAS */
+/* ENTER PARA ENVIAR */
 
-if(e.key==="Enter"){
 const container = document.getElementById("particles")
+input.addEventListener("keydown",function(e){
 
-enviarMensaje();
 for(let i=0;i<90;i++){
 
-}
 let p=document.createElement("div")
 
-});
 p.className="particle"
 
 p.style.left=Math.random()*100+"%"
@@ -282,7 +283,11 @@ p.style.height=size+"px"
 p.style.bottom=Math.random()*100+"%"
 
 p.style.animationDuration=(5+Math.random()*10)+"s"
+if(e.key==="Enter"){
 
 container.appendChild(p)
+enviarMensaje();
 
 }
+
+});
