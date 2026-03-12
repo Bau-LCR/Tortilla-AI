@@ -1,8 +1,15 @@
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
 
-let nombreUsuario = null
-let historial = []
+let nombreUsuario = localStorage.getItem("nombreUsuario")
+let historial = JSON.parse(localStorage.getItem("historial")) || []
+
+/* restaurar chat al recargar */
+
+const chatGuardado = localStorage.getItem("chat")
+if(chatGuardado){
+chat.innerHTML = chatGuardado
+}
 
 function sendMessage(){
 
@@ -11,6 +18,8 @@ const msg = input.value.trim()
 if(!msg) return
 
 historial.push(msg)
+
+localStorage.setItem("historial", JSON.stringify(historial))
 
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`
 
@@ -31,6 +40,10 @@ chat.innerHTML += `<div class="ai"><b>Tortilla-AI:</b> ${respuesta}</div>`
 
 chat.scrollTop = chat.scrollHeight
 
+/* guardar chat */
+
+localStorage.setItem("chat", chat.innerHTML)
+
 },600)
 
 }
@@ -42,6 +55,8 @@ function generarRespuesta(msg){
 if(msg.startsWith("me llamo")){
 
 nombreUsuario = msg.replace("me llamo","").trim()
+
+localStorage.setItem("nombreUsuario", nombreUsuario)
 
 return `Encantada de conocerte ${nombreUsuario}.`
 
