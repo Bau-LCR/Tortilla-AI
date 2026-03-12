@@ -5,13 +5,17 @@ font-family:Arial, Helvetica, sans-serif;
 background:#0f0f0f;
 
 color:white;
-text-align:center;
 
 margin:0;
 padding:0;
 
+display:flex;
+flex-direction:column;
+align-items:center;
+
+min-height:100vh;
+
 overflow-x:hidden;
-overflow-y:auto;
 
 }
 
@@ -19,10 +23,12 @@ overflow-y:auto;
 
 h1{
 
-margin-top:20px;
+margin-top:40px;
 font-size:60px;
 letter-spacing:4px;
 font-weight:bold;
+
+text-align:center;
 
 }
 
@@ -33,9 +39,9 @@ font-weight:bold;
 width:60%;
 height:420px;
 
-margin:20px auto;
+margin-top:20px;
 
-background:transparent;
+background:#111;
 
 border-radius:18px;
 
@@ -126,13 +132,14 @@ transform:translateY(0);
 
 .input-area{
 
-margin-bottom:25px;
+margin-top:15px;
+margin-bottom:30px;
 
 }
 
 input{
 
-width:40%;
+width:500px;
 
 padding:12px;
 
@@ -140,4 +147,81 @@ border:none;
 
 border-radius:10px;
 
-background:#
+background:#2a2a2a;
+
+color:white;
+
+outline:none;
+
+font-size:15px;
+
+}
+
+/* BOTON */
+
+button{
+
+padding:12px 18px;
+
+border:none;
+
+border-radius:10px;
+
+background:#ff3b3b;
+
+color:white;
+
+cursor:pointer;
+
+font-weight:bold;
+
+transition:0.2s;
+
+}
+
+button:hover{
+
+transform:scale(1.05);
+
+background:#ff2020;
+
+}
+
+/* PARTICULAS */
+
+#particles{
+
+position:fixed;
+top:0;
+left:0;
+
+width:100%;
+height:100%;
+
+z-index:-1;
+
+}
+
+.particle{
+
+position:absolute;
+
+background:rgba(255,255,255,0.4);
+
+border-radius:50%;
+
+animation:float linear infinite;
+
+}
+
+@keyframes float{
+
+from{
+transform:translateY(0);
+}
+
+to{
+transform:translateY(-120vh);
+}
+
+}
