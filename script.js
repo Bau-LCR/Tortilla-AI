@@ -10,8 +10,12 @@ if(chatGuardado){
 chat.innerHTML = chatGuardado
 }
 
-/* ENVIAR MENSAJE */
+/* URL API (IMPORTANTE) */
+const URL_API = window.location.hostname === "localhost"
+? "http://localhost:3000/chat"
+: "https://tortilla-ai.onrender.com/chat"
 
+/* ENVIAR MENSAJE */
 async function sendMessage(){
 
 const msg = input.value.trim()
@@ -28,35 +32,27 @@ chat.scrollTop = chat.scrollHeight
 
 let respuesta = ""
 
-/* INTENTO ONLINE */
-
 try{
-
-const res = await fetch("https://tortilla-ai.onrender.com"),{
+const res = await fetch(URL_API,{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body: JSON.stringify({mensaje: msg})
 })
 
+```
 if(!res.ok) throw new Error("Error servidor")
 
 const data = await res.json()
-
 respuesta = data.reply
+```
 
 }catch(error){
-
 console.log("Modo offline activado")
 respuesta = generarRespuesta(msg.toLowerCase())
-
 }
-
-/* quitar pensando */
 
 const pensando = document.getElementById("pensando")
 if(pensando) pensando.remove()
-
-/* crear mensaje del bot */
 
 const mensajeBot = document.createElement("div")
 mensajeBot.className = "ai"
@@ -68,33 +64,28 @@ const texto = document.createElement("span")
 
 mensajeBot.appendChild(titulo)
 mensajeBot.appendChild(texto)
-
 chat.appendChild(mensajeBot)
 
 chat.scrollTop = chat.scrollHeight
 
-/* animación escritura */
-
 let i = 0
 
 let intervalo = setInterval(()=>{
-
 texto.textContent += respuesta.charAt(i)
-
 i++
 chat.scrollTop = chat.scrollHeight
 
+```
 if(i >= respuesta.length){
-clearInterval(intervalo)
-localStorage.setItem("chat", chat.innerHTML)
+  clearInterval(intervalo)
+  localStorage.setItem("chat", chat.innerHTML)
 }
+```
 
 },20)
-
 }
 
 /* IA LOCAL */
-
 function generarRespuesta(msg){
 
 if(msg.startsWith("me llamo")){
@@ -124,11 +115,9 @@ const respuestas = [
 ]
 
 return respuestas[Math.floor(Math.random()*respuestas.length)]
-
 }
 
 /* ENTER */
-
 input.addEventListener("keypress",function(e){
 if(e.key==="Enter"){
 sendMessage()
@@ -136,17 +125,16 @@ sendMessage()
 })
 
 /* RESET */
-
 function resetChat(){
 chat.innerHTML=""
 historial=[]
 localStorage.removeItem("chat")
 }
 
-/* PARTICULAS */
-
+/* PARTICULAS (ARREGLADO) */
 const container = document.getElementById("particles")
 
+if(container){
 for(let i=0;i<90;i++){
 let p=document.createElement("div")
 p.className="particle"
@@ -157,4 +145,5 @@ p.style.height=size+"px"
 p.style.bottom=Math.random()*100+"%"
 p.style.animationDuration=(5+Math.random()*10)+"s"
 container.appendChild(p)
+}
 }
