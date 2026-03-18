@@ -1,8 +1,16 @@
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
 
+/* seguridad */
 if(!chat || !input){
-console.error("Faltan elementos del DOM")
+console.error("Error: no se encontró #chat o #input")
+}
+
+/* función segura de scroll */
+function scrollAbajo(){
+if(chat && typeof chat.scrollHeight === "number"){
+chat.scrollTop = chat.scrollHeight
+}
 }
 
 /* memoria */
@@ -20,7 +28,7 @@ const URL_API = window.location.hostname === "localhost"
 ? "http://localhost:3000/chat"
 : "https://tortilla-ai.onrender.com/chat"
 
-/* ENVIAR */
+/* ENVIAR MENSAJE */
 async function sendMessage(){
 
 const msg = input.value.trim()
@@ -33,7 +41,7 @@ chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`
 input.value=""
 
 chat.innerHTML += `<div class="ai" id="pensando"><b>Tortilla-AI:</b> pensando...</div>`
-chat.scrollTop = chat.scrollHeight
+scrollAbajo()
 
 let respuesta = ""
 
@@ -45,14 +53,14 @@ body: JSON.stringify({mensaje: msg})
 })
 
 ```
-if(!res.ok) throw new Error("error")
+if(!res.ok) throw new Error("error servidor")
 
 const data = await res.json()
-respuesta = data.reply
+respuesta = data.reply || "Sin respuesta"
 ```
 
 }catch(e){
-console.log("Modo offline")
+console.log("Modo offline activado")
 respuesta = generarRespuesta(msg.toLowerCase())
 }
 
@@ -71,12 +79,14 @@ mensajeBot.appendChild(titulo)
 mensajeBot.appendChild(texto)
 chat.appendChild(mensajeBot)
 
+scrollAbajo()
+
 let i = 0
 
 let intervalo = setInterval(()=>{
 texto.textContent += respuesta.charAt(i)
 i++
-chat.scrollTop = chat.scrollHeight
+scrollAbajo()
 
 ```
 if(i >= respuesta.length){
@@ -92,22 +102,29 @@ if(i >= respuesta.length){
 function generarRespuesta(msg){
 
 if(msg.includes("hola")){
-return "Hola."
+return nombreUsuario ? `Hola ${nombreUsuario}` : "Hola."
 }
 
 if(msg.includes("como estas")){
-return "Estoy bien."
+return "Estoy funcionando correctamente."
 }
 
 if(msg.includes("quien eres")){
 return "Soy Tortilla-AI sin conexión."
 }
 
+if(msg.startsWith("me llamo")){
+nombreUsuario = msg.replace("me llamo","").trim()
+localStorage.setItem("nombreUsuario", nombreUsuario)
+return `Encantada de conocerte ${nombreUsuario}`
+}
+
 const respuestas = [
 "Interesante.",
 "Cuéntame más.",
 "No estoy seguro.",
-"Podría ser."
+"Podría ser.",
+"Explícate mejor."
 ]
 
 return respuestas[Math.floor(Math.random()*respuestas.length)]
@@ -134,12 +151,19 @@ if(container){
 for(let i=0;i<90;i++){
 let p=document.createElement("div")
 p.className="particle"
+
+```
 p.style.left=Math.random()*100+"%"
+
 let size = 2 + Math.random()*4
 p.style.width=size+"px"
 p.style.height=size+"px"
+
 p.style.bottom=Math.random()*100+"%"
 p.style.animationDuration=(5+Math.random()*10)+"s"
+
 container.appendChild(p)
+```
+
 }
 }
