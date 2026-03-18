@@ -5,12 +5,10 @@ const input = document.getElementById("input");
 
 /* SCROLL */
 function scrollAbajo(){
-if(chat){
 chat.scrollTop = chat.scrollHeight;
 }
-}
 
-/* ENVIAR MENSAJE */
+/* MENSAJE */
 async function sendMessage(){
 
 const msg = input.value.trim();
@@ -19,58 +17,43 @@ if(!msg) return;
 chat.innerHTML += `<div class="user"><b>Tú:</b> ${msg}</div>`;
 input.value = "";
 
-// mensaje "pensando"
 const thinking = document.createElement("div");
 thinking.className = "ai";
-thinking.id = "pensando";
-thinking.innerHTML = "<b>Tortilla-AI:</b> pensando...";
+thinking.textContent = "Pensando...";
 chat.appendChild(thinking);
 
 scrollAbajo();
 
 let respuesta = "";
 
-try {
-const res = await fetch("https://tortilla-ai.onrender.com/chat", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({ mensaje: msg })
+try{
+const res = await fetch("https://tortilla-ai.onrender.com/chat",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body: JSON.stringify({mensaje: msg})
 });
 
 ```
-if(!res.ok){
-  throw new Error("Error HTTP");
-}
+if(!res.ok) throw new Error();
 
 const data = await res.json();
-
-respuesta = data.reply || "Sin respuesta";
+respuesta = data.reply;
 ```
 
-} catch (error) {
-console.log("Modo offline activado");
+}catch(e){
 respuesta = generarRespuesta(msg.toLowerCase());
 }
 
-// eliminar "pensando"
-const pensando = document.getElementById("pensando");
-if(pensando) pensando.remove();
+thinking.remove();
 
-// mensaje bot
-const botMsg = document.createElement("div");
-botMsg.className = "ai";
-
-const texto = document.createElement("span");
-botMsg.appendChild(texto);
-
-chat.appendChild(botMsg);
+const bot = document.createElement("div");
+bot.className = "ai";
+chat.appendChild(bot);
 
 let i = 0;
 
 const intervalo = setInterval(()=>{
-texto.textContent += respuesta.charAt(i);
+bot.textContent += respuesta.charAt(i);
 i++;
 scrollAbajo();
 
@@ -83,57 +66,21 @@ if(i >= respuesta.length){
 },20);
 }
 
-/* IA OFFLINE */
+/* OFFLINE */
 function generarRespuesta(msg){
-
 if(msg.includes("hola")) return "Hola!";
-if(msg.includes("como estas")) return "Estoy bien.";
-if(msg.includes("quien eres")) return "Soy Tortilla-AI offline.";
-
-const respuestas = [
-"Interesante.",
-"Contame más.",
-"No entiendo del todo.",
-"Puede ser."
-];
-
-return respuestas[Math.floor(Math.random()*respuestas.length)];
+return "No hay conexión.";
 }
 
 /* ENTER */
-input.addEventListener("keypress", (e)=>{
-if(e.key === "Enter") sendMessage();
+input.addEventListener("keypress",(e)=>{
+if(e.key==="Enter") sendMessage();
 });
 
-/* BOTONES */
 window.sendMessage = sendMessage;
 
-window.resetChat = function(){
-chat.innerHTML = "";
+window.resetChat = ()=>{
+chat.innerHTML="";
 };
-
-/* PARTICULAS (SEGURO) */
-const container = document.getElementById("particles");
-
-if(container){
-for(let i=0;i<70;i++){
-const p = document.createElement("div");
-
-```
-p.className = "particle";
-p.style.left = Math.random()*100 + "%";
-p.style.bottom = Math.random()*100 + "%";
-
-const size = 2 + Math.random()*4;
-p.style.width = size + "px";
-p.style.height = size + "px";
-
-p.style.animationDuration = (5 + Math.random()*10) + "s";
-
-container.appendChild(p);
-```
-
-}
-}
 
 });
