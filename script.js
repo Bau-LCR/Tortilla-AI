@@ -33,6 +33,21 @@ let respuesta = "";
 
 try{
 const res = await fetch(URL_API,{
+  method:"POST",
+  headers:{
+    "Content-Type":"application/json"
+  },
+  body: JSON.stringify({mensaje: msg})
+});
+
+console.log("STATUS:", res.status);
+
+if(!res.ok){
+  throw new Error("Error HTTP " + res.status);
+}
+
+const data = await res.json();
+console.log("RESPUESTA API:", data);
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body: JSON.stringify({mensaje: msg})
