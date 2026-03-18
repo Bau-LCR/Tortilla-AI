@@ -1,24 +1,26 @@
-if(!chat){
-  console.error("No se encontró el elemento #chat")
-}
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
 
+if(!chat || !input){
+console.error("Faltan elementos del DOM")
+}
+
+/* memoria */
 let nombreUsuario = localStorage.getItem("nombreUsuario")
 let historial = JSON.parse(localStorage.getItem("historial")) || []
 
-/* cargar chat guardado */
+/* restaurar chat */
 const chatGuardado = localStorage.getItem("chat")
 if(chatGuardado){
 chat.innerHTML = chatGuardado
 }
 
-/* URL API (IMPORTANTE) */
+/* API */
 const URL_API = window.location.hostname === "localhost"
 ? "http://localhost:3000/chat"
 : "https://tortilla-ai.onrender.com/chat"
 
-/* ENVIAR MENSAJE */
+/* ENVIAR */
 async function sendMessage(){
 
 const msg = input.value.trim()
@@ -43,14 +45,14 @@ body: JSON.stringify({mensaje: msg})
 })
 
 ```
-if(!res.ok) throw new Error("Error servidor")
+if(!res.ok) throw new Error("error")
 
 const data = await res.json()
 respuesta = data.reply
 ```
 
-}catch(error){
-console.log("Modo offline activado")
+}catch(e){
+console.log("Modo offline")
 respuesta = generarRespuesta(msg.toLowerCase())
 }
 
@@ -68,8 +70,6 @@ const texto = document.createElement("span")
 mensajeBot.appendChild(titulo)
 mensajeBot.appendChild(texto)
 chat.appendChild(mensajeBot)
-
-chat.scrollTop = chat.scrollHeight
 
 let i = 0
 
@@ -91,18 +91,12 @@ if(i >= respuesta.length){
 /* IA LOCAL */
 function generarRespuesta(msg){
 
-if(msg.startsWith("me llamo")){
-nombreUsuario = msg.replace("me llamo","").trim()
-localStorage.setItem("nombreUsuario", nombreUsuario)
-return `Encantada de conocerte ${nombreUsuario}.`
-}
-
 if(msg.includes("hola")){
-return nombreUsuario ? `Hola ${nombreUsuario}` : "Hola."
+return "Hola."
 }
 
 if(msg.includes("como estas")){
-return "Estoy funcionando correctamente."
+return "Estoy bien."
 }
 
 if(msg.includes("quien eres")){
@@ -113,8 +107,7 @@ const respuestas = [
 "Interesante.",
 "Cuéntame más.",
 "No estoy seguro.",
-"Podría ser.",
-"Explícate mejor."
+"Podría ser."
 ]
 
 return respuestas[Math.floor(Math.random()*respuestas.length)]
@@ -134,7 +127,7 @@ historial=[]
 localStorage.removeItem("chat")
 }
 
-/* PARTICULAS (ARREGLADO) */
+/* PARTICULAS */
 const container = document.getElementById("particles")
 
 if(container){
