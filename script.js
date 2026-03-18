@@ -1,32 +1,29 @@
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
 
-/* seguridad */
+/* VALIDACION */
 if(!chat || !input){
-console.error("Error: no se encontró #chat o #input")
+console.error("Falta #chat o #input")
 }
 
-/* función segura de scroll */
+/* SCROLL SEGURO */
 function scrollAbajo(){
-if(chat && typeof chat.scrollHeight === "number"){
+if(chat){
 chat.scrollTop = chat.scrollHeight
 }
 }
 
-/* memoria */
-let nombreUsuario = localStorage.getItem("nombreUsuario")
+/* MEMORIA */
 let historial = JSON.parse(localStorage.getItem("historial")) || []
 
-/* restaurar chat */
+/* RESTAURAR CHAT */
 const chatGuardado = localStorage.getItem("chat")
 if(chatGuardado){
 chat.innerHTML = chatGuardado
 }
 
 /* API */
-const URL_API = window.location.hostname === "localhost"
-? "http://localhost:3000/chat"
-: "https://tortilla-ai.onrender.com/chat"
+const URL_API = "https://tortilla-ai.onrender.com/chat"
 
 /* ENVIAR MENSAJE */
 async function sendMessage(){
@@ -53,7 +50,7 @@ body: JSON.stringify({mensaje: msg})
 })
 
 ```
-if(!res.ok) throw new Error("error servidor")
+if(!res.ok) throw new Error()
 
 const data = await res.json()
 respuesta = data.reply || "Sin respuesta"
@@ -61,7 +58,7 @@ respuesta = data.reply || "Sin respuesta"
 
 }catch(e){
 console.log("Modo offline activado")
-respuesta = generarRespuesta(msg.toLowerCase())
+respuesta = "No hay conexión con la IA."
 }
 
 const pensando = document.getElementById("pensando")
@@ -78,8 +75,6 @@ const texto = document.createElement("span")
 mensajeBot.appendChild(titulo)
 mensajeBot.appendChild(texto)
 chat.appendChild(mensajeBot)
-
-scrollAbajo()
 
 let i = 0
 
@@ -98,69 +93,37 @@ if(i >= respuesta.length){
 },20)
 }
 
-/* IA LOCAL */
-function generarRespuesta(msg){
-
-if(msg.includes("hola")){
-return nombreUsuario ? `Hola ${nombreUsuario}` : "Hola."
-}
-
-if(msg.includes("como estas")){
-return "Estoy funcionando correctamente."
-}
-
-if(msg.includes("quien eres")){
-return "Soy Tortilla-AI sin conexión."
-}
-
-if(msg.startsWith("me llamo")){
-nombreUsuario = msg.replace("me llamo","").trim()
-localStorage.setItem("nombreUsuario", nombreUsuario)
-return `Encantada de conocerte ${nombreUsuario}`
-}
-
-const respuestas = [
-"Interesante.",
-"Cuéntame más.",
-"No estoy seguro.",
-"Podría ser.",
-"Explícate mejor."
-]
-
-return respuestas[Math.floor(Math.random()*respuestas.length)]
-}
-
 /* ENTER */
 input.addEventListener("keypress",function(e){
-if(e.key==="Enter"){
+if(e.key === "Enter"){
 sendMessage()
 }
 })
 
 /* RESET */
 function resetChat(){
-chat.innerHTML=""
-historial=[]
+chat.innerHTML = ""
+historial = []
 localStorage.removeItem("chat")
 }
 
-/* PARTICULAS */
+/* PARTICULAS (CORRECTO) */
 const container = document.getElementById("particles")
 
 if(container){
-for(let i=0;i<90;i++){
-let p=document.createElement("div")
-p.className="particle"
+for(let i = 0; i < 80; i++){
+const p = document.createElement("div")
+p.className = "particle"
 
 ```
-p.style.left=Math.random()*100+"%"
+p.style.left = Math.random() * 100 + "%"
+p.style.bottom = Math.random() * 100 + "%"
 
-let size = 2 + Math.random()*4
-p.style.width=size+"px"
-p.style.height=size+"px"
+const size = 2 + Math.random() * 4
+p.style.width = size + "px"
+p.style.height = size + "px"
 
-p.style.bottom=Math.random()*100+"%"
-p.style.animationDuration=(5+Math.random()*10)+"s"
+p.style.animationDuration = (5 + Math.random() * 10) + "s"
 
 container.appendChild(p)
 ```
