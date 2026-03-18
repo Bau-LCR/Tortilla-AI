@@ -32,7 +32,7 @@ let respuesta = ""
 
 try{
 
-const res = await fetch("https://tortilla-ai.onrender.com/chat"),{
+const res = await fetch("https://tortilla-ai.onrender.com"),{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body: JSON.stringify({mensaje: msg})
