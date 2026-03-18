@@ -4,10 +4,13 @@ const input = document.getElementById("input")
 let nombreUsuario = localStorage.getItem("nombreUsuario")
 let historial = JSON.parse(localStorage.getItem("historial")) || []
 
+/* cargar chat guardado */
 const chatGuardado = localStorage.getItem("chat")
 if(chatGuardado){
 chat.innerHTML = chatGuardado
 }
+
+/* ENVIAR MENSAJE */
 
 async function sendMessage(){
 
@@ -25,23 +28,35 @@ chat.scrollTop = chat.scrollHeight
 
 let respuesta = ""
 
+/* INTENTO ONLINE */
+
 try{
+
 const res = await fetch("http://localhost:3000/chat",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body: JSON.stringify({mensaje: msg})
 })
 
+if(!res.ok) throw new Error("Error servidor")
+
 const data = await res.json()
+
 respuesta = data.reply
 
 }catch(error){
+
 console.log("Modo offline activado")
 respuesta = generarRespuesta(msg.toLowerCase())
+
 }
+
+/* quitar pensando */
 
 const pensando = document.getElementById("pensando")
 if(pensando) pensando.remove()
+
+/* crear mensaje del bot */
 
 const mensajeBot = document.createElement("div")
 mensajeBot.className = "ai"
@@ -53,14 +68,19 @@ const texto = document.createElement("span")
 
 mensajeBot.appendChild(titulo)
 mensajeBot.appendChild(texto)
+
 chat.appendChild(mensajeBot)
 
 chat.scrollTop = chat.scrollHeight
 
+/* animación escritura */
+
 let i = 0
 
 let intervalo = setInterval(()=>{
+
 texto.textContent += respuesta.charAt(i)
+
 i++
 chat.scrollTop = chat.scrollHeight
 
@@ -73,6 +93,8 @@ localStorage.setItem("chat", chat.innerHTML)
 
 }
 
+/* IA LOCAL */
+
 function generarRespuesta(msg){
 
 if(msg.startsWith("me llamo")){
@@ -82,7 +104,7 @@ return `Encantada de conocerte ${nombreUsuario}.`
 }
 
 if(msg.includes("hola")){
-return "Hola. Soy Tortilla-AI."
+return nombreUsuario ? `Hola ${nombreUsuario}` : "Hola."
 }
 
 if(msg.includes("como estas")){
@@ -102,13 +124,18 @@ const respuestas = [
 ]
 
 return respuestas[Math.floor(Math.random()*respuestas.length)]
+
 }
+
+/* ENTER */
 
 input.addEventListener("keypress",function(e){
 if(e.key==="Enter"){
 sendMessage()
 }
 })
+
+/* RESET */
 
 function resetChat(){
 chat.innerHTML=""
