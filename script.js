@@ -25,7 +25,26 @@ botMsg.appendChild(texto);
 
 chat.appendChild(botMsg);
 
-let respuesta = generarRespuesta(msg.toLowerCase());
+let respuesta = "";
+
+try {
+const res = await fetch("https://tortilla-ai.onrender.com/chat", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ mensaje: msg })
+});
+
+const data = await res.json();
+
+respuesta = data.reply || "Sin respuesta";
+
+} catch (error) {
+console.log("Modo offline");
+respuesta = generarRespuesta(msg.toLowerCase());
+}
+
 
 let i = 0;
 
