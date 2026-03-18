@@ -9,8 +9,7 @@ chat.scrollTop = chat.scrollHeight;
 }
 
 /* ENVIAR MENSAJE */
-function sendMessage(){
-
+async function sendMessage(){
 const msg = input.value.trim();
 if(!msg) return;
 
