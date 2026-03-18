@@ -1,3 +1,6 @@
+if(!chat){
+  console.error("No se encontró el elemento #chat")
+}
 const chat = document.getElementById("chat")
 const input = document.getElementById("input")
 
