@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 
 <html lang="es">
-
 <head>
-<link rel="icon" type="image/png" href="logohead64.png">
 <meta charset="UTF-8">
 <title>Tortilla-AI</title>
 <link rel="stylesheet" href="style.css">
@@ -16,29 +14,14 @@
 <h1>Tortilla-AI</h1>
 
 <div id="chat">
-<div class="ai">
-Hola. Soy <b>Tortilla-AI</b>.  
-Puedes hablar conmigo.
-</div>
+  <div class="ai">Hola, soy Tortilla-AI</div>
 </div>
 
 <div class="input-area">
-
-<input
-id="input"
-placeholder="Escribe un mensaje..."
-autocomplete="off"
-/>
-
-<button onclick="resetChat()">Nuevo chat</button>
-
-<button onclick="sendMessage()">
-Enviar
-</button>
-
+  <input id="input" placeholder="Escribe..." autocomplete="off">
+  <button onclick="sendMessage()">Enviar</button>
+  <button onclick="resetChat()">Reset</button>
 </div>
-
-<!-- SOLO UNA VEZ -->
 
 <script src="script.js"></script>
 
