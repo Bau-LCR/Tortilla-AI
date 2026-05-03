@@ -1,39 +1,102 @@
-export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+document.addEventListener("DOMContentLoaded", function() {
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
 
-    const { mensajes } = req.body;
-    const API_KEY = process.env.GROQ_API_KEY;
+    const systemPrompt = { role: "system", content: "Configurado en el servidor." };
 
-    // Modificamos el primer mensaje (el sistema) para darle el estilo Gemini
-    if (mensajes && mensajes.length > 0) {
-        mensajes[0].content = `Eres Tortilla-AI. Responde de forma seria, precisa y estructurada. 
-        REGLAS DE FORMATO:
-        - Usa **negritas** para conceptos importantes.
-        - Usa listas con viñetas para enumerar.
-        - Separa SIEMPRE los párrafos con saltos de línea dobles.
-        - Si das instrucciones, usa numeración.
-        - Mantén un tono profesional pero directo.`;
-    }
+    // Cargar historial
+    let historial = JSON.parse(localStorage.getItem("chat_history")) || [systemPrompt];
+    
+    // Función para limpiar y procesar negritas
+    const formatearTexto = (texto) => {
+        return texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+    };
 
-    try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: mensajes,
-                temperature: 0.6
-            })
+    // Renderizar al iniciar
+    if (historial.length > 1) {
+        historial.forEach(msg => {
+            if (msg.role === "system") return;
+            const div = document.createElement("div");
+            div.className = msg.role === "user" ? "user" : "ai";
+            div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${msg.content}` : formatearTexto(msg.content);
+            chat.appendChild(div);
         });
-
-        const data = await response.json();
-        if (!response.ok) return res.status(response.status).json({ error: data.error?.message || "Error en Groq" });
-
-        res.status(200).json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
-}
+
+    function scrollAbajo() {
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        // Usuario
+        historial.push({ role: "user", content: msg });
+        const userDiv = document.createElement("div");
+        userDiv.className = "user";
+        userDiv.innerHTML = `<b>Tú:</b> ${msg}`;
+        chat.appendChild(userDiv);
+        input.value = "";
+        scrollAbajo();
+
+        // Pensando
+        const thinking = document.createElement("div");
+        thinking.className = "ai";
+        thinking.id = "thinking-bubble";
+        thinking.textContent = "Pensando...";
+        chat.appendChild(thinking);
+        scrollAbajo();
+
+        try {
+            const res = await fetch("/api/chat", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mensajes: historial }) 
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Error en el servidor");
+
+            const respuestaIA = data.choices[0].message.content;
+            historial.push({ role: "assistant", content: respuestaIA });
+            localStorage.setItem("chat_history", JSON.stringify(historial));
+
+            document.getElementById("thinking-bubble").remove();
+
+            const bot = document.createElement("div");
+            bot.className = "ai";
+            chat.appendChild(bot);
+
+            // EFECTO DE ESCRITURA CORREGIDO
+            let i = 0;
+            const intervalo = setInterval(() => {
+                // Escribimos letra por letra
+                bot.textContent += respuestaIA.charAt(i);
+                i++;
+                scrollAbajo();
+                if (i >= respuestaIA.length) {
+                    clearInterval(intervalo);
+                    // AL FINAL, aplicamos el formato (negritas y saltos de línea)
+                    bot.innerHTML = formatearTexto(bot.textContent);
+                    scrollAbajo();
+                }
+            }, 5); // Un poco más rápido para que no sea pesado
+
+        } catch (e) {
+            console.error(e);
+            if (document.getElementById("thinking-bubble")) document.getElementById("thinking-bubble").remove();
+            chat.innerHTML += `<div class='ai' style='color: #ff4b4b;'>Error: ${e.message}</div>`;
+        }
+    }
+
+    input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+    window.sendMessage = sendMessage;
+    window.resetChat = () => { 
+        if (confirm("¿Borrar conversación?")) {
+            localStorage.removeItem("chat_history");
+            historial = [systemPrompt];
+            chat.innerHTML = "<div class='ai'>Hola, soy Tortilla-AI</div>"; 
+        }
+    };
+});
