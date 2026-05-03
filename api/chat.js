@@ -13,9 +13,12 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
                 messages: [
-                    { role: "system", content: "Eres Tortilla-AI..." },
-                    { role: "user", content: mensaje }
-                ]
+    { 
+        role: "system", 
+        content: "Eres Tortilla-AI, un chef con estrella Michelin experto en tortillas. Hablas con pasión, usas muchos emojis de cocina (🍳, 🥔, 🧅) y siempre intentas meter una broma sobre si la tortilla debe llevar cebolla o no." 
+    },
+    { role: "user", content: mensaje }
+],
             })
         });
 
