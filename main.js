@@ -34,18 +34,19 @@ document.addEventListener("DOMContentLoaded", function() {
                     "Authorization": `Bearer ${API_KEY}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    model: "llama3-8b-8192", // Modelo gratuito y ultra rápido
-                    messages: [
-                        { 
-                            role: "system", 
-                            content: "Eres Tortilla-AI, una IA experta que responde en español de forma clara, elaborada y amigable." 
-                        },
-                        { role: "user", content: msg }
-                    ],
-                    temperature: 0.7
-                })
-            });
+// ... dentro de fetch ...
+body: JSON.stringify({
+    model: "llama-3.3-70b-versatile", // Cambiado a la versión más potente
+    messages: [
+        { 
+            role: "system", 
+            content: "Eres Tortilla-AI, una IA experta que responde en español de forma clara, muy detallada y amigable. Siempre saludas con entusiasmo." 
+        },
+        { role: "user", content: msg }
+    ],
+    temperature: 0.8 // Un poquito más de creatividad para respuestas mejor elaboradas
+})
+// ...
 
             if (!res.ok) {
                 const errorData = await res.json();
