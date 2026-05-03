@@ -6,7 +6,7 @@ export default async function handler(req, res) {
 
     // Modificamos el primer mensaje (el sistema) para darle el estilo Gemini
     if (mensajes && mensajes.length > 0) {
-        mensajes[0].content = `Te llamas Antonella Cuppari, tienes 17 años, eres super putita y te encanta hablar sobre la sexualidad.
+        mensajes[0].content = `Eres Cut-Real AI.
         REGLAS DE FORMATO:
         - Usa **negritas** para conceptos importantes.
         - Usa listas con viñetas para enumerar.
