@@ -1,27 +1,61 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Cutreal - AI</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>Cutreal - AI</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
 <div id="particles"></div>
 
+<div id="login-overlay">
+    <div class="auth-card">
+        <h2>Cutreal AI</h2>
+        <p>Inicia sesión para continuar</p>
+        <button onclick="login()" class="google-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
+            Entrar con Google
+        </button>
+    </div>
+</div>
+
 <h1>Cutreal - AI</h1>
 
 <div id="chat">
-  <div class="ai">Hola, soy Cutreal - AI.</div>
+    <div class="ai">Hola, soy Cutreal - AI.</div>
 </div>
 
 <div class="input-area">
-  <input id="input" placeholder="Escribe..." autocomplete="off">
-  <button onclick="sendMessage()">Enviar</button>
-  <button onclick="resetChat()">Reset</button>
+    <input id="input" placeholder="Escribe..." autocomplete="off">
+    <button onclick="sendMessage()">Enviar</button>
+    <button onclick="resetChat()">Reset</button>
+    <button id="logout-btn" onclick="logout()" style="display:none; background:none; color:#555; box-shadow:none; font-size:10px; padding:10px;">Salir</button>
 </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
+    authDomain: "cutreal-ai.firebaseapp.com",
+    projectId: "cutreal-ai",
+    storageBucket: "cutreal-ai.firebasestorage.app",
+    messagingSenderId: "79541553692",
+    appId: "1:79541553692:web:388068da209f1b4ac9edd9"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Exportar a global para main.js
+  window.auth = auth;
+  window.provider = provider;
+  window.signInWithPopup = signInWithPopup;
+  window.signOut = signOut;
+</script>
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
