@@ -96,7 +96,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (confirm("¿Borrar conversación?")) {
             localStorage.removeItem("chat_history");
             historial = [systemPrompt];
-            chat.innerHTML = "<div class='ai'>Hola, soy Tortilla-AI</div>"; 
+            chat.innerHTML = "<div class='ai'>Hola, soy Cutreal - AI</div>"; 
         }
     };
 });
