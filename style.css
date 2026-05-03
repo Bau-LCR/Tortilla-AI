@@ -1,9 +1,17 @@
-/* Importamos la fuente Inter desde Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Importamos Inter con todos sus pesos para máxima jerarquía visual */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary-red: #ff3b3b;
+    --dark-red: #cc0000;
+    --bg-black: #0a0a0a;
+    --card-bg: rgba(18, 18, 18, 0.75);
+    --border-white: rgba(255, 255, 255, 0.08);
+}
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0a0a0a; /* Negro más profundo */
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg-black);
     color: #ffffff;
     margin: 0;
     padding: 0;
@@ -15,182 +23,178 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* TITULO ACTUALIZADO - ESTILO IMPONENTE */
+/* TITULO PROFESIONAL */
 h1 {
-    margin-top: 60px;
-    margin-bottom: 20px;
-    font-size: 80px; /* Tamaño masivo estilo premium */
-    letter-spacing: -3px; /* Letras juntas para look moderno */
+    margin-top: 80px;
+    margin-bottom: 10px;
+    font-size: 85px;
+    letter-spacing: -4px;
     font-weight: 800;
     text-align: center;
     text-transform: uppercase;
-    /* Degradado de Blanco a Rojo Cutreal */
-    background: linear-gradient(180deg, #ffffff 30%, #ff3b3b 100%);
+    background: linear-gradient(180deg, #ffffff 40%, #ff3b3b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    /* Sombra de profundidad */
-    filter: drop-shadow(0 10px 20px rgba(255, 59, 59, 0.15));
+    filter: drop-shadow(0 15px 30px rgba(255, 59, 59, 0.2));
+    user-select: none;
 }
 
-/* Responsividad para el título en pantallas pequeñas */
-@media (max-width: 768px) {
-    h1 {
-        font-size: 50px;
-        letter-spacing: -1px;
-    }
-}
-
-/* CONTENEDOR DEL CHAT */
+/* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
 #chat {
-    width: 70%;
-    max-width: 900px;
-    height: 500px;
-    margin-top: 30px;
-    background: rgba(18, 18, 18, 0.8);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 24px;
-    padding: 30px;
+    width: 75%;
+    max-width: 1000px;
+    height: 550px;
+    margin-top: 40px;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-white);
+    border-radius: 28px;
+    padding: 35px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    scroll-behavior: smooth;
 }
 
-/* SCROLLBAR PERSONALIZADO */
+/* SCROLLBAR MINIMALISTA */
 #chat::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
 }
 #chat::-webkit-scrollbar-thumb {
-    background: #333;
+    background: #2a2a2a;
     border-radius: 10px;
 }
 
 /* BURBUJAS DE MENSAJES */
 .user {
-    background: #222;
-    padding: 14px 20px;
-    border-radius: 20px 20px 4px 20px;
+    background: #252525;
+    padding: 16px 22px;
+    border-radius: 22px 22px 4px 22px;
     margin: 12px 0 12px auto;
     width: fit-content;
-    max-width: 75%;
+    max-width: 70%;
     font-size: 16px;
-    line-height: 1.5;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    animation: aparecer 0.3s ease-out;
+    font-weight: 400;
+    line-height: 1.6;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+    animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .ai {
-    background: linear-gradient(145deg, #440000, #220000);
-    padding: 20px 25px;
-    border-radius: 20px 20px 20px 4px;
+    background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%);
+    padding: 22px 28px;
+    border-radius: 22px 22px 22px 4px;
     margin: 12px auto 12px 0;
     width: fit-content;
-    max-width: 85%;
-    color: #f0f0f0;
-    font-size: 16px;
-    line-height: 1.7;
+    max-width: 82%;
+    color: #f5f5f5;
+    font-size: 16.5px;
+    line-height: 1.8;
     white-space: pre-wrap;
-    border: 1px solid rgba(255, 0, 0, 0.1);
-    box-shadow: 0 8px 25px rgba(255, 0, 0, 0.05);
-    animation: aparecer 0.3s ease-out;
+    border: 1px solid rgba(255, 0, 0, 0.15);
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.03);
+    animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .ai b, .ai strong {
-    color: #ff4d4d;
+    color: var(--primary-red);
     font-weight: 600;
 }
 
-/* ÁREA DE ENTRADA */
+/* ÁREA DE ENTRADA ESTILO BARRA DE BÚSQUEDA PRO */
 .input-area {
-    margin-top: 25px;
-    margin-bottom: 50px;
+    margin-top: 30px;
+    margin-bottom: 60px;
     display: flex;
     align-items: center;
-    background: #1a1a1a;
-    padding: 8px 8px 8px 20px;
+    background: #161616;
+    padding: 10px 10px 10px 24px;
     border-radius: 100px;
-    border: 1px solid #333;
-    width: 600px;
-    max-width: 90%;
-    transition: all 0.3s ease;
+    border: 1px solid #252525;
+    width: 650px;
+    max-width: 92%;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input-area:focus-within {
-    border-color: #ff3b3b;
-    box-shadow: 0 0 20px rgba(255, 59, 59, 0.1);
+    border-color: var(--primary-red);
+    background: #1a1a1a;
+    box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.1);
 }
 
 input {
     flex: 1;
     background: transparent;
     border: none;
-    color: white;
+    color: #ffffff;
     font-size: 16px;
     outline: none;
     font-family: 'Inter', sans-serif;
+    padding-right: 15px;
 }
 
-/* --- BOTÓN ENVIAR --- */
+input::placeholder {
+    color: #555;
+}
+
+/* BOTÓN ENVIAR - FEEDBACK TÁCTIL */
 button {
-    background: linear-gradient(135deg, #ff3b3b 0%, #cc0000 100%);
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
     color: white;
     border: none;
-    padding: 12px 30px;
+    padding: 14px 32px;
     border-radius: 100px;
     font-weight: 600;
     font-size: 15px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: 'Inter', sans-serif;
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
 }
 
 button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.4);
-    filter: brightness(1.1);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.45);
 }
 
 button:active {
-    transform: translateY(0);
-    filter: brightness(0.9);
+    transform: translateY(1px) scale(0.98);
 }
 
-/* --- BOTÓN RESET --- */
+/* BOTÓN RESET - MINIMALISMO ELEGANTE */
 #resetChat {
     position: fixed;
-    top: 30px;
-    left: 30px;
-    background: rgba(255, 255, 255, 0.03);
-    color: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
+    top: 35px;
+    left: 40px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #777;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 22px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     cursor: pointer;
-    transition: all 0.4s ease;
-    backdrop-filter: blur(8px);
-    z-index: 1000;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
 }
 
 #resetChat:hover {
-    background: rgba(255, 59, 59, 0.1);
-    color: #ff4c4c;
-    border-color: #ff4c4c;
-    box-shadow: 0 0 20px rgba(255, 59, 59, 0.2);
+    background: var(--primary-red);
+    color: white;
+    border-color: var(--primary-red);
+    box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
 }
 
 /* ANIMACIONES */
 @keyframes aparecer {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* PARTÍCULAS */
+/* FONDO DE PARTÍCULAS MEJORADO */
 #particles {
     position: fixed;
     top: 0;
@@ -198,12 +202,12 @@ button:active {
     width: 100%;
     height: 100%;
     z-index: -1;
-    background: radial-gradient(circle at center, #1a0505 0%, #0a0a0a 100%);
+    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
 }
 
 .particle {
     position: absolute;
-    background: rgba(255, 59, 59, 0.2);
+    background: rgba(255, 59, 59, 0.15);
     border-radius: 50%;
     animation: float linear infinite;
 }
@@ -211,4 +215,12 @@ button:active {
 @keyframes float {
     from { transform: translateY(0); }
     to { transform: translateY(-120vh); }
+}
+
+/* RESPONSIVIDAD PRO */
+@media (max-width: 768px) {
+    h1 { font-size: 48px; letter-spacing: -2px; margin-top: 40px; }
+    #chat { width: 85%; height: 60vh; padding: 20px; }
+    .input-area { width: 90%; }
+    #resetChat { top: auto; bottom: 20px; left: 20px; padding: 10px 15px; }
 }
