@@ -2,9 +2,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const chat = document.getElementById("chat");
     const input = document.getElementById("input");
 
-    // Tu clave de Groq (Mantenla segura, no la compartas mucho)
-    const API_KEY = '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'; 
-
     function scrollAbajo() {
         if (chat) chat.scrollTop = chat.scrollHeight;
     }
@@ -28,30 +25,20 @@ document.addEventListener("DOMContentLoaded", function() {
         let respuesta = "";
 
         try {
-            const res = await fetch("/api/chat", { // Llamas a tu propio servidor oculto
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mensaje: msg })
-});
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { 
-                            role: "system", 
-                            content: "Eres Tortilla-AI, una IA experta que responde en español de forma clara, muy detallada y amigable. Siempre saludas con entusiasmo." 
-                        },
-                        { role: "user", content: msg }
-                    ],
-                    temperature: 0.8
-                })
+            // Llamamos a nuestra función oculta en Vercel
+            const res = await fetch("/api/chat", { 
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mensaje: msg })
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.error?.message || "Error desconocido");
+                throw new Error(errorData.error || "Error en el servidor");
             }
 
             const data = await res.json();
+            // Extraemos la respuesta que viene de Groq a través de nuestro intermediario
             respuesta = data.choices[0].message.content;
 
         } catch (e) {
@@ -79,14 +66,11 @@ document.addEventListener("DOMContentLoaded", function() {
         }, 10);
     }
 
-    // Configuración de eventos para el botón y la tecla Enter
+    // Eventos
     input.addEventListener("keypress", (e) => { 
         if (e.key === "Enter") sendMessage(); 
     });
 
     window.sendMessage = sendMessage;
     
-    window.resetChat = () => { 
-        chat.innerHTML = "<div class='ai'>Hola, soy Tortilla-AI</div>"; 
-    };
-});
+    window.resetChat = () => {
