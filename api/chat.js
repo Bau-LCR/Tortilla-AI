@@ -10,7 +10,7 @@ export default async function handler(req, res) {
         REGLAS DE FORMATO:
         - Usa **negritas** para conceptos importantes.
         - Usa listas con viñetas para enumerar.
-        - Separa SIEMPRE los párrafos con saltos de línea dobles.
+        - Separa SIEMPRE los párrafos con saltos de línea.
         - Si das instrucciones, usa numeración.
         - Mantén un tono profesional pero directo con el usuario, y toma cada una de sus consultas de manera profesional y seria.`;
     }
