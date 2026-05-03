@@ -367,7 +367,7 @@ button:active {
 }
 
 .splash-logo {
-    width: 500px;
+    width: 600px;
     height: auto;
     margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
@@ -375,7 +375,7 @@ button:active {
 
 .splash-title {
     color: white;
-    font-size: 100px;
+    font-size: 85px;
     font-weight: 700;
     letter-spacing: -1px;
     margin: 0;
