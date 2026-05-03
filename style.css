@@ -1,5 +1,9 @@
+/* Importamos la fuente Inter desde Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
 body {
-    font-family: 'Segoe UI', Arial, sans-serif; /* Fuente un poco más moderna */
+    /* Tipografía estilo Gemini */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: #0f0f0f;
     color: white;
     margin: 0;
@@ -9,12 +13,15 @@ body {
     align-items: center;
     min-height: 100vh;
     overflow-x: hidden;
+    /* Suavizado de fuente profesional */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* TITULO */
 h1 {
     margin-top: 40px;
-    font-size: 50px; /* Un poco más pequeño para que no choque */
+    font-size: 50px;
     letter-spacing: 4px;
     font-weight: bold;
     text-align: center;
@@ -22,7 +29,7 @@ h1 {
 
 /* CHAT */
 #chat {
-    width: 65%; /* Un poco más ancho para leer mejor */
+    width: 65%;
     height: 450px;
     margin-top: 20px;
     background: #111;
@@ -32,7 +39,7 @@ h1 {
     text-align: left;
     box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     display: flex;
-    flex-direction: column; /* Organiza los mensajes uno bajo otro */
+    flex-direction: column;
 }
 
 /* SCROLL */
@@ -47,36 +54,36 @@ h1 {
 /* MENSAJES */
 .user {
     background: #2a2a2a;
-    padding: 12px 16px;
-    border-radius: 18px 18px 2px 18px; /* Estilo burbuja */
-    margin: 10px 0 10px auto; /* Alineado a la derecha */
+    padding: 14px 18px; /* Más aire interno */
+    border-radius: 18px 18px 2px 18px;
+    margin: 10px 0 10px auto;
     display: block;
     width: fit-content;
     max-width: 80%;
     color: white;
+    font-size: 17px; /* Letra más grande */
     animation: aparecer 0.25s ease;
 }
 
 .ai {
-    background: #440000; /* Un rojo más oscuro y elegante */
-    padding: 15px 20px;
-    border-radius: 18px 18px 18px 2px; /* Estilo burbuja */
-    margin: 10px auto 10px 0; /* Alineado a la izquierda */
+    background: #440000;
+    padding: 18px 22px; /* Más aire interno */
+    border-radius: 18px 18px 18px 2px;
+    margin: 10px auto 10px 0;
     display: block;
     width: fit-content;
     max-width: 85%;
     color: #eeeeee;
+    font-size: 17px; /* Letra más grande */
+    line-height: 1.7; /* Espaciado de línea Gemini para mejor lectura */
+    white-space: pre-wrap;
     animation: aparecer 0.25s ease;
-    
-    /* ESTILO GEMINI (Crucial para el formato) */
-    white-space: pre-wrap; /* Respeta los saltos de línea */
-    line-height: 1.6;      /* Espaciado entre líneas para leer mejor */
 }
 
 /* Estilo para las negritas que genera la IA */
 .ai b, .ai strong {
-    color: #ff4c4c; /* Resalta las negritas en rojo brillante */
-    font-weight: bold;
+    color: #ff4c4c;
+    font-weight: 600;
 }
 
 /* ANIMACION */
@@ -95,13 +102,14 @@ h1 {
 
 input {
     width: 450px;
-    padding: 14px;
+    padding: 16px; /* Más altura */
     border: none;
     border-radius: 12px;
     background: #2a2a2a;
     color: white;
     outline: none;
-    font-size: 16px;
+    font-size: 17px; /* Letra más grande al escribir */
+    font-family: 'Inter', sans-serif;
     transition: 0.3s;
 }
 
@@ -119,6 +127,7 @@ button {
     color: white;
     cursor: pointer;
     font-weight: bold;
+    font-family: 'Inter', sans-serif;
     transition: 0.2s;
 }
 
@@ -133,12 +142,13 @@ button:hover {
     top: 20px;
     left: 20px;
     padding: 10px 16px;
-    background: rgba(255, 76, 76, 0.2);
+    background: rgba(255, 76, 76, 0.1);
     color: #ff4c4c;
     border: 1px solid #ff4c4c;
     border-radius: 8px;
     cursor: pointer;
     font-weight: bold;
+    font-family: 'Inter', sans-serif;
     z-index: 1000;
     transition: 0.3s;
 }
