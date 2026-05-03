@@ -7,6 +7,13 @@
 </head>
 <body>
 
+<div id="splash-screen">
+    <div class="splash-content">
+        <img src="https://path-to-your-logo.png" alt="Logo" class="splash-logo">
+        <h1 class="splash-title">Cut-real <span class="red-text">AI</span></h1>
+    </div>
+</div>
+
 <div id="particles"></div>
 
 <div id="login-overlay">
@@ -19,6 +26,7 @@
         </button>
     </div>
 </div>
+
 <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
 
 <h1>Cut-real AI</h1>
@@ -31,7 +39,6 @@
     <input id="input" placeholder="Escribe..." autocomplete="off">
     <button onclick="sendMessage()">Enviar</button>
     <button onclick="resetChat()">Reset</button>
-    <button id="logout-btn" onclick="logout()" style="display:none; background:none; color:#555; box-shadow:none; font-size:10px; padding:10px;">Salir</button>
 </div>
 
 <script type="module">
@@ -53,7 +60,6 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Exportar herramientas a global
   window.auth = auth;
   window.db = db;
   window.provider = provider;
@@ -64,7 +70,8 @@
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
-    <footer style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+
+<footer style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
     <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
         Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
     </p>
