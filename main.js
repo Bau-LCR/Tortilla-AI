@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const chat = document.getElementById("chat");
     const input = document.getElementById("input");
 
-    // 1. PEGA TU CLAVE DE GROQ AQUÍ
+    // Tu clave de Groq (Mantenla segura, no la compartas mucho)
     const API_KEY = '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'; 
 
     function scrollAbajo() {
@@ -34,19 +34,18 @@ document.addEventListener("DOMContentLoaded", function() {
                     "Authorization": `Bearer ${API_KEY}`,
                     "Content-Type": "application/json"
                 },
-// ... dentro de fetch ...
-body: JSON.stringify({
-    model: "llama-3.3-70b-versatile", // Cambiado a la versión más potente
-    messages: [
-        { 
-            role: "system", 
-            content: "Eres Tortilla-AI, una IA experta que responde en español de forma clara, muy detallada y amigable. Siempre saludas con entusiasmo." 
-        },
-        { role: "user", content: msg }
-    ],
-    temperature: 0.8 // Un poquito más de creatividad para respuestas mejor elaboradas
-})
-// ...
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { 
+                            role: "system", 
+                            content: "Eres Tortilla-AI, una IA experta que responde en español de forma clara, muy detallada y amigable. Siempre saludas con entusiasmo." 
+                        },
+                        { role: "user", content: msg }
+                    ],
+                    temperature: 0.8
+                })
+            });
 
             if (!res.ok) {
                 const errorData = await res.json();
@@ -58,9 +57,9 @@ body: JSON.stringify({
 
         } catch (e) {
             console.error("Error detallado:", e);
-            respuesta = "Error: " + e.message + ". Revisa la consola (F12) para más detalles.";
+            respuesta = "Error: " + e.message;
         } finally {
-            // Esto se ejecuta SIEMPRE, eliminando el "Pensando..."
+            // Quitar el "Pensando..."
             const bubble = document.getElementById("thinking-bubble");
             if (bubble) bubble.remove();
         }
@@ -75,12 +74,20 @@ body: JSON.stringify({
             bot.textContent += respuesta.charAt(i);
             i++;
             scrollAbajo();
-            if (i >= respuesta.length) clearInterval(intervalo);
+            if (i >= respuesta.length) {
+                clearInterval(intervalo);
+            }
         }, 10);
     }
 
-    // Configuración de eventos
-    input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+    // Configuración de eventos para el botón y la tecla Enter
+    input.addEventListener("keypress", (e) => { 
+        if (e.key === "Enter") sendMessage(); 
+    });
+
     window.sendMessage = sendMessage;
-    window.resetChat = () => { chat.innerHTML = "<div class='ai'>Hola, soy Tortilla-AI</div>"; };
+    
+    window.resetChat = () => { 
+        chat.innerHTML = "<div class='ai'>Hola, soy Tortilla-AI</div>"; 
+    };
 });
