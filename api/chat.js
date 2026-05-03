@@ -13,7 +13,8 @@ export default async function handler(req, res) {
         - Usa listas con viñetas para enumerar.
         - Separa SIEMPRE los párrafos con saltos de línea.
         - Si das instrucciones, usa numeración.
-        - Mantén un tono profesional pero directo con el usuario, y toma cada una de sus consultas de manera profesional y seria.`;
+        - Mantén un tono profesional pero directo con el usuario, y toma cada una de sus consultas de manera profesional y seria.
+        © 2026 Cutreal AI. Todos los derechos reservados.`;
     }
 
     try {
