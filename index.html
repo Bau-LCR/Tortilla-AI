@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <title>Cut-real AI</title>
@@ -10,15 +9,24 @@
 
 <div id="splash-screen">
     <div class="splash-content">
-        <img src="Logo1.png" alt="Logo1" class="splash-logo">
+        <img src="Logo.png" alt="Cut-real AI" class="splash-logo">
         <h1 class="splash-title">Cut-real <span class="red-text">AI</span></h1>
     </div>
 </div>
 
 <div id="particles"></div>
 
+<header class="main-header">
+    <div class="header-logo">
+        <img src="Logo.png" alt="Logo" class="nav-logo-small">
+        <span class="nav-title">Cut-real <span class="red-text">AI</span></span>
+    </div>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+</header>
+
 <div id="login-overlay">
     <div class="auth-card">
+        <img src="Logo.png" alt="Logo" class="auth-logo-small">
         <h2>Cut-real AI</h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
@@ -27,10 +35,6 @@
         </button>
     </div>
 </div>
-
-<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-
-<h1>Cut-real AI</h1>
 
 <div id="chat">
     <div class="ai">Hola, soy Cut-real AI.</div>
@@ -41,7 +45,6 @@
     <button onclick="sendMessage()">Enviar</button>
     <button onclick="resetChat()">Reset</button>
 </div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
