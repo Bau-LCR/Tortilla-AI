@@ -282,3 +282,67 @@ button:active {
 .google-btn img {
     width: 20px;
 }
+
+/* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
+#logout-btn {
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    background: rgba(255, 255, 255, 0.03) !important;
+    color: #888 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 10px 20px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease !important;
+    box-shadow: none !important; /* Quitamos la sombra roja por defecto */
+    z-index: 1000;
+}
+
+#logout-btn:hover {
+    background: rgba(255, 59, 59, 0.1) !important;
+    color: var(--primary-red) !important;
+    border-color: var(--primary-red) !important;
+    transform: translateY(-2px);
+}
+
+/* --- MEJORA DE LA TARJETA DE LOGIN --- */
+.auth-card {
+    background: rgba(15, 15, 15, 0.95);
+    padding: 60px 40px;
+    border-radius: 35px;
+    border: 1px solid rgba(255, 59, 59, 0.3);
+    text-align: center;
+    box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
+    max-width: 400px;
+    width: 90%;
+}
+
+.google-btn {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100%;
+    justify-content: center;
+    margin-top: 20px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    height: 55px;
+    border-radius: 15px !important;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.google-btn img {
+    width: 22px;
+}
+
+.google-btn:hover {
+    background: #f0f0f0 !important;
+    transform: scale(1.02) !important;
+}
