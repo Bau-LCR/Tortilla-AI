@@ -1,264 +1,171 @@
-body{
-
-font-family:Arial, Helvetica, sans-serif;
-
-background:#0f0f0f;
-
-color:white;
-
-margin:0;
-padding:0;
-
-display:flex;
-flex-direction:column;
-align-items:center;
-
-min-height:100vh;
-
-overflow-x:hidden;
-
+body {
+    font-family: 'Segoe UI', Arial, sans-serif; /* Fuente un poco más moderna */
+    background: #0f0f0f;
+    color: white;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
 }
 
 /* TITULO */
-
-h1{
-
-margin-top:40px;
-font-size:60px;
-letter-spacing:4px;
-font-weight:bold;
-
-text-align:center;
-
+h1 {
+    margin-top: 40px;
+    font-size: 50px; /* Un poco más pequeño para que no choque */
+    letter-spacing: 4px;
+    font-weight: bold;
+    text-align: center;
 }
 
 /* CHAT */
-
-#chat{
-
-width:60%;
-height:420px;
-
-margin-top:20px;
-
-background:#111;
-
-border-radius:18px;
-
-padding:20px;
-
-overflow-y:auto;
-
-text-align:left;
-
-box-shadow:0 10px 40px rgba(0,0,0,0.7);
-
-}
-
-.user{
-margin-left:auto;
-}
-
-.ai{
-margin-right:auto;
+#chat {
+    width: 65%; /* Un poco más ancho para leer mejor */
+    height: 450px;
+    margin-top: 20px;
+    background: #111;
+    border-radius: 18px;
+    padding: 25px;
+    overflow-y: auto;
+    text-align: left;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column; /* Organiza los mensajes uno bajo otro */
 }
 
 /* SCROLL */
-
-#chat::-webkit-scrollbar{
-width:6px;
+#chat::-webkit-scrollbar {
+    width: 6px;
 }
-
-#chat::-webkit-scrollbar-thumb{
-background:#444;
-border-radius:10px;
+#chat::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 10px;
 }
 
 /* MENSAJES */
-
-.user{
-
-background:#2a2a2a;
-
-padding:10px 14px;
-
-border-radius:12px;
-
-margin:10px 0;
-
-display:block;
-
-width:fit-content;
-
-max-width:70%;
-
-color:white;
-
-animation:aparecer 0.25s ease;
-
+.user {
+    background: #2a2a2a;
+    padding: 12px 16px;
+    border-radius: 18px 18px 2px 18px; /* Estilo burbuja */
+    margin: 10px 0 10px auto; /* Alineado a la derecha */
+    display: block;
+    width: fit-content;
+    max-width: 80%;
+    color: white;
+    animation: aparecer 0.25s ease;
 }
 
-.ai{
+.ai {
+    background: #440000; /* Un rojo más oscuro y elegante */
+    padding: 15px 20px;
+    border-radius: 18px 18px 18px 2px; /* Estilo burbuja */
+    margin: 10px auto 10px 0; /* Alineado a la izquierda */
+    display: block;
+    width: fit-content;
+    max-width: 85%;
+    color: #eeeeee;
+    animation: aparecer 0.25s ease;
+    
+    /* ESTILO GEMINI (Crucial para el formato) */
+    white-space: pre-wrap; /* Respeta los saltos de línea */
+    line-height: 1.6;      /* Espaciado entre líneas para leer mejor */
+}
 
-background:#b00000;
-
-padding:10px 14px;
-
-border-radius:12px;
-
-margin:10px 0;
-
-display:block;
-
-width:fit-content;
-
-max-width:70%;
-
-color:white;
-
-animation:aparecer 0.25s ease;
-
+/* Estilo para las negritas que genera la IA */
+.ai b, .ai strong {
+    color: #ff4c4c; /* Resalta las negritas en rojo brillante */
+    font-weight: bold;
 }
 
 /* ANIMACION */
-
-@keyframes aparecer{
-
-from{
-opacity:0;
-transform:translateY(10px);
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-to{
-opacity:1;
-transform:translateY(0);
+/* INPUT AREA */
+.input-area {
+    margin-top: 20px;
+    margin-bottom: 40px;
+    display: flex;
+    gap: 10px;
 }
 
+input {
+    width: 450px;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: #2a2a2a;
+    color: white;
+    outline: none;
+    font-size: 16px;
+    transition: 0.3s;
 }
 
-/* INPUT */
-
-.input-area{
-
-margin-top:15px;
-margin-bottom:30px;
-
+input:focus {
+    background: #333;
+    box-shadow: 0 0 0 2px #ff3b3b;
 }
 
-input{
-
-width:500px;
-
-padding:12px;
-
-border:none;
-
-border-radius:10px;
-
-background:#2a2a2a;
-
-color:white;
-
-outline:none;
-
-font-size:15px;
-
+/* BOTON ENVIAR */
+button {
+    padding: 12px 22px;
+    border: none;
+    border-radius: 12px;
+    background: #ff3b3b;
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.2s;
 }
 
-/* BOTON */
-
-button{
-
-padding:12px 18px;
-
-border:none;
-
-border-radius:10px;
-
-background:#ff3b3b;
-
-color:white;
-
-cursor:pointer;
-
-font-weight:bold;
-
-transition:0.2s;
-
+button:hover {
+    transform: scale(1.05);
+    background: #ff2020;
 }
 
-button:hover{
-
-transform:scale(1.05);
-
-background:#ff2020;
-
+/* BOTON RESET */
+#resetChat {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 10px 16px;
+    background: rgba(255, 76, 76, 0.2);
+    color: #ff4c4c;
+    border: 1px solid #ff4c4c;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    z-index: 1000;
+    transition: 0.3s;
 }
 
-#resetChat{
-
-position:fixed;
-
-top:20px;
-left:20px;
-
-padding:8px 14px;
-
-background:#ff4c4c;
-color:white;
-
-border:none;
-border-radius:6px;
-
-cursor:pointer;
-
-font-weight:bold;
-
-z-index:1000;
-
-}
-
-#resetChat:hover{
-
-background:#cc3a3a;
-
+#resetChat:hover {
+    background: #ff4c4c;
+    color: white;
 }
 
 /* PARTICULAS */
-
-#particles{
-
-position:fixed;
-top:0;
-left:0;
-
-width:100%;
-height:100%;
-
-z-index:-1;
-
+#particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
 }
 
-.particle{
-
-position:absolute;
-
-background:rgba(255,255,255,0.4);
-
-border-radius:50%;
-
-animation:float linear infinite;
-
+.particle {
+    position: absolute;
+    background: rgba(255,255,255,0.4);
+    border-radius: 50%;
+    animation: float linear infinite;
 }
 
-@keyframes float{
-
-from{
-transform:translateY(0);
-}
-
-to{
-transform:translateY(-120vh);
-}
-
+@keyframes float {
+    from { transform: translateY(0); }
+    to { transform: translateY(-120vh); }
 }
