@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const input = document.getElementById("input");
     
     // Pega tu clave de Google AI Studio aquí adentro de las comillas:
-    const API_KEY = 'TU_CLAVE_API_AQUI'; 
+    const API_KEY = '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'; 
     
     /* SCROLL */
     function scrollAbajo(){
