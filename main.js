@@ -33,6 +33,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     async function cargarDeNube(uid) {
+        // Feedback visual de carga
+        chat.innerHTML = "<div class='ai'>Sincronizando tus mensajes con la nube...</div>";
+        
         const { doc, getDoc } = window.firestore;
         try {
             const docRef = doc(window.db, "chats", uid);
@@ -46,6 +49,7 @@ document.addEventListener("DOMContentLoaded", function() {
             renderizarChat();
         } catch (e) {
             console.error("Error cargando de nube:", e);
+            chat.innerHTML = "<div class='ai' style='color: #ff4b4b;'>Error al sincronizar historial.</div>";
         }
     }
 
@@ -61,14 +65,20 @@ document.addEventListener("DOMContentLoaded", function() {
     };
 
     window.logout = () => {
-        if (window.auth) window.signOut(window.auth);
+        if (window.auth) {
+            // Animación sutil antes de salir
+            document.body.style.opacity = "0.5";
+            window.signOut(window.auth).then(() => {
+                location.reload(); // Recargamos para limpiar todo el estado
+            });
+        }
     };
 
     const renderizarChat = () => {
         chat.innerHTML = ""; 
         if (historial.length <= 1) {
             const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
-            chat.innerHTML = `<div class="ai">Hola ${nombre}, soy Cutreal - AI. Tus mensajes se guardan en la nube.</div>`;
+            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cutreal - AI. Tus mensajes están sincronizados.</div>`;
         } else {
             historial.forEach(msg => {
                 if (msg.role === "system") return;
@@ -86,12 +96,15 @@ document.addEventListener("DOMContentLoaded", function() {
             window.auth.onAuthStateChanged((user) => {
                 if (user) {
                     currentUser = user;
-                    loginOverlay.style.display = "none";
-                    if (logoutBtn) logoutBtn.style.display = "inline-block";
-                    cargarDeNube(user.uid); // CARGAMOS DESDE FIREBASE
+                    loginOverlay.style.opacity = "0";
+                    setTimeout(() => loginOverlay.style.display = "none", 300);
+                    
+                    if (logoutBtn) logoutBtn.style.display = "block";
+                    cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
+                    setTimeout(() => loginOverlay.style.opacity = "1", 10);
                     if (logoutBtn) logoutBtn.style.display = "none";
                     chat.innerHTML = "";
                     historial = [systemPrompt];
@@ -138,7 +151,6 @@ document.addEventListener("DOMContentLoaded", function() {
             const respuestaIA = data.choices[0].message.content;
             historial.push({ role: "assistant", content: respuestaIA });
 
-            // GUARDAR EN LA NUBE
             guardarEnNube();
 
             const bubble = document.getElementById("thinking-bubble");
@@ -164,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function() {
             console.error(e);
             const bubble = document.getElementById("thinking-bubble");
             if (bubble) bubble.remove();
-            chat.innerHTML += `<div class='ai' style='color: #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
+            chat.innerHTML += `<div class='ai' style='color: #ff4b4b; border: 1px solid #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
             scrollAbajo();
         }
     }
@@ -176,8 +188,8 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación de la nube?")) {
             historial = [systemPrompt];
-            await guardarEnNube(); // Sincroniza el borrado
             renderizarChat();
+            await guardarEnNube();
         }
     };
 });
