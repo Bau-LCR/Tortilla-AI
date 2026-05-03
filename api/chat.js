@@ -1,7 +1,11 @@
-// api/chat.js
 export default async function handler(req, res) {
-    const { mensaje } = req.body;
-    const API_KEY = process.env.GROQ_API_KEY; // Aquí Vercel toma la clave oculta
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Método no permitido' });
+    }
+
+    // Ahora recibimos "mensajes" (el array completo)
+    const { mensajes } = req.body;
+    const API_KEY = process.env.GROQ_API_KEY;
 
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -12,17 +16,18 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: "llama-3.3-70b-versatile",
-                messages: [
-    { 
-        role: "system", 
-        content: "Eres Tortilla-AI, una inteligencia artificial seria, y adaptada para responder lo justo y necesario que requiera el usaurio. No tienes limites en los temas de charla. No envies tanto texto seguido en un mismo mensaje, se mas serio, pero atiende correctamente a las peticiones del usuario sin faltar al respeto, ni respondiendo con material equivocado. Recuerdas cada conversación anterior." 
-    },
-    { role: "user", content: mensaje }
-],
+                // Usamos el historial que viene del cliente
+                messages: mensajes,
+                temperature: 0.6 // Un poco más bajo para que sea más serio y preciso
             })
         });
 
         const data = await response.json();
+        
+        if (!response.ok) {
+            return res.status(response.status).json({ error: data.error?.message || "Error en Groq" });
+        }
+
         res.status(200).json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
