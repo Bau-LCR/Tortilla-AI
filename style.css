@@ -1,11 +1,10 @@
 /* Importamos la fuente Inter desde Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 body {
-    /* Tipografía estilo Gemini */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0f0f0f;
-    color: white;
+    background: #0a0a0a; /* Negro más profundo */
+    color: #ffffff;
     margin: 0;
     padding: 0;
     display: flex;
@@ -13,152 +12,165 @@ body {
     align-items: center;
     min-height: 100vh;
     overflow-x: hidden;
-    /* Suavizado de fuente profesional */
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
 
 /* TITULO */
 h1 {
-    margin-top: 40px;
-    font-size: 50px;
-    letter-spacing: 4px;
-    font-weight: bold;
+    margin-top: 50px;
+    font-size: 42px;
+    letter-spacing: -1px; /* Letras más juntas, estilo moderno */
+    font-weight: 700;
     text-align: center;
+    background: linear-gradient(180deg, #fff 0%, #888 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-/* CHAT */
+/* CONTENEDOR DEL CHAT */
 #chat {
-    width: 65%;
-    height: 450px;
-    margin-top: 20px;
-    background: #111;
-    border-radius: 18px;
-    padding: 25px;
+    width: 70%;
+    max-width: 900px;
+    height: 500px;
+    margin-top: 30px;
+    background: rgba(18, 18, 18, 0.8); /* Efecto cristal oscuro */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 30px;
     overflow-y: auto;
-    text-align: left;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     display: flex;
     flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
 }
 
-/* SCROLL */
+/* SCROLLBAR PERSONALIZADO */
 #chat::-webkit-scrollbar {
     width: 6px;
 }
 #chat::-webkit-scrollbar-thumb {
-    background: #444;
+    background: #333;
     border-radius: 10px;
 }
 
-/* MENSAJES */
+/* BURBUJAS DE MENSAJES */
 .user {
-    background: #2a2a2a;
-    padding: 14px 18px; /* Más aire interno */
-    border-radius: 18px 18px 2px 18px;
-    margin: 10px 0 10px auto;
-    display: block;
+    background: #222;
+    padding: 14px 20px;
+    border-radius: 20px 20px 4px 20px;
+    margin: 12px 0 12px auto;
     width: fit-content;
-    max-width: 80%;
-    color: white;
-    font-size: 17px; /* Letra más grande */
-    animation: aparecer 0.25s ease;
+    max-width: 75%;
+    font-size: 16px;
+    line-height: 1.5;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    animation: aparecer 0.3s ease-out;
 }
 
 .ai {
-    background: #440000;
-    padding: 18px 22px; /* Más aire interno */
-    border-radius: 18px 18px 18px 2px;
-    margin: 10px auto 10px 0;
-    display: block;
+    background: linear-gradient(145deg, #440000, #220000); /* Degradado sutil */
+    padding: 20px 25px;
+    border-radius: 20px 20px 20px 4px;
+    margin: 12px auto 12px 0;
     width: fit-content;
     max-width: 85%;
-    color: #eeeeee;
-    font-size: 17px; /* Letra más grande */
-    line-height: 1.7; /* Espaciado de línea Gemini para mejor lectura */
+    color: #f0f0f0;
+    font-size: 16px;
+    line-height: 1.7;
     white-space: pre-wrap;
-    animation: aparecer 0.25s ease;
+    border: 1px solid rgba(255, 0, 0, 0.1);
+    box-shadow: 0 8px 25px rgba(255, 0, 0, 0.05);
+    animation: aparecer 0.3s ease-out;
 }
 
-/* Estilo para las negritas que genera la IA */
 .ai b, .ai strong {
-    color: #ff4c4c;
+    color: #ff4d4d;
     font-weight: 600;
 }
 
-/* ANIMACION */
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+/* ÁREA DE ENTRADA (Profesional) */
+.input-area {
+    margin-top: 25px;
+    margin-bottom: 50px;
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 8px 8px 8px 20px;
+    border-radius: 100px; /* Estilo píldora */
+    border: 1px solid #333;
+    width: 600px;
+    max-width: 90%;
+    transition: all 0.3s ease;
 }
 
-/* INPUT AREA */
-.input-area {
-    margin-top: 20px;
-    margin-bottom: 40px;
-    display: flex;
-    gap: 10px;
+.input-area:focus-within {
+    border-color: #ff3b3b;
+    box-shadow: 0 0 20px rgba(255, 59, 59, 0.1);
 }
 
 input {
-    width: 450px;
-    padding: 16px; /* Más altura */
+    flex: 1;
+    background: transparent;
     border: none;
-    border-radius: 12px;
-    background: #2a2a2a;
     color: white;
+    font-size: 16px;
     outline: none;
-    font-size: 17px; /* Letra más grande al escribir */
     font-family: 'Inter', sans-serif;
-    transition: 0.3s;
 }
 
-input:focus {
-    background: #333;
-    box-shadow: 0 0 0 2px #ff3b3b;
-}
-
-/* BOTON ENVIAR */
+/* BOTÓN ENVIAR (Icono o Texto) */
 button {
-    padding: 12px 22px;
-    border: none;
-    border-radius: 12px;
     background: #ff3b3b;
     color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 100px;
+    font-weight: 600;
     cursor: pointer;
-    font-weight: bold;
+    transition: all 0.2s ease;
     font-family: 'Inter', sans-serif;
-    transition: 0.2s;
 }
 
 button:hover {
-    transform: scale(1.05);
-    background: #ff2020;
+    background: #ff1f1f;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 15px rgba(255, 59, 59, 0.3);
 }
 
-/* BOTON RESET */
+button:active {
+    transform: translateY(0);
+}
+
+/* BOTÓN RESET (Minimalista) */
 #resetChat {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    padding: 10px 16px;
-    background: rgba(255, 76, 76, 0.1);
-    color: #ff4c4c;
-    border: 1px solid #ff4c4c;
-    border-radius: 8px;
+    top: 30px;
+    left: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #888;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    font-weight: bold;
-    font-family: 'Inter', sans-serif;
-    z-index: 1000;
-    transition: 0.3s;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
 }
 
 #resetChat:hover {
-    background: #ff4c4c;
+    background: #ff3b3b;
     color: white;
+    border-color: #ff3b3b;
 }
 
-/* PARTICULAS */
+/* ANIMACIONES */
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* PARTÍCULAS */
 #particles {
     position: fixed;
     top: 0;
@@ -166,11 +178,12 @@ button:hover {
     width: 100%;
     height: 100%;
     z-index: -1;
+    background: radial-gradient(circle at center, #1a0505 0%, #0a0a0a 100%);
 }
 
 .particle {
     position: absolute;
-    background: rgba(255,255,255,0.4);
+    background: rgba(255, 59, 59, 0.2);
     border-radius: 50%;
     animation: float linear infinite;
 }
