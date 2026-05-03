@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", function() {
         chat.innerHTML = ""; 
         if (historial.length <= 1) {
             const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
-            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cutreal - AI. Tus mensajes están sincronizados.</div>`;
+            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI. Tus mensajes están sincronizados.</div>`;
         } else {
             historial.forEach(msg => {
                 if (msg.role === "system") return;
