@@ -367,7 +367,7 @@ button:active {
 }
 
 .splash-logo {
-    width: 300px;
+    width: 650px;
     height: auto;
     margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
