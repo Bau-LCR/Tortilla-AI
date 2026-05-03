@@ -28,12 +28,11 @@ document.addEventListener("DOMContentLoaded", function() {
         let respuesta = "";
 
         try {
-            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${API_KEY}`,
-                    "Content-Type": "application/json"
-                },
+            const res = await fetch("/api/chat", { // Llamas a tu propio servidor oculto
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mensaje: msg })
+});
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
                     messages: [
