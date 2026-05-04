@@ -252,64 +252,80 @@ h1 { display: none; }
 }
 
 /* =========================================
-   RESPONSIVIDAD MÓVIL (VERTICAL)
+   AJUSTE DEFINITIVO PARA CELULARES (Vertical)
    ========================================= */
 
 @media (max-width: 768px) {
-    /* Header más compacto */
-    .main-header { padding: 10px 20px; }
-    .nav-logo-small { height: 50px; }
-    .nav-title { font-size: 18px; }
+    /* 1. Header y Logo: Más pequeños para que no ocupen media pantalla */
+    .main-header {
+        padding: 10px 15px;
+        background: rgba(10, 10, 10, 0.95); /* Más sólido para que no se trasluzca el chat */
+    }
+    .nav-logo-small { height: 40px; }
+    .nav-title { font-size: 16px; }
 
-    /* Botones de control flotantes pequeños */
+    /* 2. Botones Superiores: En fila (uno al lado del otro) para ahorrar espacio */
     .side-controls {
-        top: 15px !important;
-        right: 15px !important;
-        gap: 8px;
-    }
-    #logout-btn, #resetChat {
-        width: 110px;
-        font-size: 9px !important;
-        padding: 8px 0 !important;
-        border-radius: 8px !important;
+        top: 10px !important;
+        right: 10px !important;
+        flex-direction: row !important; 
+        gap: 5px;
     }
 
-    /* Ajuste del Chat */
+    #logout-btn, #resetChat {
+        width: auto !important;
+        padding: 6px 10px !important;
+        font-size: 8px !important;
+        border-radius: 6px !important;
+        letter-spacing: 0px;
+        white-space: nowrap;
+    }
+
+    /* 3. El Chat: Le damos más margen arriba para que no choque con el header */
     #chat {
-        width: 92%;
-        height: 65vh;
-        margin-top: 80px;
+        width: 90%;
+        margin-top: 90px; /* Suficiente espacio para el header y botones */
+        height: calc(100vh - 260px); /* Ajuste dinámico de altura */
         padding: 15px;
         border-radius: 20px;
     }
 
-    .user { max-width: 85%; font-size: 14px; padding: 12px 16px; }
-    .ai { max-width: 92%; font-size: 14px; padding: 12px 16px; }
+    .user, .ai {
+        font-size: 14px;
+        max-width: 92%;
+        padding: 12px 15px;
+    }
 
-    /* Input area pegada abajo y más ancha */
+    /* 4. Barra de escritura: Ajustada al ancho del celular */
     .input-area {
-        width: 92%;
-        margin-top: 15px;
-        margin-bottom: 20px;
-        padding: 8px 8px 8px 16px;
-        border-radius: 20px;
+        width: 90%;
+        margin-bottom: 15px;
+        padding: 8px 10px 8px 15px;
+        border-radius: 15px;
     }
 
     .input-area textarea {
         font-size: 14px;
-        padding: 8px 0;
     }
 
     .input-area button {
-        padding: 10px 18px;
-        font-size: 14px;
+        padding: 10px 15px;
+        font-size: 12px;
     }
-
-    .splash-logo { width: 220px; }
+    
+    /* 5. Footer (Copyright): Muy chiquito para que no moleste */
+    footer.copyright {
+        margin-top: 10px;
+        padding-bottom: 10px;
+    }
+    footer.copyright p {
+        font-size: 8px !important;
+    }
 }
 
-/* Soporte para pantallas muy pequeñas */
-@media (max-width: 400px) {
-    .nav-title { display: none; } /* Solo logo en pantallas mini */
-    #chat { height: 60vh; }
+/* --- FIX PARA EL BOTÓN DE GOOGLE (Por si las dudas) --- */
+.google-btn img {
+    width: 20px !important;
+    height: 20px !important;
+    object-fit: contain;
 }
