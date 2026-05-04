@@ -269,9 +269,17 @@ input {
     filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
 }
 
+/* Busca .google-btn img y reemplázalo por esto */
+.google-btn img {
+    width: 22px !important; /* Forzamos el tamaño pequeño del icono */
+    height: 22px !important;
+    object-fit: contain;
+}
+
+/* Asegúrate de que el botón tenga estas propiedades */
 .google-btn {
     background: #ffffff !important;
-    color: #000 !important;
+    color: #000000 !important;
     width: 100%;
     height: 55px;
     border-radius: 15px !important;
@@ -279,8 +287,9 @@ input {
     align-items: center;
     justify-content: center;
     gap: 15px;
-    font-weight: 700 !important;
-    box-shadow: 0 5px 15px rgba(255,255,255,0.1) !important;
+    overflow: hidden; /* Evita que cualquier cosa salga del botón */
+    position: relative;
+    z-index: 10001; /* Por encima del fondo */
 }
 
 /* --- SPLASH SCREEN --- */
