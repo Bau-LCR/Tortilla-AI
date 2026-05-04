@@ -434,6 +434,21 @@ button:active {
     /* ... resto de tus estilos de botones ... */
 }
 
+.side-controls {
+    position: fixed !important;
+    top: 30px !important;
+    right: 40px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 99999; /* Un número muy alto para que nada lo tape */
+}
+
+#logout-btn, #resetChat {
+    width: 160px;
+    /* Asegúrate de que no tengan position: fixed individualmente */
+    position: static !important; 
+}
 
 /* ANIMACIONES */
 
