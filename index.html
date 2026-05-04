@@ -32,7 +32,8 @@
     </div>
 </div>
 
-<h1>Cut-real AI</h1>
+<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+<button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
 
 <div id="chat">
     <div class="ai">Hola, soy Cut-real AI.</div>
@@ -41,8 +42,6 @@
 <div class="input-area">
     <input id="input" placeholder="Escribe..." autocomplete="off">
     <button onclick="sendMessage()">Enviar</button>
-    <button id="resetChat" onclick="resetChat()">Reset</button>
-    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
 </div>
 
 <script type="module">
@@ -64,7 +63,6 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Exportar herramientas a global
   window.auth = auth;
   window.db = db;
   window.provider = provider;
