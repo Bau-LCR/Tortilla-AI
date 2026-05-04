@@ -3,6 +3,17 @@ document.addEventListener("DOMContentLoaded", function() {
     const input = document.getElementById("input");
     const loginOverlay = document.getElementById("login-overlay");
     const logoutBtn = document.getElementById("logout-btn");
+    const splashScreen = document.getElementById("splash-screen");
+
+    // --- LÓGICA DEL SPLASH SCREEN ---
+    // Oculta el splash screen después de 1.5 segundos con un fade out
+    setTimeout(() => {
+        if (splashScreen) {
+            splashScreen.style.opacity = "0";
+            splashScreen.style.transition = "opacity 0.8s ease";
+            setTimeout(() => splashScreen.style.display = "none", 800);
+        }
+    }, 1500);
 
     const systemPrompt = { role: "system", content: "Configurado en el servidor." };
     
