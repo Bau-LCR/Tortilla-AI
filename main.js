@@ -211,38 +211,29 @@ document.addEventListener("DOMContentLoaded", function() {
         if (window.auth) {
 
             window.auth.onAuthStateChanged((user) => {
+    const logoutBtn = document.getElementById("logout-btn");
+    const resetBtn = document.getElementById("resetChat");
+    const loginOverlay = document.getElementById("login-overlay");
 
-                if (user) {
-
-                    currentUser = user;
-
-                    loginOverlay.style.opacity = "0";
-
-                    setTimeout(() => loginOverlay.style.display = "none", 300);
-
-                    
-
-                    if (logoutBtn) logoutBtn.style.display = "block";
-
-                    cargarDeNube(user.uid); 
-
-                } else {
-
-                    currentUser = null;
-
-                    loginOverlay.style.display = "flex";
-
-                    setTimeout(() => loginOverlay.style.opacity = "1", 10);
-
-                    if (logoutBtn) logoutBtn.style.display = "none";
-
-                    chat.innerHTML = "";
-
-                    historial = [systemPrompt];
-
-                }
-
-            });
+    if (user) {
+        currentUser = user;
+        // Ocultar el login
+        loginOverlay.style.display = "none";
+        
+        // MOSTRAR BOTONES (Forzamos el display block)
+        if (logoutBtn) logoutBtn.style.display = "block";
+        if (resetBtn) resetBtn.style.display = "block";
+        
+        cargarDeNube(user.uid); 
+    } else {
+        currentUser = null;
+        loginOverlay.style.display = "flex";
+        
+        // OCULTAR BOTONES si no hay usuario
+        if (logoutBtn) logoutBtn.style.display = "none";
+        if (resetBtn) resetBtn.style.display = "none";
+    }
+});
 
         } else {
 
