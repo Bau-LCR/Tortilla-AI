@@ -1,323 +1,1565 @@
 /* Importamos Inter con todos sus pesos para máxima jerarquía visual */
+
+
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-g
+
+
+
+
+
+
+
 :root {
+
+
+
     --primary-red: #ff3b3b;
+
+
+
     --dark-red: #cc0000;
+
+
+
     --bg-black: #0a0a0a;
+
+
+
     --card-bg: rgba(18, 18, 18, 0.75);
+
+
+
     --border-white: rgba(255, 255, 255, 0.08);
+
+
+
 }
+
+
+
+
+
+
 
 body {
+
+
+
     font-family: 'Inter', -apple-system, system-ui, sans-serif;
+
+
+
     background: var(--bg-black);
+
+
+
     color: #ffffff;
+
+
+
     margin: 0;
+
+
+
     padding: 0;
+
+
+
     display: flex;
+
+
+
     flex-direction: column;
+
+
+
     align-items: center;
+
+
+
     min-height: 100vh;
+
+
+
     overflow-x: hidden;
+
+
+
     -webkit-font-smoothing: antialiased;
+
+
+
 }
+
+
+
+
+
+
 
 /* OCULTAMOS EL H1 PARA USAR EL HEADER EN SU LUGAR */
+
+
+
 h1 {
+
+
+
     display: none;
+
+
+
 }
 
-/* --- HEADER SUPERIOR --- */
+
+
+
+
+
+
+/* --- HEADER SUPERIOR (NUEVO) --- */
+
+
+
 .main-header {
+
+
+
     display: flex;
+
+
+
     justify-content: flex-start;
+
+
+
     align-items: center;
+
+
+
     padding: 15px 40px;
+
+
+
     position: fixed;
+
+
+
     top: 0;
+
+
+
     width: 100%;
+
+
+
     z-index: 100;
+
+
+
     background: linear-gradient(to bottom, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0) 100%);
-    pointer-events: none;
+
+
+
+    pointer-events: none; /* Para que no bloquee clics detrás, excepto en sus hijos */
+
+
+
 }
+
+
+
+
+
+
 
 .header-logo {
+
+
+
     display: flex;
+
+
+
     align-items: center;
+
+
+
     text-decoration: none;
-    pointer-events: auto;
+
+
+
+    pointer-events: auto; /* Reactivamos clics para el logo */
+
+
+
 }
+
+
+
+
+
+
 
 .nav-logo-small {
-    height: 90px;
+
+
+
+    height: 90px; /* Tamaño medianamente grande */
+
+
+
     width: auto;
+
+
+
     margin-right: 5px;
+
+
+
     object-fit: contain;
+
+
+
     filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.2));
+
+
+
 }
+
+
+
+
+
+
 
 .nav-title {
+
+
+
     font-size: 28px;
+
+
+
     font-weight: 800;
+
+
+
     color: white;
+
+
+
     letter-spacing: -0.5px;
+
+
+
     margin: 0;
+
+
+
 }
+
+
+
+
+
+
 
 .red-text { 
+
+
+
     color: var(--primary-red); 
+
+
+
 }
 
-/* --- BOTONES DE CONTROL (SIDE CONTROLS) --- */
-.side-controls {
-    position: fixed !important;
-    top: 30px !important;
-    right: 40px !important;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    z-index: 99999;
-}
 
-/* Estilo unificado para Logout y Reset */
-#logout-btn, #resetChat {
-    position: static !important;
-    width: 160px;
-    background: rgba(255, 255, 255, 0.03) !important;
-    color: #888 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    padding: 11px 0 !important;
-    border-radius: 12px !important;
-    font-size: 11px !important;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    font-weight: 600;
-    cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease !important;
-    box-shadow: none !important; 
-    text-align: center;
-}
 
-#logout-btn:hover, #resetChat:hover {
-    background: rgba(255, 59, 59, 0.1) !important;
-    color: var(--primary-red) !important;
-    border-color: var(--primary-red) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(255, 59, 59, 0.1) !important;
-}
 
-/* CONTENEDOR DEL CHAT */
+
+
+
+/* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
+
+
+
 #chat {
+
+
+
     width: 75%;
+
+
+
     max-width: 1000px;
+
+
+
     height: 550px;
-    margin-top: 130px;
+
+
+
+    margin-top: 130px; /* Bajado un poco para hacer espacio al Header */
+
+
+
     background: var(--card-bg);
+
+
+
     backdrop-filter: blur(12px);
+
+
+
     -webkit-backdrop-filter: blur(12px);
+
+
+
     border: 1px solid var(--border-white);
+
+
+
     border-radius: 28px;
+
+
+
     padding: 35px;
+
+
+
     overflow-y: auto;
+
+
+
     display: flex;
+
+
+
     flex-direction: column;
+
+
+
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+
+
+
     scroll-behavior: smooth;
+
+
+
     position: relative;
+
+
+
     z-index: 10;
+
+
+
 }
+
+
+
+
+
+
 
 /* SCROLLBAR MINIMALISTA */
+
+
+
 #chat::-webkit-scrollbar {
+
+
+
     width: 5px;
+
+
+
 }
+
+
+
 #chat::-webkit-scrollbar-thumb {
+
+
+
     background: #2a2a2a;
+
+
+
     border-radius: 10px;
+
+
+
 }
+
+
+
+
+
+
 
 /* BURBUJAS DE MENSAJES */
+
+
+
 .user {
+
+
+
     background: #252525;
+
+
+
     padding: 16px 22px;
+
+
+
     border-radius: 22px 22px 4px 22px;
+
+
+
     margin: 12px 0 12px auto;
+
+
+
     width: fit-content;
+
+
+
     max-width: 70%;
+
+
+
     font-size: 16px;
+
+
+
+    font-weight: 400;
+
+
+
+    line-height: 1.6;
+
+
+
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+
+
+
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+
+
 }
+
+
+
+
+
+
 
 .ai {
+
+
+
     background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%);
+
+
+
     padding: 22px 28px;
+
+
+
     border-radius: 22px 22px 22px 4px;
+
+
+
     margin: 12px auto 12px 0;
+
+
+
     width: fit-content;
+
+
+
     max-width: 82%;
+
+
+
     color: #f5f5f5;
+
+
+
+    font-size: 16.5px;
+
+
+
     line-height: 1.8;
+
+
+
     white-space: pre-wrap;
+
+
+
     border: 1px solid rgba(255, 0, 0, 0.15);
+
+
+
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.03);
+
+
+
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+
+
 }
+
+
+
+
+
+
 
 .ai b, .ai strong {
+
+
+
     color: var(--primary-red);
+
+
+
+    font-weight: 600;
+
+
+
 }
 
-/* ÁREA DE ENTRADA */
+
+
+
+
+
+
+/* ÁREA DE ENTRADA ESTILO BARRA DE BÚSQUEDA PRO */
+
+
+
 .input-area {
+
+
+
     margin-top: 30px;
-    margin-bottom: 30px;
+
+
+
+    margin-bottom: 30px; /* Reducido para que el footer no se superponga */
+
+
+
     display: flex;
+
+
+
     align-items: center;
+
+
+
     background: #161616;
+
+
+
     padding: 10px 10px 10px 24px;
+
+
+
     border-radius: 100px;
+
+
+
     border: 1px solid #252525;
+
+
+
     width: 650px;
+
+
+
     max-width: 92%;
+
+
+
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+
+
     position: relative;
+
+
+
     z-index: 10;
+
+
+
 }
+
+
+
+
+
+
 
 .input-area:focus-within {
+
+
+
     border-color: var(--primary-red);
+
+
+
+    background: #1a1a1a;
+
+
+
     box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.1);
+
+
+
 }
+
+
+
+
+
+
 
 input {
+
+
+
     flex: 1;
+
+
+
     background: transparent;
+
+
+
     border: none;
+
+
+
     color: #ffffff;
+
+
+
     font-size: 16px;
+
+
+
     outline: none;
+
+
+
+    font-family: 'Inter', sans-serif;
+
+
+
+    padding-right: 15px;
+
+
+
 }
 
-/* BOTÓN ENVIAR GENERAL */
-.input-area button {
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
-    color: white;
-    border: none;
-    padding: 14px 32px;
-    border-radius: 100px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
+
+
+
+
+
+
+input::placeholder {
+
+
+
+    color: #555;
+
+
+
 }
+
+
+
+
+
+
+
+/* BOTÓN ENVIAR - FEEDBACK TÁCTIL */
+
+
+
+button {
+
+
+
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+
+
+
+    color: white;
+
+
+
+    border: none;
+
+
+
+    padding: 14px 32px;
+
+
+
+    border-radius: 100px;
+
+
+
+    font-weight: 600;
+
+
+
+    font-size: 15px;
+
+
+
+    cursor: pointer;
+
+
+
+    transition: all 0.3s ease;
+
+
+
+    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
+
+
+
+}
+
+
+
+
+
+
+
+button:hover {
+
+
+
+    transform: translateY(-2px) scale(1.02);
+
+
+
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.45);
+
+
+
+}
+
+
+
+
+
+
+
+button:active {
+
+
+
+    transform: translateY(1px) scale(0.98);
+
+
+
+}
+
+
+
+
+
+
+
+/* BOTÓN RESET - POSICIONADO DEBAJO DE LOGOUT */
+
+@media (max-width: 768px) {
+
+    /* ... otros estilos ... */
+
+    #resetChat { 
+
+        top: 75px; /* Ajuste para móvil debajo del logout */
+
+        right: 20px; 
+
+        left: auto; 
+
+        width: 130px;
+
+    }
+
+    #logout-btn {
+
+        top: 20px;
+
+        right: 20px;
+
+        width: 130px;
+
+    }
+
+}
+
+#resetChat:hover {
+
+    background: var(--primary-red);
+
+    color: white;
+
+    border-color: var(--primary-red);
+
+    box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
+
+    transform: translateY(-2px); /* Mantenemos el efecto de levitación */
+
+}
+
+/* Esto va en tu style.css */
+
+.side-controls {
+
+    position: fixed;
+
+    top: 30px;      /* Distancia desde arriba */
+
+    right: 40px;    /* Distancia desde la derecha */
+
+    display: flex;
+
+    flex-direction: column; /* Alinea uno debajo del otro */
+
+    gap: 10px;      /* Espacio entre los botones */
+
+    z-index: 1000;  /* Asegura que estén por encima de todo */
+
+}
+
+
+
+/* Ajuste para que los botones individuales no floten por su cuenta */
+
+#logout-btn, #resetChat {
+
+    position: static; /* Cambiamos fixed por static porque el padre ya es fixed */
+
+    width: 160px;
+
+    /* ... resto de tus estilos de botones ... */
+
+}
+
+
+
+.side-controls {
+
+    position: fixed !important;
+
+    top: 30px !important;
+
+    right: 40px !important;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 12px;
+
+    z-index: 99999; /* Un número muy alto para que nada lo tape */
+
+}
+
+
+
+#logout-btn, #resetChat {
+
+    width: 160px;
+
+    /* Asegúrate de que no tengan position: fixed individualmente */
+
+    position: static !important; 
+
+}
+
+
 
 /* ANIMACIONES */
+
+
+
 @keyframes aparecer {
+
+
+
     from { opacity: 0; transform: translateY(20px) scale(0.98); }
+
+
+
     to { opacity: 1; transform: translateY(0) scale(1); }
+
+
+
 }
 
-/* FONDO DE PARTÍCULAS */
+
+
+
+
+
+
+/* FONDO DE PARTÍCULAS MEJORADO */
+
+
+
 #particles {
+
+
+
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+
+
+
+    top: 0;
+
+
+
+    left: 0;
+
+
+
+    width: 100%;
+
+
+
+    height: 100%;
+
+
+
     z-index: -1;
+
+
+
     background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+
+
+
 }
+
+
+
+
+
+
 
 .particle {
+
+
+
     position: absolute;
+
+
+
     background: rgba(255, 59, 59, 0.15);
+
+
+
     border-radius: 50%;
+
+
+
     animation: float linear infinite;
+
+
+
 }
+
+
+
+
+
+
 
 @keyframes float {
+
+
+
     from { transform: translateY(0); }
+
+
+
     to { transform: translateY(-120vh); }
+
+
+
 }
+
+
+
+
+
+
 
 /* --- LOGIN OVERLAY --- */
+
+
+
 #login-overlay {
+
+
+
     position: fixed;
-    inset: 0;
+
+
+
+    top: 0;
+
+
+
+    left: 0;
+
+
+
+    width: 100%;
+
+
+
+    height: 100%;
+
+
+
     background: rgba(0, 0, 0, 0.9);
+
+
+
     backdrop-filter: blur(20px);
-    z-index: 9999;
+
+
+
+    z-index: 9999; /* Por debajo del splash screen, por encima de todo lo demás */
+
+
+
     display: flex;
+
+
+
     align-items: center;
+
+
+
     justify-content: center;
+
+
+
 }
+
+
+
+
+
+
+
+/* MEJORA DE LA TARJETA DE LOGIN */
+
+
 
 .auth-card {
+
+
+
     background: rgba(15, 15, 15, 0.95);
+
+
+
     padding: 50px 40px;
+
+
+
     border-radius: 35px;
+
+
+
     border: 1px solid rgba(255, 59, 59, 0.3);
+
+
+
     text-align: center;
-    width: 90%;
+
+
+
+    box-shadow: 0 0 50px rgba(255, 59, 59, 0.15);
+
+
+
     max-width: 450px;
+
+
+
+    width: 90%;
+
+
+
     display: flex;
+
+
+
     flex-direction: column;
+
+
+
     align-items: center;
+
+
+
     animation: aparecer 0.5s ease-out;
+
+
+
 }
+
+
+
+
+
+
+
+/* LOGO EN EL LOGIN */
+
+
 
 .auth-logo-small {
-    height: 200px;
+
+
+
+    height: 180px; /* Tamaño mediano-grande */
+
+
+
+    width: auto;
+
+
+
     margin-bottom: 25px;
+
+
+
+    display: block;
+
+
+
     filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
+
+
+
 }
 
-/* Busca .google-btn img y reemplázalo por esto */
-.google-btn img {
-    width: 40px !important; /* Forzamos el tamaño pequeño del icono */
-    height: 22px !important;
-    object-fit: contain;
+
+
+
+
+
+
+.auth-card h2 {
+
+
+
+    font-size: 32px;
+
+
+
+    margin-bottom: 10px;
+
+
+
+    margin-top: 0;
+
+
+
+    background: linear-gradient(135deg, #fff 50%, var(--primary-red) 100%);
+
+
+
+    -webkit-background-clip: text;
+
+
+
+    -webkit-text-fill-color: transparent;
+
+
+
 }
 
-/* Asegúrate de que el botón tenga estas propiedades */
+
+
+
+
+
+
+.auth-card p {
+
+
+
+    color: #888;
+
+
+
+    margin-bottom: 35px;
+
+
+
+    font-size: 15px;
+
+
+
+}
+
+
+
+
+
+
+
 .google-btn {
+
+
+
     background: #ffffff !important;
+
+
+
     color: #000000 !important;
+
+
+
     width: 100%;
-    height: 55px;
-    border-radius: 15px !important;
-    display: flex;
-    align-items: center;
+
+
+
     justify-content: center;
+
+
+
+    margin-top: 10px !important;
+
+
+
+    font-size: 16px !important;
+
+
+
+    font-weight: 700 !important;
+
+
+
+    height: 55px;
+
+
+
+    border-radius: 15px !important;
+
+
+
+    border: none;
+
+
+
+    display: flex;
+
+
+
+    align-items: center;
+
+
+
     gap: 15px;
-    overflow: hidden; /* Evita que cualquier cosa salga del botón */
-    position: relative;
-    z-index: 10001; /* Por encima del fondo */
+
+
+
+    box-shadow: 0 5px 15px rgba(255,255,255,0.1) !important;
+
+
+
 }
 
-/* --- SPLASH SCREEN --- */
-#splash-screen {
-    position: fixed;
-    inset: 0;
-    background: #0a0a0a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
+
+
+
+
+
+
+.google-btn img {
+
+
+
+    width: 22px;
+
+
+
 }
+
+
+
+
+
+
+
+.google-btn:hover {
+
+
+
+    background: #f0f0f0 !important;
+
+
+
+    transform: scale(1.02) !important;
+
+
+
+}
+
+
+
+
+
+
+
+/* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
+
+
+
+#logout-btn {
+
+    position: fixed;
+
+    top: 30px;
+
+    right: 40px;
+
+    width: 160px; /* Mismo ancho que el reset para armonía visual */
+
+    background: rgba(255, 255, 255, 0.03) !important;
+
+    color: #888 !important;
+
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+    padding: 10px 0 !important; /* Ajustado para centrar texto */
+
+    border-radius: 12px !important;
+
+    font-size: 11px !important;
+
+    text-transform: uppercase;
+
+    letter-spacing: 1.5px;
+
+    cursor: pointer;
+
+    backdrop-filter: blur(10px);
+
+    transition: all 0.3s ease !important;
+
+    box-shadow: none !important; 
+
+    z-index: 1000;
+
+    text-align: center;
+
+}
+
+
+
+
+
+#logout-btn:hover {
+
+
+
+    background: rgba(255, 59, 59, 0.1) !important;
+
+
+
+    color: var(--primary-red) !important;
+
+
+
+    border-color: var(--primary-red) !important;
+
+
+
+    transform: translateY(-2px);
+
+
+
+}
+
+
+
+
+
+
+
+/* --- SPLASH SCREEN (PANTALLA DE CARGA) --- */
+
+
+
+#splash-screen {
+
+
+
+    position: fixed;
+
+
+
+    top: 0;
+
+
+
+    left: 0;
+
+
+
+    width: 100%;
+
+
+
+    height: 100vh;
+
+
+
+    background-color: #0a0a0a;
+
+
+
+    display: flex;
+
+
+
+    justify-content: center;
+
+
+
+    align-items: center;
+
+
+
+    z-index: 10000; /* Siempre encima de todo al cargar */
+
+
+
+}
+
+
+
+
+
+
+
+/* LOGO DEL SPLASH SCREEN */
+
+
 
 .splash-logo {
-    width: 350px;
+
+
+
+    width: 350px; /* Tamaño grande para el inicio */
+
+
+
+    height: auto;
+
+
+
     animation: splashPulse 2s infinite ease-in-out;
+
+
+
     filter: drop-shadow(0 0 30px rgba(255, 59, 59, 0.3));
+
+
+
 }
+
+
+
+
+
+
 
 @keyframes splashPulse {
+
+
+
     0%, 100% { transform: scale(1); opacity: 0.8; }
+
+
+
     50% { transform: scale(1.08); opacity: 1; }
+
+
+
 }
 
-/* RESPONSIVIDAD */
+
+
+
+
+
+
+/* RESPONSIVIDAD PRO */
+
+
+
 @media (max-width: 768px) {
-    #chat { width: 85%; height: 60vh; margin-top: 100px; }
-    .side-controls { top: 20px !important; right: 20px !important; }
-    #logout-btn, #resetChat { width: 130px; font-size: 10px !important; }
+
+
+
+    #chat { width: 85%; height: 60vh; padding: 20px; margin-top: 100px; }
+
+
+
+    .input-area { width: 90%; }
+
+
+
+    #resetChat { top: auto; bottom: 20px; left: 20px; padding: 10px 15px; }
+
+
+
     .nav-logo-small { height: 60px; }
+
+
+
+    .nav-title { font-size: 20px; }
+
+
+
+    .splash-logo { width: 250px; }
+
+
+
+    .auth-logo-small { height: 140px; }
+
+
+
 }
