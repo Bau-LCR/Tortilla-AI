@@ -1,6 +1,6 @@
 /* Importamos Inter con todos sus pesos para máxima jerarquía visual */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
+g
 :root {
     --primary-red: #ff3b3b;
     --dark-red: #cc0000;
@@ -264,14 +264,14 @@ input {
 }
 
 .auth-logo-small {
-    height: 180px;
+    height: 200px;
     margin-bottom: 25px;
     filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
 }
 
 /* Busca .google-btn img y reemplázalo por esto */
 .google-btn img {
-    width: 22px !important; /* Forzamos el tamaño pequeño del icono */
+    width: 40px !important; /* Forzamos el tamaño pequeño del icono */
     height: 22px !important;
     object-fit: contain;
 }
