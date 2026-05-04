@@ -281,6 +281,15 @@ input {
     gap: 15px;
     font-weight: 700 !important;
     box-shadow: 0 5px 15px rgba(255,255,255,0.1) !important;
+    overflow: hidden; /* Evita que la imagen gigante desborde si algo falla */
+}
+
+/* AQUÍ ESTÁ LA MAGIA PARA CONTROLAR EL TAMAÑO DE LA IMAGEN DE GOOGLE */
+.google-btn img {
+    width: 24px !important;
+    height: 24px !important;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 /* --- SPLASH SCREEN --- */
