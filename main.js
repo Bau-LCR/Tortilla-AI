@@ -3,10 +3,10 @@ document.addEventListener("DOMContentLoaded", function() {
     const input = document.getElementById("input");
     const loginOverlay = document.getElementById("login-overlay");
     const logoutBtn = document.getElementById("logout-btn");
+    const resetBtn = document.getElementById("resetChat");
     const splashScreen = document.getElementById("splash-screen");
 
     // --- LÓGICA DEL SPLASH SCREEN ---
-    // Oculta el splash screen después de 1.5 segundos con un fade out
     setTimeout(() => {
         if (splashScreen) {
             splashScreen.style.opacity = "0";
@@ -28,8 +28,7 @@ document.addEventListener("DOMContentLoaded", function() {
         chat.scrollTop = chat.scrollHeight;
     };
 
-    // --- FUNCIONES DE NUBE (FIRESTORE) ---
-
+    // --- FUNCIONES DE NUBE ---
     async function guardarEnNube() {
         if (!currentUser) return;
         const { doc, setDoc } = window.firestore;
@@ -44,14 +43,11 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     async function cargarDeNube(uid) {
-        // Feedback visual de carga
         chat.innerHTML = "<div class='ai'>Sincronizando tus mensajes con la nube...</div>";
-        
         const { doc, getDoc } = window.firestore;
         try {
             const docRef = doc(window.db, "chats", uid);
             const docSnap = await getDoc(docRef);
-            
             if (docSnap.exists()) {
                 historial = docSnap.data().mensajes;
             } else {
@@ -65,7 +61,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // --- LÓGICA DE FIREBASE ---
-
     window.login = async () => {
         if (!window.auth) return;
         try {
@@ -77,10 +72,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     window.logout = () => {
         if (window.auth) {
-            // Animación sutil antes de salir
             document.body.style.opacity = "0.5";
             window.signOut(window.auth).then(() => {
-                location.reload(); // Recargamos para limpiar todo el estado
+                location.reload();
             });
         }
     };
@@ -111,12 +105,14 @@ document.addEventListener("DOMContentLoaded", function() {
                     setTimeout(() => loginOverlay.style.display = "none", 300);
                     
                     if (logoutBtn) logoutBtn.style.display = "block";
+                    if (resetBtn) resetBtn.style.display = "block";
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
                     setTimeout(() => loginOverlay.style.opacity = "1", 10);
                     if (logoutBtn) logoutBtn.style.display = "none";
+                    if (resetBtn) resetBtn.style.display = "none";
                     chat.innerHTML = "";
                     historial = [systemPrompt];
                 }
@@ -129,7 +125,6 @@ document.addEventListener("DOMContentLoaded", function() {
     checkUser();
 
     // --- LÓGICA DEL CHAT ---
-
     async function sendMessage() {
         const msg = input.value.trim();
         if (!msg || !currentUser) return;
@@ -161,7 +156,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
             const respuestaIA = data.choices[0].message.content;
             historial.push({ role: "assistant", content: respuestaIA });
-
             guardarEnNube();
 
             const bubble = document.getElementById("thinking-bubble");
@@ -184,7 +178,6 @@ document.addEventListener("DOMContentLoaded", function() {
             }, 5);
 
         } catch (e) {
-            console.error(e);
             const bubble = document.getElementById("thinking-bubble");
             if (bubble) bubble.remove();
             chat.innerHTML += `<div class='ai' style='color: #ff4b4b; border: 1px solid #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
