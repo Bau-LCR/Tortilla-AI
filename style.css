@@ -394,56 +394,34 @@ button:active {
 
 
 
-/* BOTÓN RESET - MINIMALISMO ELEGANTE */
-
+/* BOTÓN RESET - POSICIONADO DEBAJO DE LOGOUT */
 #resetChat {
-
     position: fixed;
-
-    top: 30px;
-
-    left: 300px; /* Movido a la derecha para no chocar con el Header */
-
+    top: 85px; /* Ajustado para estar debajo del botón de logout (30px + altura del botón anterior) */
+    right: 40px; /* Alineado a la derecha igual que el botón de logout */
+    width: 160px; /* Ancho fijo para que ambos botones se vean simétricos */
     background: rgba(255, 255, 255, 0.04);
-
     color: #777;
-
     border: 1px solid rgba(255, 255, 255, 0.08);
-
-    padding: 12px 22px;
-
-    border-radius: 14px;
-
-    font-size: 12px;
-
+    padding: 12px 0; /* Padding vertical, el ancho lo da el 'width' */
+    border-radius: 12px;
+    font-size: 11px;
     font-weight: 600;
-
     text-transform: uppercase;
-
     letter-spacing: 2px;
-
     cursor: pointer;
-
     transition: all 0.3s ease;
-
     backdrop-filter: blur(10px);
-
     z-index: 101;
-
+    text-align: center;
 }
 
-
-
 #resetChat:hover {
-
     background: var(--primary-red);
-
     color: white;
-
     border-color: var(--primary-red);
-
     box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
-
+    transform: translateY(-2px); /* Mantenemos el efecto de levitación */
 }
 
 
