@@ -25,15 +25,31 @@ body {
 
 /* TITULO REFINADO Y PROFESIONAL */
 h1 {
-    display: none; 
+    margin-top: 50px;
+    margin-bottom: 10px;
+    font-size: 58px;            /* Tamaño equilibrado y elegante */
+    letter-spacing: -2px;       /* Espaciado moderno y compacto */
+    font-weight: 700;           /* Peso fuerte pero no tosco */
+    text-align: center;
+    text-transform: none;       /* Casing natural para mayor sofisticación */
+    background: linear-gradient(135deg, #ffffff 50%, #ff3b3b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 8px 15px rgba(255, 59, 59, 0.1));
+    user-select: none;
+    transition: transform 0.3s ease;
 }
 
-/* CONTENEDOR DEL CHAT */
+h1:hover {
+    transform: scale(1.02);    /* Micro-interacción profesional */
+}
+
+/* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
 #chat {
     width: 75%;
     max-width: 1000px;
     height: 550px;
-    margin-top: 100px; /* Ajustado para que no esté tan alto ni tan bajo */
+    margin-top: 40px;
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -45,13 +61,16 @@ h1 {
     flex-direction: column;
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
     scroll-behavior: smooth;
-    position: relative;
-    z-index: 10;
 }
 
 /* SCROLLBAR MINIMALISTA */
-#chat::-webkit-scrollbar { width: 5px; }
-#chat::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 10px; }
+#chat::-webkit-scrollbar {
+    width: 5px;
+}
+#chat::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 10px;
+}
 
 /* BURBUJAS DE MENSAJES */
 .user {
@@ -62,6 +81,8 @@ h1 {
     width: fit-content;
     max-width: 70%;
     font-size: 16px;
+    font-weight: 400;
+    line-height: 1.6;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -78,13 +99,19 @@ h1 {
     line-height: 1.8;
     white-space: pre-wrap;
     border: 1px solid rgba(255, 0, 0, 0.15);
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.03);
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* ÁREA DE ENTRADA */
+.ai b, .ai strong {
+    color: var(--primary-red);
+    font-weight: 600;
+}
+
+/* ÁREA DE ENTRADA ESTILO BARRA DE BÚSQUEDA PRO */
 .input-area {
-    margin-top: 25px;
-    margin-bottom: 20px; /* Reducido para que el copyright no suba tanto */
+    margin-top: 30px;
+    margin-bottom: 60px;
     display: flex;
     align-items: center;
     background: #161616;
@@ -93,11 +120,12 @@ h1 {
     border: 1px solid #252525;
     width: 650px;
     max-width: 92%;
-    transition: all 0.4s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input-area:focus-within {
     border-color: var(--primary-red);
+    background: #1a1a1a;
     box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.1);
 }
 
@@ -108,39 +136,98 @@ input {
     color: #ffffff;
     font-size: 16px;
     outline: none;
+    font-family: 'Inter', sans-serif;
+    padding-right: 15px;
 }
 
-/* BOTONES GENERALES */
+input::placeholder {
+    color: #555;
+}
+
+/* BOTÓN ENVIAR - FEEDBACK TÁCTIL */
 button {
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 15px;
     cursor: pointer;
     transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
 }
 
-/* BOTÓN CERRAR SESIÓN (LOGOUT) CORREGIDO */
-#logout-btn {
+button:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.45);
+}
+
+button:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+/* BOTÓN RESET - MINIMALISMO ELEGANTE */
+#resetChat {
     position: fixed;
-    top: 25px;
-    right: 25px;
-    background: rgba(255, 255, 255, 0.05) !important;
-    color: #888 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    padding: 10px 20px !important;
-    border-radius: 12px !important;
-    font-size: 11px !important;
+    top: 35px;
+    left: 40px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #777;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 22px;
+    border-radius: 14px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    z-index: 1000;
-    cursor: pointer !important; /* Asegura el efecto de mano */
-    display: block;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
 }
 
-#logout-btn:hover {
-    background: var(--primary-red) !important;
-    color: white !important;
-    border-color: var(--primary-red) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(255, 59, 59, 0.3);
+#resetChat:hover {
+    background: var(--primary-red);
+    color: white;
+    border-color: var(--primary-red);
+    box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
+}
+
+/* ANIMACIONES */
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* FONDO DE PARTÍCULAS MEJORADO */
+#particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+}
+
+.particle {
+    position: absolute;
+    background: rgba(255, 59, 59, 0.15);
+    border-radius: 50%;
+    animation: float linear infinite;
+}
+
+@keyframes float {
+    from { transform: translateY(0); }
+    to { transform: translateY(-120vh); }
+}
+
+/* RESPONSIVIDAD PRO */
+@media (max-width: 768px) {
+    h1 { font-size: 38px; letter-spacing: -1px; margin-top: 30px; }
+    #chat { width: 85%; height: 60vh; padding: 20px; }
+    .input-area { width: 90%; }
+    #resetChat { top: auto; bottom: 20px; left: 20px; padding: 10px 15px; }
 }
 
 /* --- LOGIN OVERLAY --- */
@@ -150,7 +237,7 @@ button {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(20px);
     z-index: 9999;
     display: flex;
@@ -159,121 +246,103 @@ button {
 }
 
 .auth-card {
-    background: rgba(15, 15, 15, 0.95);
+    background: #121212;
     padding: 50px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 59, 59, 0.2);
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: aparecer 0.5s ease-out;
+}
+
+.auth-card h2 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #fff 50%, var(--primary-red) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.auth-card p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.google-btn {
+    background: white !important;
+    color: #000 !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 25px !important;
+    font-size: 16px !important;
+    margin: 0 auto;
+}
+
+.google-btn img {
+    width: 20px;
+}
+
+/* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
+#logout-btn {
+    position: fixed;
+    top: 25px;
+    right: 25px;
+    background: rgba(255, 255, 255, 0.03) !important;
+    color: #888 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 10px 20px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease !important;
+    box-shadow: none !important; /* Quitamos la sombra roja por defecto */
+    z-index: 1000;
+}
+
+#logout-btn:hover {
+    background: rgba(255, 59, 59, 0.1) !important;
+    color: var(--primary-red) !important;
+    border-color: var(--primary-red) !important;
+    transform: translateY(-2px);
+}
+
+/* --- MEJORA DE LA TARJETA DE LOGIN --- */
+.auth-card {
+    background: rgba(15, 15, 15, 0.95);
+    padding: 60px 40px;
     border-radius: 35px;
     border: 1px solid rgba(255, 59, 59, 0.3);
     text-align: center;
-    max-width: 450px;
+    box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
+    max-width: 400px;
     width: 90%;
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Centra el logo y el botón horizontalmente */
-}
-
-/* Logo Login Centrado */
-.auth-logo-small {
-    height: 250px; 
-    width: auto;
-    margin-bottom: 30px;
-    display: block;
-    filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
 }
 
 .google-btn {
     background: #ffffff !important;
     color: #000000 !important;
     width: 100%;
+    justify-content: center;
+    margin-top: 20px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
     height: 55px;
     border-radius: 15px !important;
-    font-weight: 700 !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
     border: none;
-}
-
-/* --- HEADER SUPERIOR --- */
-.main-header {
-    display: flex;
-    justify-content: flex-start; /* Logo a la izquierda */
-    align-items: center;
-    padding: 10px 40px;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 100;
-}
-
-.header-logo {
     display: flex;
     align-items: center;
-    text-decoration: none;
+    gap: 15px;
 }
 
-/* Logo Header Pegado al Texto */
-.nav-logo-small {
-    height: 100px;
-    width: auto;
-    margin-right: -15px; /* Elimina el espacio muerto entre logo y texto */
-    object-fit: contain;
+.google-btn img {
+    width: 22px;
 }
 
-.nav-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: white;
-    letter-spacing: -0.5px;
-}
-
-.red-text { color: var(--primary-red); }
-
-/* COPYRIGHT EN EL FONDO */
-.copyright {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.3);
-    text-align: center;
-    margin-bottom: 20px;
-    width: 100%;
-}
-
-/* --- SPLASH SCREEN --- */
-#splash-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    background-color: #0a0a0a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
-}
-
-.splash-logo {
-    width: 600px;
-    height: auto;
-    animation: splashPulse 2s infinite ease-in-out;
-}
-
-@keyframes splashPulse {
-    0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
-}
-
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-#particles {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+.google-btn:hover {
+    background: #f0f0f0 !important;
+    transform: scale(1.02) !important;
 }
