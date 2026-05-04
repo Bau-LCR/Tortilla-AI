@@ -321,3 +321,24 @@ input {
     #logout-btn, #resetChat { width: 130px; font-size: 10px !important; }
     .nav-logo-small { height: 60px; }
 }
+/* --- ESTILOS PARA EL TEXTAREA (Reemplaza al input) --- */
+.input-area textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 16px;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    padding: 10px 15px 10px 0;
+    resize: none; /* Evita que el usuario tire de la esquina para deformarlo */
+    max-height: 150px; /* Limita cuánto puede crecer antes de mostrar scroll interno */
+    line-height: 1.5;
+    overflow-y: auto;
+}
+
+/* Ajuste sutil al contenedor para que el botón no suba cuando el texto crece */
+.input-area {
+    align-items: flex-end; 
+    border-radius: 20px;
+}
