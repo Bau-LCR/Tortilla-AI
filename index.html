@@ -7,10 +7,22 @@
 </head>
 <body>
 
+<div id="splash-screen">
+    <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
+</div>
+
+<header class="main-header">
+    <a href="#" class="header-logo">
+        <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
+        <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
+    </a>
+</header>
+
 <div id="particles"></div>
 
 <div id="login-overlay">
     <div class="auth-card">
+        <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
         <h2>Cut-real AI</h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
@@ -19,7 +31,6 @@
         </button>
     </div>
 </div>
-<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
 
 <h1>Cut-real AI</h1>
 
@@ -30,8 +41,8 @@
 <div class="input-area">
     <input id="input" placeholder="Escribe..." autocomplete="off">
     <button onclick="sendMessage()">Enviar</button>
-    <button onclick="resetChat()">Reset</button>
-    <button id="logout-btn" onclick="logout()" style="display:none; background:none; color:#555; box-shadow:none; font-size:10px; padding:10px;">Salir</button>
+    <button id="resetChat" onclick="resetChat()">Reset</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
 </div>
 
 <script type="module">
@@ -64,7 +75,8 @@
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
-    <footer style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+
+<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
     <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
         Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
     </p>
@@ -72,5 +84,6 @@
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
     </p>
 </footer>
+
 </body>
 </html>
