@@ -25,15 +25,15 @@ body {
 
 /* TITULO REFINADO Y PROFESIONAL */
 h1 {
-    display: none; /* Mantenemos oculto el H1 suelto */
+    display: none; 
 }
 
-/* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
+/* CONTENEDOR DEL CHAT */
 #chat {
     width: 75%;
     max-width: 1000px;
     height: 550px;
-    margin-top: 140px; /* PROBLEMA 3: Aumentado para bajar la caja del chat y centrarla en la pantalla */
+    margin-top: 100px; /* Ajustado para que no esté tan alto ni tan bajo */
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -45,16 +45,13 @@ h1 {
     flex-direction: column;
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
     scroll-behavior: smooth;
+    position: relative;
+    z-index: 10;
 }
 
 /* SCROLLBAR MINIMALISTA */
-#chat::-webkit-scrollbar {
-    width: 5px;
-}
-#chat::-webkit-scrollbar-thumb {
-    background: #2a2a2a;
-    border-radius: 10px;
-}
+#chat::-webkit-scrollbar { width: 5px; }
+#chat::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 10px; }
 
 /* BURBUJAS DE MENSAJES */
 .user {
@@ -65,8 +62,6 @@ h1 {
     width: fit-content;
     max-width: 70%;
     font-size: 16px;
-    font-weight: 400;
-    line-height: 1.6;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -83,19 +78,13 @@ h1 {
     line-height: 1.8;
     white-space: pre-wrap;
     border: 1px solid rgba(255, 0, 0, 0.15);
-    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.03);
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.ai b, .ai strong {
-    color: var(--primary-red);
-    font-weight: 600;
-}
-
-/* ÁREA DE ENTRADA ESTILO BARRA DE BÚSQUEDA PRO */
+/* ÁREA DE ENTRADA */
 .input-area {
-    margin-top: 30px;
-    margin-bottom: 80px; /* Ajuste para dar espacio al footer */
+    margin-top: 25px;
+    margin-bottom: 20px; /* Reducido para que el copyright no suba tanto */
     display: flex;
     align-items: center;
     background: #161616;
@@ -104,12 +93,11 @@ h1 {
     border: 1px solid #252525;
     width: 650px;
     max-width: 92%;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s ease;
 }
 
 .input-area:focus-within {
     border-color: var(--primary-red);
-    background: #1a1a1a;
     box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.1);
 }
 
@@ -120,68 +108,39 @@ input {
     color: #ffffff;
     font-size: 16px;
     outline: none;
-    font-family: 'Inter', sans-serif;
-    padding-right: 15px;
 }
 
-input::placeholder {
-    color: #555;
-}
-
-/* BOTONES */
+/* BOTONES GENERALES */
 button {
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
-    color: white;
-    border: none;
-    padding: 14px 32px;
-    border-radius: 100px;
-    font-weight: 600;
-    font-size: 15px;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
 }
 
-button:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.45);
-}
-
-/* BOTÓN RESET */
-#resetChat {
+/* BOTÓN CERRAR SESIÓN (LOGOUT) CORREGIDO */
+#logout-btn {
     position: fixed;
-    top: 25px; /* Alineado con el header */
-    left: 40px;
-    background: rgba(255, 255, 255, 0.04);
-    color: #777;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 12px 22px;
-    border-radius: 14px;
-    font-size: 12px;
+    top: 25px;
+    right: 25px;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #888 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 10px 20px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    z-index: 101;
+    letter-spacing: 1px;
+    z-index: 1000;
+    cursor: pointer !important; /* Asegura el efecto de mano */
+    display: block;
 }
 
-/* ANIMACIONES */
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(20px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* FONDO DE PARTÍCULAS */
-#particles {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+#logout-btn:hover {
+    background: var(--primary-red) !important;
+    color: white !important;
+    border-color: var(--primary-red) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 59, 59, 0.3);
 }
 
 /* --- LOGIN OVERLAY --- */
@@ -191,7 +150,7 @@ button:hover {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(20px);
     z-index: 9999;
     display: flex;
@@ -199,56 +158,84 @@ button:hover {
     justify-content: center;
 }
 
-/* --- MEJORA DE LA TARJETA DE LOGIN --- */
 .auth-card {
     background: rgba(15, 15, 15, 0.95);
-    padding: 60px 40px;
+    padding: 50px;
     border-radius: 35px;
     border: 1px solid rgba(255, 59, 59, 0.3);
     text-align: center;
-    box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
-    max-width: 450px; /* Un poco más ancha para el logo grande */
+    max-width: 450px;
     width: 90%;
     display: flex;
     flex-direction: column;
-    align-items: center; /* PROBLEMA 2: Asegura el centrado de todos los elementos */
+    align-items: center; /* Centra el logo y el botón horizontalmente */
 }
 
-/* PROBLEMA 2: Logo centrado en Login */
+/* Logo Login Centrado */
 .auth-logo-small {
-    height: 250px; /* Tamaño respetado */
+    height: 250px; 
     width: auto;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
     display: block;
+    filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
 }
 
 .google-btn {
     background: #ffffff !important;
     color: #000000 !important;
     width: 100%;
-    justify-content: center;
-    margin-top: 20px !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
     height: 55px;
     border-radius: 15px !important;
-    border: none;
+    font-weight: 700 !important;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 15px;
+    border: none;
 }
 
-/* --- LOGOUT --- */
-#logout-btn {
+/* --- HEADER SUPERIOR --- */
+.main-header {
+    display: flex;
+    justify-content: flex-start; /* Logo a la izquierda */
+    align-items: center;
+    padding: 10px 40px;
     position: fixed;
-    top: 25px;
-    right: 25px;
-    background: rgba(255, 255, 255, 0.03) !important;
-    color: #888 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    padding: 10px 20px !important;
-    border-radius: 12px !important;
-    z-index: 1000;
+    top: 0;
+    width: 100%;
+    z-index: 100;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+/* Logo Header Pegado al Texto */
+.nav-logo-small {
+    height: 100px;
+    width: auto;
+    margin-right: -15px; /* Elimina el espacio muerto entre logo y texto */
+    object-fit: contain;
+}
+
+.nav-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.red-text { color: var(--primary-red); }
+
+/* COPYRIGHT EN EL FONDO */
+.copyright {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.3);
+    text-align: center;
+    margin-bottom: 20px;
+    width: 100%;
 }
 
 /* --- SPLASH SCREEN --- */
@@ -266,58 +253,27 @@ button:hover {
 }
 
 .splash-logo {
-    width: 600px; /* Tamaño respetado */
+    width: 600px;
     height: auto;
-    margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
 }
 
-/* --- HEADER SUPERIOR --- */
-.main-header {
-    display: flex;
-    justify-content: center; /* Centramos el conjunto para mejor estética */
-    align-items: center;
-    padding: 15px 30px;
+@keyframes splashPulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#particles {
     position: fixed;
     top: 0;
+    left: 0;
     width: 100%;
-    z-index: 100;
-}
-
-.header-logo {
-    display: flex;
-    align-items: center;
-    gap: -15px; /* PROBLEMA 1: Gap negativo para pegar el texto al logo */
-    margin-left: -50px; /* Ajuste manual para compensar el ancho del logo */
-}
-
-/* PROBLEMA 1: Logo Header pegado al texto */
-.nav-logo-small {
-    height: 100px; /* Tamaño respetado */
-    width: auto;
-    margin-right: -20px; /* Forzamos que el texto se acerque al logo */
-}
-
-.nav-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: white;
-    margin: 0;
-    padding: 0;
-}
-
-.red-text {
-    color: var(--primary-red);
-}
-
-.hidden-splash {
-    opacity: 0;
-    visibility: hidden;
-}
-
-/* RESPONSIVIDAD */
-@media (max-width: 768px) {
-    #chat { width: 85%; height: 60vh; margin-top: 120px; }
-    .nav-logo-small { height: 60px; margin-right: -10px; }
-    .header-logo { margin-left: 0; }
+    height: 100%;
+    z-index: -1;
+    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
 }
