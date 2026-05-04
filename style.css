@@ -395,27 +395,20 @@ button:active {
 
 
 /* BOTÓN RESET - POSICIONADO DEBAJO DE LOGOUT */
-#resetChat {
-    position: fixed;
-    top: 85px; /* Ajustado para estar debajo del botón de logout (30px + altura del botón anterior) */
-    right: 40px; /* Alineado a la derecha igual que el botón de logout */
-    width: 160px; /* Ancho fijo para que ambos botones se vean simétricos */
-    background: rgba(255, 255, 255, 0.04);
-    color: #777;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 12px 0; /* Padding vertical, el ancho lo da el 'width' */
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    z-index: 101;
-    text-align: center;
+@media (max-width: 768px) {
+    /* ... otros estilos ... */
+    #resetChat { 
+        top: 75px; /* Ajuste para móvil debajo del logout */
+        right: 20px; 
+        left: auto; 
+        width: 130px;
+    }
+    #logout-btn {
+        top: 20px;
+        right: 20px;
+        width: 130px;
+    }
 }
-
 #resetChat:hover {
     background: var(--primary-red);
     color: white;
@@ -649,41 +642,25 @@ button:active {
 /* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
 
 #logout-btn {
-
     position: fixed;
-
     top: 30px;
-
     right: 40px;
-
+    width: 160px; /* Mismo ancho que el reset para armonía visual */
     background: rgba(255, 255, 255, 0.03) !important;
-
     color: #888 !important;
-
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
-
-    padding: 10px 20px !important;
-
+    padding: 10px 0 !important; /* Ajustado para centrar texto */
     border-radius: 12px !important;
-
     font-size: 11px !important;
-
     text-transform: uppercase;
-
     letter-spacing: 1.5px;
-
     cursor: pointer;
-
     backdrop-filter: blur(10px);
-
     transition: all 0.3s ease !important;
-
     box-shadow: none !important; 
-
     z-index: 1000;
-
+    text-align: center;
 }
-
 
 
 #logout-btn:hover {
