@@ -327,72 +327,25 @@ button:active {
     text-align: center;
 }
 
+/* --- LOGO DEL SPLASH SCREEN (Pantalla de carga) --- */
 .splash-logo {
-    width: 400px; /* Ajuste para que el splash no se vea distorsionado */
+    width: 550px; /* Aumentado para que recupere su impacto inicial */
     height: auto;
     margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
 }
 
-.splash-title {
-    color: white;
-    font-size: 85px;
-    font-weight: 700;
-    letter-spacing: -1px;
-    margin: 0;
-    background: linear-gradient(135deg, #ffffff 50%, #ff3b3b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    display: block; /* Mantenemos este visible a pesar de la regla global h1 */
-}
-
-@keyframes splashPulse {
-    0% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.3)); }
-    100% { transform: scale(1); opacity: 0.8; }
-}
-
-.hidden-splash {
-    opacity: 0;
-    visibility: hidden;
-}
-
-/* --- HEADER SUPERIOR --- */
-.main-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 30px;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    box-sizing: border-box; /* Evita que el padding genere scroll horizontal */
-    z-index: 100;
-}
-
-.header-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px; /* Reducido el espacio entre logo y texto */
-}
-
+/* --- LOGO DEL HEADER SUPERIOR --- */
 .nav-logo-small {
-    height: 40px; /* Reducido drásticamente de 100px a 40px para encajar en el header */
+    height: 65px; /* Aumentado de 40px a 65px para que destaque junto al texto */
     width: auto;
     display: block;
 }
 
-.nav-title {
-    font-size: 22px;
-    font-weight: 800;
-    color: white;
-    letter-spacing: -0.5px;
-}
-
 /* --- LOGO EN LA TARJETA DE LOGIN --- */
 .auth-logo-small {
-    height: 120px; /* Reducido de 250px a 120px para proporción perfecta */
+    height: 170px; /* Aumentado de 120px a 170px */
     width: auto;
-    display: block; /* Lo convertimos en bloque para poder centrarlo */
-    margin: 0 auto 20px auto; /* Centrado automático a los lados, con margen abajo */
+    display: block; 
+    margin: 0 auto 25px auto; /* Mantiene el centrado perfecto */
 }
