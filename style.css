@@ -210,8 +210,8 @@ h1 { display: none; }
 .google-btn {
     background: #fff !important;
     color: #000 !important;
-    width: 100%;
-    height: 150px;
+    width: 2000%;
+    height: 50px;
     border-radius: 12px !important;
     display: flex;
     align-items: center;
