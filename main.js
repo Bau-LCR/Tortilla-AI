@@ -193,13 +193,3 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
 });
-
-// Al final de tu archivo main.js, dentro o fuera del listener:
-window.addEventListener('load', () => {
-    const splash = document.getElementById('splash-screen');
-    
-    // Mostramos la marca por 2.5 segundos
-    setTimeout(() => {
-        splash.classList.add('hidden-splash');
-    }, 2500);
-});
