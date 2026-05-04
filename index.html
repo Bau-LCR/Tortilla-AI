@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -9,7 +10,7 @@
 
 <div id="splash-screen">
     <div class="splash-content">
-        <img src="Logo1.png" alt="Cut-real AI" class="splash-logo">
+        <img src="Logo1.png" alt="Cut-real AI Logo" class="splash-logo">
         <h1 class="splash-title">Cut-real <span class="red-text">AI</span></h1>
     </div>
 </div>
@@ -45,6 +46,7 @@
     <button onclick="sendMessage()">Enviar</button>
     <button onclick="resetChat()">Reset</button>
 </div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -64,6 +66,7 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
+  // Exponer variables globalmente para main.js
   window.auth = auth;
   window.db = db;
   window.provider = provider;
@@ -83,5 +86,6 @@
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
     </p>
 </footer>
+
 </body>
 </html>
