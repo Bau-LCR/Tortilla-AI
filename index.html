@@ -11,6 +11,9 @@
     <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
 </div>
 
+<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+<button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+
 <header class="main-header">
     <a href="#" class="header-logo">
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
@@ -26,13 +29,11 @@
         <h2>Cut-real AI</h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
+            <img src="google.png" alt="Google">
             Entrar con Google
         </button>
     </div>
 </div>
-
-<h1>Cut-real AI</h1>
 
 <div id="chat">
     <div class="ai">Hola, soy Cut-real AI.</div>
@@ -41,8 +42,6 @@
 <div class="input-area">
     <input id="input" placeholder="Escribe..." autocomplete="off">
     <button onclick="sendMessage()">Enviar</button>
-    <button id="resetChat" onclick="resetChat()">Reset</button>
-    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
 </div>
 
 <script type="module">
@@ -64,7 +63,6 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Exportar herramientas a global
   window.auth = auth;
   window.db = db;
   window.provider = provider;
