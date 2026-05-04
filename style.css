@@ -430,7 +430,7 @@ button:active {
 
 /* Logo en la tarjeta de login */
 .auth-logo-small {
-    height: 60px;
+    height: 100px;
     margin-bottom: 15px;
 }
 
