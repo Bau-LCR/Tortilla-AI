@@ -1,122 +1,92 @@
 document.addEventListener("DOMContentLoaded", function() {
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
+    const splash = document.getElementById("splash-screen");
     const loginOverlay = document.getElementById("login-overlay");
-    const logoutBtn = document.getElementById("logout-btn");
-    const resetBtn = document.getElementById("resetChat");
-    const splashScreen = document.getElementById("splash-screen");
+    const chatBox = document.getElementById("chat");
+    const inputField = document.getElementById("input");
 
-    // --- LÓGICA DEL SPLASH SCREEN ---
+    // --- EFECTO SPLASH SCREEN ---
     setTimeout(() => {
-        if (splashScreen) {
-            splashScreen.style.opacity = "0";
-            splashScreen.style.transition = "opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1)";
-            setTimeout(() => {
-                splashScreen.style.display = "none";
-            }, 800);
+        if (splash) {
+            splash.style.opacity = "0";
+            setTimeout(() => splash.style.display = "none", 1000);
         }
     }, 2000);
 
-    const systemPrompt = { role: "system", content: "Configurado en el servidor." };
+    let historial = [{ role: "system", content: "Configurado en el servidor." }];
     let currentUser = null;
-    let historial = [systemPrompt];
-    
-    const formatearTexto = (texto) => {
-        return texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-    };
 
-    const scrollAbajo = () => { chat.scrollTop = chat.scrollHeight; };
-
-    // --- FIREBASE LOGIC ---
-    window.login = async () => {
-        if (!window.auth) return;
-        try { await window.signInWithPopup(window.auth, window.provider); } 
-        catch (error) { console.error("Error login:", error); }
-    };
-
-    window.logout = () => {
-        if (window.auth) {
-            document.body.style.opacity = "0.5";
-            window.signOut(window.auth).then(() => { location.reload(); });
-        }
-    };
-
+    // --- MANEJO DE USUARIO ---
     const checkUser = () => {
         if (window.auth) {
             window.auth.onAuthStateChanged((user) => {
+                const logoutBtn = document.getElementById("logout-btn");
+                const resetBtn = document.getElementById("resetChat");
+
                 if (user) {
                     currentUser = user;
-                    loginOverlay.style.opacity = "0";
-                    setTimeout(() => loginOverlay.style.display = "none", 300);
-                    // Mostrar ambos botones
-                    if (logoutBtn) logoutBtn.style.display = "block";
-                    if (resetBtn) resetBtn.style.display = "block";
-                    cargarDeNube(user.uid); 
+                    loginOverlay.style.display = "none";
+                    logoutBtn.style.display = "block";
+                    resetBtn.style.display = "block";
+                    cargarDeNube(user.uid);
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
-                    if (logoutBtn) logoutBtn.style.display = "none";
-                    if (resetBtn) resetBtn.style.display = "none";
-                    historial = [systemPrompt];
+                    logoutBtn.style.display = "none";
+                    resetBtn.style.display = "none";
                 }
             });
-        } else { setTimeout(checkUser, 500); }
+        } else { setTimeout(checkUser, 100); }
     };
-    
     checkUser();
 
-    // --- CHAT LOGIC ---
-    async function sendMessage() {
-        const msg = input.value.trim();
-        if (!msg || !currentUser) return;
-
-        historial.push({ role: "user", content: msg });
-        renderizarChat();
-        input.value = "";
-
-        const thinking = document.createElement("div");
-        thinking.className = "ai";
-        thinking.id = "thinking-bubble";
-        thinking.textContent = "Pensando...";
-        chat.appendChild(thinking);
-        scrollAbajo();
-
-        try {
-            const res = await fetch("/api/chat", { 
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mensajes: historial }) 
-            });
-            const data = await res.json();
-            const respuestaIA = data.choices[0].message.content;
-            
-            document.getElementById("thinking-bubble").remove();
-            historial.push({ role: "assistant", content: respuestaIA });
-            guardarEnNube();
-            renderizarChat();
-        } catch (e) { console.error(e); }
-    }
-
-    const renderizarChat = () => {
-        chat.innerHTML = ""; 
-        historial.forEach(msg => {
-            if (msg.role === "system") return;
-            const div = document.createElement("div");
-            div.className = msg.role === "user" ? "user" : "ai";
-            div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${msg.content}` : formatearTexto(msg.content);
-            chat.appendChild(div);
-        });
-        scrollAbajo();
+    // --- FUNCIONES CORE ---
+    window.login = async () => { await window.signInWithPopup(window.auth, window.window.provider); };
+    
+    window.logout = () => {
+        if (confirm("¿Cerrar sesión?")) {
+            window.auth.signOut().then(() => location.reload());
+        }
     };
 
-    window.resetChat = async () => { 
-        if (confirm("¿Borrar historial?")) {
-            historial = [systemPrompt];
-            renderizarChat();
+    window.resetChat = async () => {
+        if (confirm("¿Estás seguro de borrar toda la conversación?")) {
+            historial = [{ role: "system", content: "Configurado." }];
+            renderChat();
             await guardarEnNube();
         }
     };
 
-    input.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
-    window.sendMessage = sendMessage;
+    const renderChat = () => {
+        chatBox.innerHTML = "";
+        historial.forEach(m => {
+            if (m.role === "system") return;
+            const div = document.createElement("div");
+            div.className = m.role === "user" ? "user" : "ai";
+            div.innerHTML = m.content;
+            chatBox.appendChild(div);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    window.sendMessage = async () => {
+        const text = inputField.value.trim();
+        if (!text) return;
+        historial.push({ role: "user", content: text });
+        inputField.value = "";
+        renderChat();
+        // Aquí iría tu fetch a la API...
+    };
+
+    async function guardarEnNube() {
+        if (!currentUser) return;
+        await window.firestore.setDoc(window.firestore.doc(window.db, "chats", currentUser.uid), { mensajes: historial });
+    }
+
+    async function cargarDeNube(uid) {
+        const docSnap = await window.firestore.getDoc(window.firestore.doc(window.db, "chats", uid));
+        if (docSnap.exists()) {
+            historial = docSnap.data().mensajes;
+            renderChat();
+        }
+    }
 });
