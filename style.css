@@ -251,81 +251,89 @@ h1 { display: none; }
     background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
 }
 
-/* =========================================
-   AJUSTE DEFINITIVO PARA CELULARES (Vertical)
-   ========================================= */
+/* ===================================================
+   REDISEÑO TOTAL PARA MÓVIL (VERTICAL)
+   =================================================== */
 
 @media (max-width: 768px) {
-    /* 1. Header y Logo: Más pequeños para que no ocupen media pantalla */
+    /* 1. Header: Más limpio y centrado */
     .main-header {
-        padding: 10px 15px;
-        background: rgba(10, 10, 10, 0.95); /* Más sólido para que no se trasluzca el chat */
+        padding: 10px 15px !important;
+        justify-content: center !important; /* Centramos el logo */
+        background: rgba(10, 10, 10, 0.98) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
-    .nav-logo-small { height: 40px; }
-    .nav-title { font-size: 16px; }
+    .nav-logo-small { height: 35px !important; }
+    .nav-title { font-size: 16px !important; }
 
-    /* 2. Botones Superiores: En fila (uno al lado del otro) para ahorrar espacio */
+    /* 2. Botones: ¡ADIÓS AL AMONTONAMIENTO! 
+       Los ponemos pequeños y elegantes a la derecha */
     .side-controls {
-        top: 10px !important;
+        top: 12px !important;
         right: 10px !important;
-        flex-direction: row !important; 
-        gap: 5px;
+        flex-direction: row !important; /* Forzamos fila */
+        gap: 5px !important;
     }
 
     #logout-btn, #resetChat {
         width: auto !important;
-        padding: 6px 10px !important;
+        padding: 5px 8px !important;
         font-size: 8px !important;
         border-radius: 6px !important;
-        letter-spacing: 0px;
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        text-transform: uppercase;
         white-space: nowrap;
     }
 
-    /* 3. El Chat: Le damos más margen arriba para que no choque con el header */
+    /* 3. El Chat: Lo bajamos para que respire */
     #chat {
-        width: 90%;
-        margin-top: 90px; /* Suficiente espacio para el header y botones */
-        height: calc(100vh - 260px); /* Ajuste dinámico de altura */
-        padding: 15px;
-        border-radius: 20px;
+        width: 94% !important;
+        margin-top: 80px !important; /* Espacio para que no choque con el logo */
+        height: calc(100vh - 220px) !important;
+        padding: 15px !important;
+        border-radius: 20px !important;
+        background: rgba(15, 15, 15, 0.8) !important;
     }
 
-    .user, .ai {
-        font-size: 14px;
-        max-width: 92%;
-        padding: 12px 15px;
+    /* 4. Burbujas: Más legibles */
+    .ai, .user {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        max-width: 90% !important;
+        margin: 8px 0 !important;
     }
 
-    /* 4. Barra de escritura: Ajustada al ancho del celular */
+    .ai {
+        background: linear-gradient(160deg, #2a0a0a 0%, #121212 100%) !important;
+        border: 1px solid rgba(255, 59, 59, 0.2) !important;
+    }
+
+    /* 5. Barra de entrada (Input): Estilo cápsula moderna */
     .input-area {
-        width: 90%;
-        margin-bottom: 15px;
-        padding: 8px 10px 8px 15px;
-        border-radius: 15px;
+        width: 92% !important;
+        position: fixed !important;
+        bottom: 15px !important;
+        margin: 0 auto !important;
+        padding: 5px 5px 5px 15px !important;
+        border-radius: 30px !important;
+        background: #1a1a1a !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
     }
 
     .input-area textarea {
-        font-size: 14px;
+        font-size: 14px !important;
+        padding: 10px 0 !important;
     }
 
     .input-area button {
-        padding: 10px 15px;
-        font-size: 12px;
+        padding: 10px 20px !important;
+        font-size: 12px !important;
+        border-radius: 25px !important;
     }
-    
-    /* 5. Footer (Copyright): Muy chiquito para que no moleste */
-    footer.copyright {
-        margin-top: 10px;
-        padding-bottom: 10px;
-    }
-    footer.copyright p {
-        font-size: 8px !important;
-    }
-}
 
-/* --- FIX PARA EL BOTÓN DE GOOGLE (Por si las dudas) --- */
-.google-btn img {
-    width: 20px !important;
-    height: 20px !important;
-    object-fit: contain;
+    /* Ocultar elementos molestos en móvil */
+    footer.copyright {
+        display: none; /* En el chat de móvil estorba mucho */
+    }
 }
