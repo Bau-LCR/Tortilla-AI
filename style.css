@@ -416,7 +416,23 @@ button:active {
     box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
     transform: translateY(-2px); /* Mantenemos el efecto de levitación */
 }
+/* Esto va en tu style.css */
+.side-controls {
+    position: fixed;
+    top: 30px;      /* Distancia desde arriba */
+    right: 40px;    /* Distancia desde la derecha */
+    display: flex;
+    flex-direction: column; /* Alinea uno debajo del otro */
+    gap: 10px;      /* Espacio entre los botones */
+    z-index: 1000;  /* Asegura que estén por encima de todo */
+}
 
+/* Ajuste para que los botones individuales no floten por su cuenta */
+#logout-btn, #resetChat {
+    position: static; /* Cambiamos fixed por static porque el padre ya es fixed */
+    width: 160px;
+    /* ... resto de tus estilos de botones ... */
+}
 
 
 /* ANIMACIONES */
