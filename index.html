@@ -2,40 +2,26 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div id="splash-screen">
-    <div class="splash-content">
-        <img src="Logo1.png" alt="Cut-real AI Logo" class="splash-logo">
-        <h1 class="splash-title">Cut-real <span class="red-text">AI</span></h1>
-    </div>
-</div>
-
 <div id="particles"></div>
-
-<header class="main-header">
-    <div class="header-logo">
-        <img src="Logo1.png" alt="Logo" class="nav-logo-small">
-        <span class="nav-title">Cut-real <span class="red-text">AI</span></span>
-    </div>
-    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-</header>
 
 <div id="login-overlay">
     <div class="auth-card">
-        <img src="Logo1.png" alt="Logo" class="auth-logo-small">
         <h2>Cut-real AI</h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
-            <img src="google.png" alt="Google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
             Entrar con Google
         </button>
     </div>
 </div>
+<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+
+<h1>Cut-real AI</h1>
 
 <div id="chat">
     <div class="ai">Hola, soy Cut-real AI.</div>
@@ -45,6 +31,7 @@
     <input id="input" placeholder="Escribe..." autocomplete="off">
     <button onclick="sendMessage()">Enviar</button>
     <button onclick="resetChat()">Reset</button>
+    <button id="logout-btn" onclick="logout()" style="display:none; background:none; color:#555; box-shadow:none; font-size:10px; padding:10px;">Salir</button>
 </div>
 
 <script type="module">
@@ -66,7 +53,7 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Exponer variables globalmente para main.js
+  // Exportar herramientas a global
   window.auth = auth;
   window.db = db;
   window.provider = provider;
@@ -77,8 +64,7 @@
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
-
-<footer style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+    <footer style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
     <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
         Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
     </p>
@@ -86,6 +72,5 @@
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
     </p>
 </footer>
-
 </body>
 </html>
