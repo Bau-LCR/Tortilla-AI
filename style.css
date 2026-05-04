@@ -25,7 +25,7 @@ body {
 
 /* TITULO REFINADO Y PROFESIONAL */
 h1 {
-    display: none; /* Ocultamos el H1 que estaba suelto para usar el del header */
+    display: none; /* Mantenemos oculto el H1 suelto */
 }
 
 /* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
@@ -33,7 +33,7 @@ h1 {
     width: 75%;
     max-width: 1000px;
     height: 550px;
-    margin-top: 120px; /* Aumentado de 40px a 120px para bajar toda la caja y centrarla */
+    margin-top: 140px; /* PROBLEMA 3: Aumentado para bajar la caja del chat y centrarla en la pantalla */
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -95,7 +95,7 @@ h1 {
 /* ÁREA DE ENTRADA ESTILO BARRA DE BÚSQUEDA PRO */
 .input-area {
     margin-top: 30px;
-    margin-bottom: 60px;
+    margin-bottom: 80px; /* Ajuste para dar espacio al footer */
     display: flex;
     align-items: center;
     background: #161616;
@@ -128,7 +128,7 @@ input::placeholder {
     color: #555;
 }
 
-/* BOTÓN ENVIAR - FEEDBACK TÁCTIL */
+/* BOTONES */
 button {
     background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
     color: white;
@@ -147,14 +147,10 @@ button:hover {
     box-shadow: 0 8px 25px rgba(255, 59, 59, 0.45);
 }
 
-button:active {
-    transform: translateY(1px) scale(0.98);
-}
-
-/* BOTÓN RESET - MINIMALISMO ELEGANTE */
+/* BOTÓN RESET */
 #resetChat {
     position: fixed;
-    top: 35px;
+    top: 25px; /* Alineado con el header */
     left: 40px;
     background: rgba(255, 255, 255, 0.04);
     color: #777;
@@ -168,13 +164,7 @@ button:active {
     cursor: pointer;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
-}
-
-#resetChat:hover {
-    background: var(--primary-red);
-    color: white;
-    border-color: var(--primary-red);
-    box-shadow: 0 10px 20px rgba(255, 59, 59, 0.3);
+    z-index: 101;
 }
 
 /* ANIMACIONES */
@@ -183,7 +173,7 @@ button:active {
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* FONDO DE PARTÍCULAS MEJORADO */
+/* FONDO DE PARTÍCULAS */
 #particles {
     position: fixed;
     top: 0;
@@ -192,25 +182,6 @@ button:active {
     height: 100%;
     z-index: -1;
     background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
-}
-
-.particle {
-    position: absolute;
-    background: rgba(255, 59, 59, 0.15);
-    border-radius: 50%;
-    animation: float linear infinite;
-}
-
-@keyframes float {
-    from { transform: translateY(0); }
-    to { transform: translateY(-120vh); }
-}
-
-/* RESPONSIVIDAD PRO */
-@media (max-width: 768px) {
-    #chat { width: 85%; height: 60vh; padding: 20px; margin-top: 100px; }
-    .input-area { width: 90%; }
-    #resetChat { top: auto; bottom: 20px; left: 20px; padding: 10px 15px; }
 }
 
 /* --- LOGIN OVERLAY --- */
@@ -236,22 +207,19 @@ button:active {
     border: 1px solid rgba(255, 59, 59, 0.3);
     text-align: center;
     box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
-    max-width: 400px;
+    max-width: 450px; /* Un poco más ancha para el logo grande */
     width: 90%;
-    animation: aparecer 0.5s ease-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* PROBLEMA 2: Asegura el centrado de todos los elementos */
 }
 
-.auth-card h2 {
-    font-size: 32px;
-    margin-bottom: 10px;
-    background: linear-gradient(135deg, #fff 50%, var(--primary-red) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.auth-card p {
-    color: #666;
-    margin-bottom: 30px;
+/* PROBLEMA 2: Logo centrado en Login */
+.auth-logo-small {
+    height: 250px; /* Tamaño respetado */
+    width: auto;
+    margin-bottom: 20px;
+    display: block;
 }
 
 .google-btn {
@@ -268,20 +236,9 @@ button:active {
     display: flex;
     align-items: center;
     gap: 15px;
-    cursor: pointer;
-    transition: all 0.3s ease;
 }
 
-.google-btn img {
-    width: 22px;
-}
-
-.google-btn:hover {
-    background: #f0f0f0 !important;
-    transform: scale(1.02) !important;
-}
-
-/* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
+/* --- LOGOUT --- */
 #logout-btn {
     position: fixed;
     top: 25px;
@@ -291,24 +248,10 @@ button:active {
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     padding: 10px 20px !important;
     border-radius: 12px !important;
-    font-size: 11px !important;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease !important;
-    box-shadow: none !important;
     z-index: 1000;
 }
 
-#logout-btn:hover {
-    background: rgba(255, 59, 59, 0.1) !important;
-    color: var(--primary-red) !important;
-    border-color: var(--primary-red) !important;
-    transform: translateY(-2px);
-}
-
-/* --- SPLASH SCREEN STYLES --- */
+/* --- SPLASH SCREEN --- */
 #splash-screen {
     position: fixed;
     top: 0;
@@ -320,32 +263,61 @@ button:active {
     justify-content: center;
     align-items: center;
     z-index: 10000;
-    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
 }
 
-.splash-content {
-    text-align: center;
-}
-
-/* --- LOGO DEL SPLASH SCREEN (Pantalla de carga) --- */
 .splash-logo {
-    width: 550px; /* Aumentado para que recupere su impacto inicial */
+    width: 600px; /* Tamaño respetado */
     height: auto;
     margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
 }
 
-/* --- LOGO DEL HEADER SUPERIOR --- */
-.nav-logo-small {
-    height: 65px; /* Aumentado de 40px a 65px para que destaque junto al texto */
-    width: auto;
-    display: block;
+/* --- HEADER SUPERIOR --- */
+.main-header {
+    display: flex;
+    justify-content: center; /* Centramos el conjunto para mejor estética */
+    align-items: center;
+    padding: 15px 30px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 100;
 }
 
-/* --- LOGO EN LA TARJETA DE LOGIN --- */
-.auth-logo-small {
-    height: 170px; /* Aumentado de 120px a 170px */
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: -15px; /* PROBLEMA 1: Gap negativo para pegar el texto al logo */
+    margin-left: -50px; /* Ajuste manual para compensar el ancho del logo */
+}
+
+/* PROBLEMA 1: Logo Header pegado al texto */
+.nav-logo-small {
+    height: 100px; /* Tamaño respetado */
     width: auto;
-    display: block; 
-    margin: 0 auto 25px auto; /* Mantiene el centrado perfecto */
+    margin-right: -20px; /* Forzamos que el texto se acerque al logo */
+}
+
+.nav-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    margin: 0;
+    padding: 0;
+}
+
+.red-text {
+    color: var(--primary-red);
+}
+
+.hidden-splash {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* RESPONSIVIDAD */
+@media (max-width: 768px) {
+    #chat { width: 85%; height: 60vh; margin-top: 120px; }
+    .nav-logo-small { height: 60px; margin-right: -10px; }
+    .header-logo { margin-left: 0; }
 }
