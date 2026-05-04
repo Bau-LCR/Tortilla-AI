@@ -337,3 +337,57 @@ h1 { display: none; }
         display: none; /* En el chat de móvil estorba mucho */
     }
 }
+/* ===================================================
+   PERSONALIZACIÓN DE LA BARRA DE DESPLAZAMIENTO (SCROLLBAR)
+   =================================================== */
+
+/* 1. Estilo para Chrome, Safari, Edge y Opera (Webkit) */
+
+/* Tamaño de la barra */
+::-webkit-scrollbar {
+    width: 8px; /* Ancho de la barra vertical */
+    height: 8px; /* Altura de la barra horizontal */
+}
+
+/* Fondo de la barra (el carril por donde se mueve) */
+::-webkit-scrollbar-track {
+    background: #0a0a0a; /* Negro puro como el fondo de tu web */
+}
+
+/* La barrita que se mueve (el "pulgar") */
+::-webkit-scrollbar-thumb {
+    background: #2a0000; /* Rojo muy oscuro para que sea discreto */
+    border-radius: 10px;
+    border: 1px solid rgba(255, 59, 59, 0.1); /* Un borde sutil */
+}
+
+/* Cuando pasas el mouse por encima o te desplazas */
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-red); /* Rojo brillante al interactuar */
+    box-shadow: 0 0 10px rgba(255, 59, 59, 0.4);
+}
+
+/* 2. Estilo específico para el cuadro de CHAT 
+   (Para que dentro del chat la barra sea más fina y elegante) */
+
+#chat::-webkit-scrollbar {
+    width: 5px;
+}
+
+#chat::-webkit-scrollbar-track {
+    background: transparent; /* Fondo transparente para no ensuciar el diseño del chat */
+}
+
+#chat::-webkit-scrollbar-thumb {
+    background: rgba(255, 59, 59, 0.2); /* Rojo semitransparente */
+}
+
+#chat::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-red);
+}
+
+/* 3. Soporte para Firefox (usa propiedades diferentes) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #3d0000 #0a0a0a; /* [Color de la barra] [Color del fondo] */
+}
