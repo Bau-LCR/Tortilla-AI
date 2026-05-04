@@ -20,6 +20,11 @@
 
 <div id="particles"></div>
 
+<div class="control-panel">
+    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+    <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+</div>
+
 <div id="login-overlay">
     <div class="auth-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
@@ -32,16 +37,13 @@
     </div>
 </div>
 
-<button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-<button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
-
 <div id="chat">
     <div class="ai">Hola, soy Cut-real AI.</div>
 </div>
 
 <div class="input-area">
     <input id="input" placeholder="Escribe..." autocomplete="off">
-    <button onclick="sendMessage()">Enviar</button>
+    <button onclick="sendMessage()" id="send-btn">Enviar</button>
 </div>
 
 <script type="module">
@@ -74,13 +76,9 @@
 <script src="particles.js"></script>
 <script src="main.js"></script>
 
-<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
-    <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
-        Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
-    </p>
-    <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
-        &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
-    </p>
+<footer class="copyright">
+    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
+    <p>&copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
 
 </body>
