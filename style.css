@@ -25,23 +25,7 @@ body {
 
 /* TITULO REFINADO Y PROFESIONAL */
 h1 {
-    margin-top: 50px;
-    margin-bottom: 10px;
-    font-size: 58px;            /* Tamaño equilibrado y elegante */
-    letter-spacing: -2px;       /* Espaciado moderno y compacto */
-    font-weight: 700;           /* Peso fuerte pero no tosco */
-    text-align: center;
-    text-transform: none;       /* Casing natural para mayor sofisticación */
-    background: linear-gradient(135deg, #ffffff 50%, #ff3b3b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 8px 15px rgba(255, 59, 59, 0.1));
-    user-select: none;
-    transition: transform 0.3s ease;
-}
-
-h1:hover {
-    transform: scale(1.02);    /* Micro-interacción profesional */
+    display: none; /* Ocultamos el H1 que estaba suelto para usar el del header */
 }
 
 /* CONTENEDOR DEL CHAT (GLASSMORPHISM PULIDO) */
@@ -49,7 +33,7 @@ h1:hover {
     width: 75%;
     max-width: 1000px;
     height: 550px;
-    margin-top: 40px;
+    margin-top: 120px; /* Aumentado de 40px a 120px para bajar toda la caja y centrarla */
     background: var(--card-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -224,8 +208,7 @@ button:active {
 
 /* RESPONSIVIDAD PRO */
 @media (max-width: 768px) {
-    h1 { font-size: 38px; letter-spacing: -1px; margin-top: 30px; }
-    #chat { width: 85%; height: 60vh; padding: 20px; }
+    #chat { width: 85%; height: 60vh; padding: 20px; margin-top: 100px; }
     .input-area { width: 90%; }
     #resetChat { top: auto; bottom: 20px; left: 20px; padding: 10px 15px; }
 }
@@ -245,13 +228,16 @@ button:active {
     justify-content: center;
 }
 
+/* --- MEJORA DE LA TARJETA DE LOGIN --- */
 .auth-card {
-    background: #121212;
-    padding: 50px;
-    border-radius: 30px;
-    border: 1px solid rgba(255, 59, 59, 0.2);
+    background: rgba(15, 15, 15, 0.95);
+    padding: 60px 40px;
+    border-radius: 35px;
+    border: 1px solid rgba(255, 59, 59, 0.3);
     text-align: center;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
+    max-width: 400px;
+    width: 90%;
     animation: aparecer 0.5s ease-out;
 }
 
@@ -269,18 +255,30 @@ button:active {
 }
 
 .google-btn {
-    background: white !important;
-    color: #000 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100%;
+    justify-content: center;
+    margin-top: 20px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    height: 55px;
+    border-radius: 15px !important;
+    border: none;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 25px !important;
-    font-size: 16px !important;
-    margin: 0 auto;
+    gap: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
 .google-btn img {
-    width: 20px;
+    width: 22px;
+}
+
+.google-btn:hover {
+    background: #f0f0f0 !important;
+    transform: scale(1.02) !important;
 }
 
 /* --- BOTÓN DE SALIR (LOGOUT) REDISEÑADO --- */
@@ -299,7 +297,7 @@ button:active {
     cursor: pointer;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease !important;
-    box-shadow: none !important; /* Quitamos la sombra roja por defecto */
+    box-shadow: none !important;
     z-index: 1000;
 }
 
@@ -308,43 +306,6 @@ button:active {
     color: var(--primary-red) !important;
     border-color: var(--primary-red) !important;
     transform: translateY(-2px);
-}
-
-/* --- MEJORA DE LA TARJETA DE LOGIN --- */
-.auth-card {
-    background: rgba(15, 15, 15, 0.95);
-    padding: 60px 40px;
-    border-radius: 35px;
-    border: 1px solid rgba(255, 59, 59, 0.3);
-    text-align: center;
-    box-shadow: 0 0 40px rgba(255, 59, 59, 0.1);
-    max-width: 400px;
-    width: 90%;
-}
-
-.google-btn {
-    background: #ffffff !important;
-    color: #000000 !important;
-    width: 100%;
-    justify-content: center;
-    margin-top: 20px !important;
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    height: 55px;
-    border-radius: 15px !important;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.google-btn img {
-    width: 22px;
-}
-
-.google-btn:hover {
-    background: #f0f0f0 !important;
-    transform: scale(1.02) !important;
 }
 
 /* --- SPLASH SCREEN STYLES --- */
@@ -358,7 +319,7 @@ button:active {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10000; /* Por encima de login-overlay */
+    z-index: 10000;
     transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
 }
 
@@ -367,7 +328,7 @@ button:active {
 }
 
 .splash-logo {
-    width: 600px;
+    width: 400px; /* Ajuste para que el splash no se vea distorsionado */
     height: auto;
     margin-bottom: 20px;
     animation: splashPulse 2s infinite ease-in-out;
@@ -382,10 +343,7 @@ button:active {
     background: linear-gradient(135deg, #ffffff 50%, #ff3b3b 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-}
-
-.red-text {
-    color: var(--primary-red);
+    display: block; /* Mantenemos este visible a pesar de la regla global h1 */
 }
 
 @keyframes splashPulse {
@@ -399,7 +357,7 @@ button:active {
     visibility: hidden;
 }
 
-/* Header superior */
+/* --- HEADER SUPERIOR --- */
 .main-header {
     display: flex;
     justify-content: space-between;
@@ -408,33 +366,33 @@ button:active {
     position: fixed;
     top: 0;
     width: 100%;
+    box-sizing: border-box; /* Evita que el padding genere scroll horizontal */
     z-index: 100;
 }
 
 .header-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 10px; /* Reducido el espacio entre logo y texto */
 }
 
 .nav-logo-small {
-    height: 100px; /* Tamaño pequeño para el menú superior */
+    height: 40px; /* Reducido drásticamente de 100px a 40px para encajar en el header */
     width: auto;
+    display: block;
 }
 
 .nav-title {
-    font-size: 20px;
-    font-weight: bold;
+    font-size: 22px;
+    font-weight: 800;
     color: white;
+    letter-spacing: -0.5px;
 }
 
-/* Logo en la tarjeta de login */
+/* --- LOGO EN LA TARJETA DE LOGIN --- */
 .auth-logo-small {
-    height: 250px;
-    margin-bottom: 15px;
-}
-
-/* Ajuste del título que estaba suelto */
-h1 {
-    display: none; /* Ocultamos el H1 que estaba suelto para usar el del header */
+    height: 120px; /* Reducido de 250px a 120px para proporción perfecta */
+    width: auto;
+    display: block; /* Lo convertimos en bloque para poder centrarlo */
+    margin: 0 auto 20px auto; /* Centrado automático a los lados, con margen abajo */
 }
