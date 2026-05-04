@@ -1,4 +1,4 @@
-/* Importamos Inter con todos sus pesos para máxima jerarquía visual */
+/* Importamos Inter con todos sus pesos */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
@@ -23,10 +23,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* OCULTAMOS EL H1 PARA USAR EL HEADER EN SU LUGAR */
-h1 {
-    display: none;
-}
+h1 { display: none; }
 
 /* --- HEADER SUPERIOR --- */
 .main-header {
@@ -50,26 +47,24 @@ h1 {
 }
 
 .nav-logo-small {
-    height: 90px;
+    height: 80px;
     width: auto;
-    margin-right: 5px;
+    margin-right: 10px;
     object-fit: contain;
     filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.2));
 }
 
 .nav-title {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 800;
     color: white;
     letter-spacing: -0.5px;
     margin: 0;
 }
 
-.red-text { 
-    color: var(--primary-red); 
-}
+.red-text { color: var(--primary-red); }
 
-/* --- BOTONES DE CONTROL (SIDE CONTROLS) --- */
+/* --- BOTONES DE CONTROL --- */
 .side-controls {
     position: fixed !important;
     top: 30px !important;
@@ -80,10 +75,9 @@ h1 {
     z-index: 99999;
 }
 
-/* Estilo unificado para Logout y Reset */
 #logout-btn, #resetChat {
     position: static !important;
-    width: 160px;
+    width: 150px;
     background: rgba(255, 255, 255, 0.03) !important;
     color: #888 !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -91,12 +85,11 @@ h1 {
     border-radius: 12px !important;
     font-size: 11px !important;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     font-weight: 600;
     cursor: pointer;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease !important;
-    box-shadow: none !important; 
     text-align: center;
 }
 
@@ -104,22 +97,19 @@ h1 {
     background: rgba(255, 59, 59, 0.1) !important;
     color: var(--primary-red) !important;
     border-color: var(--primary-red) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(255, 59, 59, 0.1) !important;
 }
 
-/* CONTENEDOR DEL CHAT */
+/* --- CONTENEDOR DEL CHAT --- */
 #chat {
-    width: 75%;
+    width: 85%;
     max-width: 1000px;
-    height: 550px;
+    height: 60vh;
     margin-top: 130px;
     background: var(--card-bg);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-white);
     border-radius: 28px;
-    padding: 35px;
+    padding: 30px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -129,119 +119,75 @@ h1 {
     z-index: 10;
 }
 
-/* SCROLLBAR MINIMALISTA */
-#chat::-webkit-scrollbar {
-    width: 5px;
-}
-#chat::-webkit-scrollbar-thumb {
-    background: #2a2a2a;
-    border-radius: 10px;
-}
-
-/* BURBUJAS DE MENSAJES */
-.user {
-    background: #252525;
+/* BURBUJAS */
+.user, .ai {
     padding: 16px 22px;
-    border-radius: 22px 22px 4px 22px;
-    margin: 12px 0 12px auto;
-    width: fit-content;
-    max-width: 70%;
+    margin: 10px 0;
     font-size: 16px;
     animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+.user {
+    background: #252525;
+    border-radius: 22px 22px 4px 22px;
+    margin-left: auto;
+    max-width: 75%;
+}
+
 .ai {
     background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%);
-    padding: 22px 28px;
     border-radius: 22px 22px 22px 4px;
-    margin: 12px auto 12px 0;
-    width: fit-content;
-    max-width: 82%;
-    color: #f5f5f5;
-    line-height: 1.8;
-    white-space: pre-wrap;
+    max-width: 85%;
+    line-height: 1.7;
     border: 1px solid rgba(255, 0, 0, 0.15);
-    animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.ai b, .ai strong {
-    color: var(--primary-red);
-}
-
-/* ÁREA DE ENTRADA */
+/* --- ÁREA DE ENTRADA (TEXTAREA) --- */
 .input-area {
-    margin-top: 30px;
-    margin-bottom: 30px;
+    margin-top: 20px;
+    margin-bottom: 40px;
     display: flex;
-    align-items: center;
+    align-items: flex-end; /* Alinea botón abajo si el texto crece */
     background: #161616;
     padding: 10px 10px 10px 24px;
-    border-radius: 100px;
+    border-radius: 24px;
     border: 1px solid #252525;
-    width: 650px;
-    max-width: 92%;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 750px;
+    max-width: 90%;
     position: relative;
     z-index: 10;
 }
 
-.input-area:focus-within {
-    border-color: var(--primary-red);
-    box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.1);
-}
-
-input {
+.input-area textarea {
     flex: 1;
     background: transparent;
     border: none;
     color: #ffffff;
     font-size: 16px;
     outline: none;
+    font-family: inherit;
+    padding: 10px 15px 10px 0;
+    resize: none;
+    max-height: 150px;
+    line-height: 1.5;
+    overflow-y: auto;
 }
 
-/* BOTÓN ENVIAR GENERAL */
 .input-area button {
     background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
     color: white;
     border: none;
-    padding: 14px 32px;
-    border-radius: 100px;
-    font-weight: 600;
+    padding: 12px 28px;
+    border-radius: 18px;
+    font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 6px 20px rgba(255, 59, 59, 0.3);
 }
 
-/* ANIMACIONES */
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(20px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* FONDO DE PARTÍCULAS */
-#particles {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -1;
-    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
-}
-
-.particle {
-    position: absolute;
-    background: rgba(255, 59, 59, 0.15);
-    border-radius: 50%;
-    animation: float linear infinite;
-}
-
-@keyframes float {
-    from { transform: translateY(0); }
-    to { transform: translateY(-120vh); }
-}
-
-/* --- LOGIN OVERLAY --- */
+/* --- AUTH & SPLASH --- */
 #login-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(20px);
     z-index: 9999;
     display: flex;
@@ -250,49 +196,32 @@ input {
 }
 
 .auth-card {
-    background: rgba(15, 15, 15, 0.95);
-    padding: 50px 40px;
-    border-radius: 35px;
-    border: 1px solid rgba(255, 59, 59, 0.3);
+    background: #0f0f0f;
+    padding: 40px;
+    border-radius: 30px;
+    border: 1px solid var(--border-white);
     text-align: center;
-    width: 90%;
-    max-width: 450px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    animation: aparecer 0.5s ease-out;
+    width: 85%;
+    max-width: 400px;
 }
 
-.auth-logo-small {
-    height: 180px;
-    margin-bottom: 25px;
-    filter: drop-shadow(0 0 15px rgba(255, 59, 59, 0.2));
-}
+.auth-logo-small { height: 120px; margin-bottom: 20px; }
 
 .google-btn {
-    background: #ffffff !important;
+    background: #fff !important;
     color: #000 !important;
     width: 100%;
-    height: 55px;
-    border-radius: 15px !important;
+    height: 50px;
+    border-radius: 12px !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px;
-    font-weight: 700 !important;
-    box-shadow: 0 5px 15px rgba(255,255,255,0.1) !important;
-    overflow: hidden; /* Evita que la imagen gigante desborde si algo falla */
+    gap: 10px;
+    font-weight: 700;
 }
 
-/* AQUÍ ESTÁ LA MAGIA PARA CONTROLAR EL TAMAÑO DE LA IMAGEN DE GOOGLE */
-.google-btn img {
-    width: 24px !important;
-    height: 24px !important;
-    object-fit: contain;
-    flex-shrink: 0;
-}
+.google-btn img { width: 22px; height: 22px; }
 
-/* --- SPLASH SCREEN --- */
 #splash-screen {
     position: fixed;
     inset: 0;
@@ -303,42 +232,84 @@ input {
     z-index: 10000;
 }
 
-.splash-logo {
-    width: 500px;
-    animation: splashPulse 2s infinite ease-in-out;
-    filter: drop-shadow(0 0 30px rgba(255, 59, 59, 0.3));
-}
+.splash-logo { width: 300px; animation: splashPulse 2s infinite ease-in-out; }
 
 @keyframes splashPulse {
     0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.08); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 1; }
 }
 
-/* RESPONSIVIDAD */
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* FONDO */
+#particles {
+    position: fixed;
+    inset: 0; z-index: -1;
+    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+}
+
+/* =========================================
+   RESPONSIVIDAD MÓVIL (VERTICAL)
+   ========================================= */
+
 @media (max-width: 768px) {
-    #chat { width: 85%; height: 60vh; margin-top: 100px; }
-    .side-controls { top: 20px !important; right: 20px !important; }
-    #logout-btn, #resetChat { width: 130px; font-size: 10px !important; }
-    .nav-logo-small { height: 60px; }
-}
-/* --- ESTILOS PARA EL TEXTAREA (Reemplaza al input) --- */
-.input-area textarea {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: #ffffff;
-    font-size: 16px;
-    outline: none;
-    font-family: 'Inter', sans-serif;
-    padding: 10px 15px 10px 0;
-    resize: none; /* Evita que el usuario tire de la esquina para deformarlo */
-    max-height: 150px; /* Limita cuánto puede crecer antes de mostrar scroll interno */
-    line-height: 1.5;
-    overflow-y: auto;
+    /* Header más compacto */
+    .main-header { padding: 10px 20px; }
+    .nav-logo-small { height: 50px; }
+    .nav-title { font-size: 18px; }
+
+    /* Botones de control flotantes pequeños */
+    .side-controls {
+        top: 15px !important;
+        right: 15px !important;
+        gap: 8px;
+    }
+    #logout-btn, #resetChat {
+        width: 110px;
+        font-size: 9px !important;
+        padding: 8px 0 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Ajuste del Chat */
+    #chat {
+        width: 92%;
+        height: 65vh;
+        margin-top: 80px;
+        padding: 15px;
+        border-radius: 20px;
+    }
+
+    .user { max-width: 85%; font-size: 14px; padding: 12px 16px; }
+    .ai { max-width: 92%; font-size: 14px; padding: 12px 16px; }
+
+    /* Input area pegada abajo y más ancha */
+    .input-area {
+        width: 92%;
+        margin-top: 15px;
+        margin-bottom: 20px;
+        padding: 8px 8px 8px 16px;
+        border-radius: 20px;
+    }
+
+    .input-area textarea {
+        font-size: 14px;
+        padding: 8px 0;
+    }
+
+    .input-area button {
+        padding: 10px 18px;
+        font-size: 14px;
+    }
+
+    .splash-logo { width: 220px; }
 }
 
-/* Ajuste sutil al contenedor para que el botón no suba cuando el texto crece */
-.input-area {
-    align-items: flex-end; 
-    border-radius: 20px;
+/* Soporte para pantallas muy pequeñas */
+@media (max-width: 400px) {
+    .nav-title { display: none; } /* Solo logo en pantallas mini */
+    #chat { height: 60vh; }
 }
