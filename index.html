@@ -35,6 +35,7 @@
 <div class="side-controls">
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="admin-btn" onclick="openAdmin()" style="display:none;">ADMIN</button>
 </div>
 
 <div id="chat">
@@ -43,7 +44,7 @@
 
 <div class="input-area">
     <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
-    <button onclick="sendMessage()">Enviar</button>
+    <button id="send-btn" onclick="sendMessage()">Enviar</button>
 </div>
 
 <script type="module">
