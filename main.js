@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
     let debugMode = false;
+    let readOnlyMode = false;
 
     setTimeout(() => {
         if (splashScreen) {
@@ -15,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }, 1500);
 
-    let systemPrompt = { role: "system", content: "Eres Cut-real AI, una inteligencia avanzada y servicial." };
+    let systemPrompt = { role: "system", content: "Configurado en el servidor." };
     let currentUser = null;
     let historial = [systemPrompt];
     
@@ -25,58 +26,71 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const scrollAbajo = () => { chat.scrollTop = chat.scrollHeight; };
 
-    // --- PANEL ADMIN PRO ---
+    // --- PANEL ADMIN EXPANDIDO ---
     window.openAdmin = () => {
-        const menu = `MENU ADMIN CUT-REAL AI
-1. Backup JSON (Descargar historial)
-2. Cambiar Personalidad (System Prompt)
-3. Inyectar mensaje de IA (Fake response)
-4. Alternar Modo Debug
-5. Ver estadísticas del usuario
-6. Cambiar color de acento (UI)
+        const menu = `CENTRAL DE CONTROL CUT-REAL AI
+1. BACKUP: Descargar historial (JSON)
+2. PROMPT: Cambiar personalidad IA
+3. INYECTAR: Forzar respuesta de IA
+4. SEGURIDAD: Alternar Modo Lectura (Bloquea envíos)
+5. DEBUG: Activar registros técnicos
+6. ESTADÍSTICAS: Auditoría de usuario
+7. UI: Cambiar color de acento
+8. TEST: Simular error de servidor
+        
+Selecciona una opción:`;
 
-Elige una opción:`;
+        const opcion = prompt(menu);
 
-        const res = prompt(menu);
-        if (res === "1") {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historial));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "cutreal_log.json");
-            downloadAnchorNode.click();
-        } else if (res === "2") {
-            const newPrompt = prompt("Nueva personalidad para la IA:", systemPrompt.content);
-            if(newPrompt) {
-                systemPrompt.content = newPrompt;
-                historial[0] = systemPrompt;
-                alert("Personalidad actualizada.");
-            }
-        } else if (res === "3") {
-            const fakeMsg = prompt("¿Qué quieres que diga la IA ahora mismo?");
-            if(fakeMsg) {
-                historial.push({ role: "assistant", content: fakeMsg });
-                renderizarChat();
-            }
-        } else if (res === "4") {
-            debugMode = !debugMode;
-            alert("Modo Debug: " + (debugMode ? "ON" : "OFF"));
-        } else if (res === "5") {
-            alert(`USER: ${currentUser.displayName}\nUID: ${currentUser.uid}\nMSG_COUNT: ${historial.length - 1}`);
-        } else if (res === "6") {
-            const color = prompt("Color HEX (ej: #ff00ff):");
-            if(color) document.documentElement.style.setProperty('--primary-red', color);
+        switch(opcion) {
+            case "1":
+                const blob = new Blob([JSON.stringify(historial, null, 2)], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `backup_${currentUser.uid}.json`; a.click();
+                break;
+            case "2":
+                const p = prompt("Nuevo System Prompt:", systemPrompt.content);
+                if(p) { systemPrompt.content = p; historial[0] = systemPrompt; alert("Personalidad cambiada."); }
+                break;
+            case "3":
+                const msg = prompt("Texto que la IA dirá ahora:");
+                if(msg) { historial.push({ role: "assistant", content: msg }); renderizarChat(); }
+                break;
+            case "4":
+                readOnlyMode = !readOnlyMode;
+                input.disabled = readOnlyMode;
+                alert("Modo Lectura: " + (readOnlyMode ? "ACTIVADO (Chat bloqueado)" : "DESACTIVADO"));
+                break;
+            case "5":
+                debugMode = !debugMode;
+                alert("Modo Debug: " + (debugMode ? "ON" : "OFF"));
+                break;
+            case "6":
+                alert(`SESIÓN ACTIVA:\nUser: ${currentUser.displayName}\nUID: ${currentUser.uid}\nMensajes: ${historial.length - 1}\nEstado: ${window.navigator.onLine ? 'Online' : 'Offline'}`);
+                break;
+            case "7":
+                const color = prompt("Color Hexadecimal (ej: #ff00ff):");
+                if(color) document.documentElement.style.setProperty('--primary-red', color);
+                break;
+            case "8":
+                chat.innerHTML += `<div class='ai' style='color: #ff4b4b; border: 1px solid #ff4b4b;'><b>TEST ERROR:</b> Fallo de simulación del servidor (500)</div>`;
+                scrollAbajo();
+                break;
+            default:
+                if(opcion) alert("Comando no reconocido.");
         }
     };
 
     async function guardarEnNube() {
-        if (!currentUser) return;
+        if (!currentUser || readOnlyMode) return;
         const { doc, setDoc } = window.firestore;
         try {
             await setDoc(doc(window.db, "chats", currentUser.uid), {
                 mensajes: historial,
                 updatedAt: Date.now()
             });
-        } catch (e) { if(debugMode) console.error("Cloud Error:", e); }
+        } catch (e) { if(debugMode) console.error("Error Firestore:", e); }
     }
 
     async function cargarDeNube(uid) {
@@ -113,17 +127,16 @@ Elige una opción:`;
     const checkUser = () => {
         if (window.auth) {
             window.auth.onAuthStateChanged((user) => {
-                const btns = ["logout-btn", "resetChat", "admin-btn"];
                 if (user) {
                     currentUser = user;
-                    loginOverlay.style.display = "none";
+                    document.getElementById("login-overlay").style.display = "none";
                     document.getElementById("logout-btn").style.display = "block";
                     document.getElementById("resetChat").style.display = "block";
                     document.getElementById("admin-btn").style.display = (user.uid === ADMIN_UID) ? "block" : "none";
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
-                    loginOverlay.style.display = "flex";
+                    document.getElementById("login-overlay").style.display = "flex";
                 }
             });
         } else { setTimeout(checkUser, 500); }
@@ -131,8 +144,10 @@ Elige una opción:`;
     checkUser();
 
     async function sendMessage() {
+        if (readOnlyMode) return;
         const msg = input.value.trim();
         if (!msg || !currentUser) return;
+
         historial.push({ role: "user", content: msg });
         renderizarChat();
         input.value = ""; input.style.height = "auto";
@@ -140,7 +155,7 @@ Elige una opción:`;
         const thinking = document.createElement("div");
         thinking.className = "ai";
         thinking.id = "thinking-bubble";
-        thinking.textContent = "Analizando...";
+        thinking.textContent = "Procesando...";
         chat.appendChild(thinking);
         scrollAbajo();
 
@@ -157,8 +172,8 @@ Elige una opción:`;
             guardarEnNube();
             renderizarChat();
         } catch (e) {
-            if(debugMode) console.log(e);
-            document.getElementById("thinking-bubble").textContent = "Error de respuesta.";
+            if(debugMode) console.log("API Error:", e);
+            document.getElementById("thinking-bubble").textContent = "Error de conexión.";
         }
     }
 
@@ -166,7 +181,7 @@ Elige una opción:`;
     input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     window.sendMessage = sendMessage;
     window.resetChat = async () => { 
-        if (confirm("¿Borrar historial?")) {
+        if (confirm("¿Limpiar historial?")) {
             historial = [systemPrompt];
             renderizarChat();
             await guardarEnNube();
