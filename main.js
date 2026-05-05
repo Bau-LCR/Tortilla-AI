@@ -250,4 +250,34 @@ function toggleAdminPanel() {
     const panel = document.getElementById('admin-panel');
     panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
 }
+    // Tu llave maestra
+const MI_UID_ADMIN = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // ... (Tu código existente para mostrar el chat) ...
+
+        // Lógica de Administrador
+        if (user.uid === MI_UID_ADMIN) {
+            console.log("Acceso de Administrador concedido.");
+            document.getElementById('admin-access').style.display = 'block';
+            actualizarEstadisticasAdmin(); // Función opcional para cargar datos
+        }
+    } else {
+        document.getElementById('admin-access').style.display = 'none';
+    }
+});
+
+// Función para abrir/cerrar el panel
+function toggleAdminPanel() {
+    const panel = document.getElementById('admin-panel');
+    const isVisible = panel.style.display === 'flex';
+    panel.style.display = isVisible ? 'none' : 'flex';
+}
+
+// Ejemplo de función para tu panel
+function actualizarEstadisticasAdmin() {
+    // Aquí podrías contar documentos en Firestore o usuarios
+    document.getElementById('user-count').innerText = "Conectado como Root";
+}
 });
