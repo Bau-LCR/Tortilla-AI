@@ -4,9 +4,11 @@ document.addEventListener("DOMContentLoaded", function() {
     const loginOverlay = document.getElementById("login-overlay");
     const splashScreen = document.getElementById("splash-screen");
 
-    // UID Autorizado para el panel Admin
     const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+    let mensajesSesion = 0;
+    let debugMode = false;
 
+    // --- LÓGICA SPLASH ---
     setTimeout(() => {
         if (splashScreen) {
             splashScreen.style.opacity = "0";
@@ -23,79 +25,59 @@ document.addEventListener("DOMContentLoaded", function() {
         return texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
     };
 
-    const scrollAbajo = () => {
-        chat.scrollTop = chat.scrollHeight;
+    const scrollAbajo = () => { chat.scrollTop = chat.scrollHeight; };
+
+    // --- PANEL ADMIN AVANZADO ---
+    window.openAdmin = () => {
+        const info = `
+--- CONTROL MAESTRO CUT-REAL AI ---
+Admin: ${currentUser.displayName}
+UID: ${currentUser.uid}
+Msgs Sesión: ${mensajesSesion}
+Total Historial: ${historial.length - 1}
+Modo Debug: ${debugMode ? "ACTIVADO" : "DESACTIVADO"}
+
+OPCIONES DISPONIBLES:
+1. DESCARGAR BACKUP (JSON)
+2. LIMPIAR CACHÉ LOCAL
+3. ALTERNAR MODO DEBUG
+4. VER LOGS TÉCNICOS
+        `;
+        
+        const res = prompt(info + "\nEscribe el número de la opción:");
+
+        switch(res) {
+            case "1":
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historial));
+                const dl = document.createElement('a');
+                dl.setAttribute("href", dataStr);
+                dl.setAttribute("download", `cutreal_backup_${Date.now()}.json`);
+                dl.click();
+                break;
+            case "2":
+                if(confirm("¿Limpiar caché? Esto recargará la app.")) location.reload();
+                break;
+            case "3":
+                debugMode = !debugMode;
+                alert("Modo Debug: " + (debugMode ? "ON. Ahora verás errores detallados en consola." : "OFF"));
+                break;
+            case "4":
+                alert("Último historial registrado:\n" + JSON.stringify(historial.slice(-2), null, 2));
+                break;
+            default:
+                if (res !== null) alert("Opción no válida");
+        }
     };
 
-    async function guardarEnNube() {
-        if (!currentUser) return;
-        const { doc, setDoc } = window.firestore;
-        try {
-            await setDoc(doc(window.db, "chats", currentUser.uid), {
-                mensajes: historial,
-                updatedAt: Date.now()
-            });
-        } catch (e) {
-            console.error("Error guardando en nube:", e);
-        }
-    }
-
-    async function cargarDeNube(uid) {
-        chat.innerHTML = "<div class='ai'>Sincronizando tus mensajes con la nube...</div>";
-        const { doc, getDoc } = window.firestore;
-        try {
-            const docRef = doc(window.db, "chats", uid);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                historial = docSnap.data().mensajes;
-            } else {
-                historial = [systemPrompt];
-            }
-            renderizarChat();
-        } catch (e) {
-            console.error("Error cargando de nube:", e);
-            chat.innerHTML = "<div class='ai' style='color: #ff4b4b;'>Error al sincronizar historial.</div>";
-        }
-    }
-
+    // --- FIREBASE LOGIC ---
     window.login = async () => {
-        if (!window.auth) return;
-        try {
-            await window.signInWithPopup(window.auth, window.provider);
-        } catch (error) {
-            console.error("Error login:", error);
-        }
+        try { await window.signInWithPopup(window.auth, window.provider); } 
+        catch (e) { console.error("Error login:", e); }
     };
 
     window.logout = () => {
-        if (window.auth) {
-            document.body.style.opacity = "0.5";
-            window.signOut(window.auth).then(() => {
-                location.reload();
-            });
-        }
-    };
-
-    window.openAdmin = () => {
-        alert("Accediendo al Panel de Administración de Cut-real AI...");
-        // Aquí puedes redirigir o abrir un modal
-    };
-
-    const renderizarChat = () => {
-        chat.innerHTML = ""; 
-        if (historial.length <= 1) {
-            const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
-            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI. Tus mensajes están sincronizados.</div>`;
-        } else {
-            historial.forEach(msg => {
-                if (msg.role === "system") return;
-                const div = document.createElement("div");
-                div.className = msg.role === "user" ? "user" : "ai";
-                div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${formatearTexto(msg.content)}` : formatearTexto(msg.content);
-                chat.appendChild(div);
-            });
-        }
-        scrollAbajo();
+        document.body.style.opacity = "0.5";
+        window.signOut(window.auth).then(() => location.reload());
     };
 
     const checkUser = () => {
@@ -104,45 +86,35 @@ document.addEventListener("DOMContentLoaded", function() {
                 const logoutBtn = document.getElementById("logout-btn");
                 const resetBtn = document.getElementById("resetChat");
                 const adminBtn = document.getElementById("admin-btn");
-                const loginOverlay = document.getElementById("login-overlay");
 
                 if (user) {
                     currentUser = user;
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "block";
                     if (resetBtn) resetBtn.style.display = "block";
-                    
-                    // Mostrar ADMIN solo si el UID coincide
-                    if (adminBtn) {
-                        adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
-                    }
-
+                    if (adminBtn) adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
-                    if (logoutBtn) logoutBtn.style.display = "none";
-                    if (resetBtn) resetBtn.style.display = "none";
-                    if (adminBtn) adminBtn.style.display = "none";
                 }
             });
-        } else {
-            setTimeout(checkUser, 500);
-        }
+        } else { setTimeout(checkUser, 500); }
     };
-    
     checkUser();
 
+    // --- CHAT LOGIC ---
     async function sendMessage() {
         const msg = input.value.trim();
         if (!msg || !currentUser) return;
 
+        mensajesSesion++; // Contador para el admin
         historial.push({ role: "user", content: msg });
+        
         const userDiv = document.createElement("div");
         userDiv.className = "user";
         userDiv.innerHTML = `<b>Tú:</b> ${formatearTexto(msg)}`;
         chat.appendChild(userDiv);
-        
         input.value = "";
         input.style.height = "auto";
         scrollAbajo();
@@ -152,7 +124,6 @@ document.addEventListener("DOMContentLoaded", function() {
         thinking.id = "thinking-bubble";
         thinking.textContent = "Pensando...";
         chat.appendChild(thinking);
-        scrollAbajo();
 
         try {
             const res = await fetch("/api/chat", { 
@@ -160,18 +131,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ mensajes: historial }) 
             });
-
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error en el servidor");
-
+            
             const respuestaIA = data.choices[0].message.content;
             historial.push({ role: "assistant", content: respuestaIA });
-
             guardarEnNube();
 
-            const bubble = document.getElementById("thinking-bubble");
-            if (bubble) bubble.remove();
-
+            document.getElementById("thinking-bubble").remove();
             const bot = document.createElement("div");
             bot.className = "ai";
             chat.appendChild(bot);
@@ -184,39 +150,48 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (i >= respuestaIA.length) {
                     clearInterval(intervalo);
                     bot.innerHTML = formatearTexto(bot.textContent);
-                    scrollAbajo();
                 }
             }, 5);
-
         } catch (e) {
-            console.error(e);
-            const bubble = document.getElementById("thinking-bubble");
-            if (bubble) bubble.remove();
-            chat.innerHTML += `<div class='ai' style='color: #ff4b4b; border: 1px solid #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
-            scrollAbajo();
+            if(debugMode) console.error("DEBUG:", e);
+            document.getElementById("thinking-bubble").remove();
+            chat.innerHTML += `<div class='ai' style='color: #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
         }
     }
 
-    input.addEventListener("input", function() {
-        this.style.height = "auto";
-        this.style.height = (this.scrollHeight) + "px";
-    });
+    async function guardarEnNube() {
+        const { doc, setDoc } = window.firestore;
+        await setDoc(doc(window.db, "chats", currentUser.uid), { mensajes: historial, updatedAt: Date.now() });
+    }
 
-    input.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage(); 
+    async function cargarDeNube(uid) {
+        const { doc, getDoc } = window.firestore;
+        const docSnap = await getDoc(doc(window.db, "chats", uid));
+        if (docSnap.exists()) historial = docSnap.data().mensajes;
+        renderizarChat();
+    }
+
+    const renderizarChat = () => {
+        chat.innerHTML = "";
+        const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
+        if (historial.length <= 1) {
+            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI.</div>`;
+        } else {
+            historial.forEach(msg => {
+                if (msg.role === "system") return;
+                const div = document.createElement("div");
+                div.className = msg.role === "user" ? "user" : "ai";
+                div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${formatearTexto(msg.content)}` : formatearTexto(msg.content);
+                chat.appendChild(div);
+            });
         }
-    });
+        scrollAbajo();
+    };
 
+    input.addEventListener("input", function() { this.style.height = "auto"; this.style.height = (this.scrollHeight) + "px"; });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     window.sendMessage = sendMessage;
-
     window.resetChat = async () => { 
-        if (!currentUser) return;
-        if (confirm("¿Deseas borrar tu conversación de la nube?")) {
-            historial = [systemPrompt];
-            renderizarChat();
-            await guardarEnNube();
-        }
+        if (confirm("¿Borrar conversación?")) { historial = [systemPrompt]; renderizarChat(); await guardarEnNube(); }
     };
 });
