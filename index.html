@@ -98,6 +98,33 @@
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
     </p>
 </footer>
+<div id="admin-access" style="display: none;">
+    <button id="admin-btn" onclick="toggleAdminPanel()">
+        <span class="pulse"></span> ⚡ ADMIN CORE
+    </button>
+</div>
 
+<div id="admin-panel" class="admin-modal">
+    <div class="admin-content">
+        <span class="close-admin" onclick="toggleAdminPanel()">&times;</span>
+        <h2 class="admin-title">SISTEMA <span class="red-text">CENTRAL</span></h2>
+        <div class="admin-grid">
+            <div class="stat-card">
+                <small>ESTADO</small>
+                <p id="user-count">ONLINE</p>
+            </div>
+            <div class="stat-card">
+                <small>ID SESIÓN</small>
+                <p style="font-size: 10px;">8qZG7...Mw2</p>
+            </div>
+        </div>
+        <button class="admin-action-btn" onclick="alert('Función en desarrollo...')">
+            REVISAR LOGS GLOBALES
+        </button>
+        <button class="admin-action-btn danger" onclick="location.reload()">
+            REINICIAR INSTANCIA
+        </button>
+    </div>
+</div>
 </body>
 </html>
