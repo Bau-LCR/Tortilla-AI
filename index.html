@@ -6,7 +6,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="admin-access" style="display: none;">
+    <button id="admin-btn" onclick="toggleAdminPanel()">⚙️ Panel Admin</button>
+</div>
 
+<div id="admin-panel" class="admin-modal">
+    <div class="admin-content">
+        <span class="close-admin" onclick="toggleAdminPanel()">&times;</span>
+        <h2><span class="red-text">Configuración</span> Maestra</h2>
+        <hr>
+        <div class="admin-stats">
+            <p>Usuarios totales: <span id="user-count">Cargando...</span></p>
+            </div>
+        <button class="danger-btn" onclick="clearAllLogs()">Limpiar Historial Global</button>
+    </div>
+</div>
 <div id="splash-screen">
     <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
 </div>
