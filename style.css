@@ -9,29 +9,15 @@
 body {
     font-family: 'Inter', sans-serif;
     background: var(--bg-black);
-    color: #ffffff;
+    color: #fff;
     margin: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-    overflow-x: hidden;
 }
 
-/* --- HEADER --- */
-.main-header {
-    display: flex;
-    padding: 15px 40px;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 100;
-}
-.nav-logo-small { height: 80px; filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.2)); }
-.nav-title { font-size: 26px; font-weight: 800; }
-.red-text { color: var(--primary-red); }
-
-/* --- BOTONES LATERALES (UNIFICADOS) --- */
+/* --- BOTONES DE CONTROL --- */
 .side-controls {
     position: fixed;
     top: 30px;
@@ -39,7 +25,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    z-index: 9999;
+    z-index: 999;
 }
 
 #logout-btn, #resetChat, #admin-btn {
@@ -47,105 +33,68 @@ body {
     background: rgba(255, 255, 255, 0.03);
     color: #888;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 11px 0;
+    padding: 11px;
     border-radius: 12px;
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     text-align: center;
+    text-transform: uppercase;
 }
 
 #logout-btn:hover, #resetChat:hover, #admin-btn:hover {
     background: rgba(255, 59, 59, 0.1);
     color: var(--primary-red);
     border-color: var(--primary-red);
-    box-shadow: 0 0 15px rgba(255, 59, 59, 0.1);
 }
 
-/* --- BOTÓN ENVIAR (EFECTO EXCLUSIVO) --- */
+/* --- BOTÓN ENVIAR (EFECTO ESPECIAL) --- */
 #send-btn {
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+    background: linear-gradient(135deg, var(--primary-red), var(--dark-red));
     color: white;
     border: none;
     padding: 12px 28px;
     border-radius: 18px;
     font-weight: 700;
     cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
     position: relative;
     overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.3);
 }
 
 #send-btn:hover {
-    transform: scale(1.08) translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.5);
-    filter: saturate(1.2);
+    transform: scale(1.1) rotate(-1deg);
+    box-shadow: 0 0 25px rgba(255, 59, 59, 0.6);
+    filter: brightness(1.2);
 }
 
 #send-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.9);
 }
 
-/* Brillo sutil que recorre el botón al pasar el mouse */
-#send-btn::before {
+/* Efecto de destello al pasar el mouse */
+#send-btn::after {
     content: '';
     position: absolute;
-    top: 0; left: -100%;
-    width: 100%; height: 100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition: all 0.6s;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
 }
-#send-btn:hover::before { left: 100%; }
 
-/* --- CHAT AREA --- */
-#chat {
-    width: 85%;
-    max-width: 1000px;
-    height: 60vh;
-    margin-top: 130px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-white);
-    border-radius: 28px;
-    padding: 30px;
-    overflow-y: auto;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+#send-btn:hover::after {
+    opacity: 1;
 }
-.user { background: #252525; border-radius: 22px 22px 4px 22px; margin-left: auto; max-width: 75%; padding: 15px; margin: 10px 0; }
-.ai { background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%); border-radius: 22px 22px 22px 4px; max-width: 85%; padding: 15px; margin: 10px 0; border: 1px solid rgba(255, 0, 0, 0.1); }
 
-/* --- INPUT --- */
-.input-area {
-    margin-top: 20px;
-    background: #161616;
-    padding: 10px 10px 10px 24px;
-    border-radius: 24px;
-    border: 1px solid #252525;
-    width: 750px;
-    max-width: 90%;
-    display: flex;
-    align-items: flex-end;
-}
+/* --- CHAT Y ÁREA DE ENTRADA --- */
+#chat { width: 85%; max-width: 1000px; height: 60vh; margin-top: 130px; background: rgba(18,18,18,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 28px; padding: 30px; overflow-y: auto; }
+.user { background: #222; border-radius: 20px 20px 4px 20px; padding: 15px; margin: 10px 0; margin-left: auto; max-width: 75%; }
+.ai { background: linear-gradient(160deg, #300, #111); border: 1px solid rgba(255,0,0,0.1); border-radius: 20px 20px 20px 4px; padding: 15px; margin: 10px 0; max-width: 85%; }
+
+.input-area { width: 750px; max-width: 90%; background: #161616; padding: 10px 20px; border-radius: 24px; border: 1px solid #252525; display: flex; align-items: flex-end; gap: 10px; }
 .input-area textarea { flex: 1; background: transparent; border: none; color: white; font-size: 16px; outline: none; padding: 10px 0; resize: none; }
 
-/* --- PARTICLES & SPLASH --- */
-#particles { position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle, #150202, #0a0a0a); }
-#splash-screen { position: fixed; inset: 0; background: #0a0a0a; display: flex; justify-content: center; align-items: center; z-index: 10000; }
-.splash-logo { width: 500px; animation: pulse 2s infinite ease-in-out; }
-
-@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
-
-/* MOBILE */
-@media (max-width: 768px) {
-    .side-controls { top: 12px; right: 10px; flex-direction: row; gap: 5px; }
-    #logout-btn, #resetChat, #admin-btn { width: auto; font-size: 8px; padding: 5px 8px; }
-    #chat { width: 94%; margin-top: 80px; height: calc(100vh - 250px); }
-    .input-area { width: 92%; }
-}
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: #3d0000; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary-red); }
+#particles { position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle, #1a0505, #000); }
