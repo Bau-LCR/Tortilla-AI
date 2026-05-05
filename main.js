@@ -2,11 +2,11 @@ document.addEventListener("DOMContentLoaded", function() {
     const chat = document.getElementById("chat");
     const input = document.getElementById("input");
     const loginOverlay = document.getElementById("login-overlay");
-    const logoutBtn = document.getElementById("logout-btn");
     const splashScreen = document.getElementById("splash-screen");
 
-    // --- LÓGICA DEL SPLASH SCREEN ---
-    // Oculta el splash screen después de 1.5 segundos con un fade out
+    // UID Autorizado para el panel Admin
+    const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+
     setTimeout(() => {
         if (splashScreen) {
             splashScreen.style.opacity = "0";
@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", function() {
     }, 1500);
 
     const systemPrompt = { role: "system", content: "Configurado en el servidor." };
-    
     let currentUser = null;
     let historial = [systemPrompt];
     
@@ -27,8 +26,6 @@ document.addEventListener("DOMContentLoaded", function() {
     const scrollAbajo = () => {
         chat.scrollTop = chat.scrollHeight;
     };
-
-    // --- FUNCIONES DE NUBE (FIRESTORE) ---
 
     async function guardarEnNube() {
         if (!currentUser) return;
@@ -44,14 +41,11 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     async function cargarDeNube(uid) {
-        // Feedback visual de carga
         chat.innerHTML = "<div class='ai'>Sincronizando tus mensajes con la nube...</div>";
-        
         const { doc, getDoc } = window.firestore;
         try {
             const docRef = doc(window.db, "chats", uid);
             const docSnap = await getDoc(docRef);
-            
             if (docSnap.exists()) {
                 historial = docSnap.data().mensajes;
             } else {
@@ -64,8 +58,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // --- LÓGICA DE FIREBASE ---
-
     window.login = async () => {
         if (!window.auth) return;
         try {
@@ -77,12 +69,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
     window.logout = () => {
         if (window.auth) {
-            // Animación sutil antes de salir
             document.body.style.opacity = "0.5";
             window.signOut(window.auth).then(() => {
-                location.reload(); // Recargamos para limpiar todo el estado
+                location.reload();
             });
         }
+    };
+
+    window.openAdmin = () => {
+        alert("Accediendo al Panel de Administración de Cut-real AI...");
+        // Aquí puedes redirigir o abrir un modal
     };
 
     const renderizarChat = () => {
@@ -107,25 +103,27 @@ document.addEventListener("DOMContentLoaded", function() {
             window.auth.onAuthStateChanged((user) => {
                 const logoutBtn = document.getElementById("logout-btn");
                 const resetBtn = document.getElementById("resetChat");
+                const adminBtn = document.getElementById("admin-btn");
                 const loginOverlay = document.getElementById("login-overlay");
 
                 if (user) {
                     currentUser = user;
-                    // Ocultar el login
                     loginOverlay.style.display = "none";
-                    
-                    // MOSTRAR BOTONES (Forzamos el display block)
                     if (logoutBtn) logoutBtn.style.display = "block";
                     if (resetBtn) resetBtn.style.display = "block";
                     
+                    // Mostrar ADMIN solo si el UID coincide
+                    if (adminBtn) {
+                        adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
+                    }
+
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
-                    
-                    // OCULTAR BOTONES si no hay usuario
                     if (logoutBtn) logoutBtn.style.display = "none";
                     if (resetBtn) resetBtn.style.display = "none";
+                    if (adminBtn) adminBtn.style.display = "none";
                 }
             });
         } else {
@@ -135,8 +133,6 @@ document.addEventListener("DOMContentLoaded", function() {
     
     checkUser();
 
-    // --- LÓGICA DEL CHAT ---
-
     async function sendMessage() {
         const msg = input.value.trim();
         if (!msg || !currentUser) return;
@@ -144,11 +140,9 @@ document.addEventListener("DOMContentLoaded", function() {
         historial.push({ role: "user", content: msg });
         const userDiv = document.createElement("div");
         userDiv.className = "user";
-        // CAMBIO AQUÍ: Usamos formatearTexto para que los saltos de línea se vean en el HTML
         userDiv.innerHTML = `<b>Tú:</b> ${formatearTexto(msg)}`;
         chat.appendChild(userDiv);
         
-        // CAMBIO AQUÍ: Limpiamos el valor y reseteamos la altura
         input.value = "";
         input.style.height = "auto";
         scrollAbajo();
@@ -203,18 +197,14 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
 
-    // --- CAMBIO AQUÍ: Lógica para textarea y Shift+Enter ---
-    
-    // Auto-ajustar altura al escribir
     input.addEventListener("input", function() {
         this.style.height = "auto";
         this.style.height = (this.scrollHeight) + "px";
     });
 
-    // Detectar teclas (Enter para enviar, Shift+Enter para salto de línea)
     input.addEventListener("keydown", (e) => { 
         if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault(); // Evita que se haga un salto de línea al enviar
+            e.preventDefault();
             sendMessage(); 
         }
     });
