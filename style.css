@@ -4,12 +4,13 @@
     --primary-red: #ff3b3b;
     --dark-red: #cc0000;
     --bg-black: #0a0a0a;
+    --card-bg: rgba(18, 18, 18, 0.75);
 }
 
 body {
     font-family: 'Inter', sans-serif;
     background: var(--bg-black);
-    color: #fff;
+    color: white;
     margin: 0;
     display: flex;
     flex-direction: column;
@@ -17,7 +18,7 @@ body {
     min-height: 100vh;
 }
 
-/* --- BOTONES DE CONTROL --- */
+/* --- CONTROLES LATERALES --- */
 .side-controls {
     position: fixed;
     top: 30px;
@@ -25,7 +26,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    z-index: 999;
+    z-index: 1000;
 }
 
 #logout-btn, #resetChat, #admin-btn {
@@ -36,11 +37,9 @@ body {
     padding: 11px;
     border-radius: 12px;
     font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
     text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.3s;
 }
 
 #logout-btn:hover, #resetChat:hover, #admin-btn:hover {
@@ -49,7 +48,7 @@ body {
     border-color: var(--primary-red);
 }
 
-/* --- BOTÓN ENVIAR (EFECTO ESPECIAL) --- */
+/* --- BOTÓN ENVIAR (EFECTO EXCLUSIVO) --- */
 #send-btn {
     background: linear-gradient(135deg, var(--primary-red), var(--dark-red));
     color: white;
@@ -58,15 +57,13 @@ body {
     border-radius: 18px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
-    position: relative;
-    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.3);
 }
 
 #send-btn:hover {
-    transform: scale(1.1) rotate(-1deg);
-    box-shadow: 0 0 25px rgba(255, 59, 59, 0.6);
+    transform: scale(1.1);
+    box-shadow: 0 0 30px rgba(255, 59, 59, 0.6);
     filter: brightness(1.2);
 }
 
@@ -74,27 +71,46 @@ body {
     transform: scale(0.9);
 }
 
-/* Efecto de destello al pasar el mouse */
-#send-btn::after {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s;
+/* --- CHAT AREA --- */
+#chat {
+    width: 85%;
+    max-width: 1000px;
+    height: 60vh;
+    margin-top: 130px;
+    background: var(--card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 28px;
+    padding: 30px;
+    overflow-y: auto;
 }
 
-#send-btn:hover::after {
-    opacity: 1;
-}
-
-/* --- CHAT Y ÁREA DE ENTRADA --- */
-#chat { width: 85%; max-width: 1000px; height: 60vh; margin-top: 130px; background: rgba(18,18,18,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 28px; padding: 30px; overflow-y: auto; }
 .user { background: #222; border-radius: 20px 20px 4px 20px; padding: 15px; margin: 10px 0; margin-left: auto; max-width: 75%; }
-.ai { background: linear-gradient(160deg, #300, #111); border: 1px solid rgba(255,0,0,0.1); border-radius: 20px 20px 20px 4px; padding: 15px; margin: 10px 0; max-width: 85%; }
+.ai { background: linear-gradient(160deg, #300, #111); border-radius: 20px 20px 20px 4px; padding: 15px; margin: 10px 0; max-width: 85%; border: 1px solid rgba(255,0,0,0.1); }
 
-.input-area { width: 750px; max-width: 90%; background: #161616; padding: 10px 20px; border-radius: 24px; border: 1px solid #252525; display: flex; align-items: flex-end; gap: 10px; }
+.input-area {
+    width: 750px;
+    max-width: 90%;
+    background: #161616;
+    padding: 10px 20px;
+    border-radius: 24px;
+    border: 1px solid #252525;
+    display: flex;
+    align-items: flex-end;
+    margin-top: 20px;
+}
+
 .input-area textarea { flex: 1; background: transparent; border: none; color: white; font-size: 16px; outline: none; padding: 10px 0; resize: none; }
 
+/* PARTICLES & SPLASH */
 #particles { position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle, #1a0505, #000); }
+#splash-screen { position: fixed; inset: 0; background: #0a0a0a; display: flex; justify-content: center; align-items: center; z-index: 10000; }
+.splash-logo { width: 450px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .side-controls { top: 12px; right: 10px; flex-direction: row; gap: 5px; }
+    #logout-btn, #resetChat, #admin-btn { width: auto; font-size: 8px; padding: 5px 8px; }
+    #chat { width: 94%; margin-top: 80px; height: calc(100vh - 250px); }
+    .input-area { width: 92%; }
+}
