@@ -4,37 +4,11 @@
     <meta charset="UTF-8">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
 <div id="splash-screen">
     <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
-</div>
-
-<div id="admin-access" style="display: none;">
-    <button id="admin-btn" onclick="toggleAdminPanel()">
-        <span class="pulse"></span> ⚡ ADMIN CORE
-    </button>
-</div>
-
-<div id="admin-panel" class="admin-modal">
-    <div class="admin-content">
-        <span class="close-admin" onclick="toggleAdminPanel()">&times;</span>
-        <h2 class="admin-title">SISTEMA <span class="red-text">CENTRAL</span></h2>
-        <div class="admin-grid">
-            <div class="stat-card">
-                <small>ESTADO</small>
-                <p id="user-count">ONLINE</p>
-            </div>
-            <div class="stat-card">
-                <small>ID SESIÓN</small>
-                <p style="font-size: 10px;">8qZG7...Mw2</p>
-            </div>
-        </div>
-        <button class="admin-action-btn" onclick="alert('Función en desarrollo...')">REVISAR LOGS GLOBALES</button>
-        <button class="admin-action-btn danger" onclick="location.reload()">REINICIAR INSTANCIA</button>
-    </div>
 </div>
 
 <header class="main-header">
@@ -72,11 +46,6 @@
     <button onclick="sendMessage()">Enviar</button>
 </div>
 
-<footer class="copyright">
-    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
-    <p>&copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS</p>
-</footer>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -103,7 +72,18 @@
   window.signOut = signOut;
   window.firestore = { doc, getDoc, setDoc };
 </script>
+
 <script src="particles.js"></script>
 <script src="main.js"></script>
+
+<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+    <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
+        Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
+    </p>
+    <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
+        &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
+    </p>
+</footer>
+
 </body>
 </html>
