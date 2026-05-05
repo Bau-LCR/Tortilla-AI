@@ -5,10 +5,9 @@ document.addEventListener("DOMContentLoaded", function() {
     const splashScreen = document.getElementById("splash-screen");
 
     const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
-    let mensajesSesion = 0;
     let debugMode = false;
 
-    // --- LÓGICA SPLASH ---
+    // --- SPLASH SCREEN ---
     setTimeout(() => {
         if (splashScreen) {
             splashScreen.style.opacity = "0";
@@ -27,52 +26,32 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const scrollAbajo = () => { chat.scrollTop = chat.scrollHeight; };
 
-    // --- PANEL ADMIN AVANZADO ---
+    // --- PANEL ADMIN MODERNO ---
     window.openAdmin = () => {
-        const info = `
---- CONTROL MAESTRO CUT-REAL AI ---
-Admin: ${currentUser.displayName}
-UID: ${currentUser.uid}
-Msgs Sesión: ${mensajesSesion}
-Total Historial: ${historial.length - 1}
-Modo Debug: ${debugMode ? "ACTIVADO" : "DESACTIVADO"}
-
-OPCIONES DISPONIBLES:
-1. DESCARGAR BACKUP (JSON)
-2. LIMPIAR CACHÉ LOCAL
-3. ALTERNAR MODO DEBUG
-4. VER LOGS TÉCNICOS
-        `;
+        const menu = `MENU ADMIN CUT-REAL AI:
+1. Descargar copia de seguridad (JSON)
+2. Ver ID de sesión actual
+3. Alternar Modo Debug (Consola)
+4. Forzar Sincronización Nube`;
         
-        const res = prompt(info + "\nEscribe el número de la opción:");
-
-        switch(res) {
-            case "1":
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historial));
-                const dl = document.createElement('a');
-                dl.setAttribute("href", dataStr);
-                dl.setAttribute("download", `cutreal_backup_${Date.now()}.json`);
-                dl.click();
-                break;
-            case "2":
-                if(confirm("¿Limpiar caché? Esto recargará la app.")) location.reload();
-                break;
-            case "3":
-                debugMode = !debugMode;
-                alert("Modo Debug: " + (debugMode ? "ON. Ahora verás errores detallados en consola." : "OFF"));
-                break;
-            case "4":
-                alert("Último historial registrado:\n" + JSON.stringify(historial.slice(-2), null, 2));
-                break;
-            default:
-                if (res !== null) alert("Opción no válida");
+        const res = prompt(menu);
+        if (res === "1") {
+            const blob = new Blob([JSON.stringify(historial)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin_backup_${Date.now()}.json`;
+            a.click();
+        } else if (res === "3") {
+            debugMode = !debugMode;
+            alert("Modo Debug: " + (debugMode ? "ON" : "OFF"));
         }
     };
 
-    // --- FIREBASE LOGIC ---
+    // --- FIREBASE ---
     window.login = async () => {
         try { await window.signInWithPopup(window.auth, window.provider); } 
-        catch (e) { console.error("Error login:", e); }
+        catch (e) { console.error(e); }
     };
 
     window.logout = () => {
@@ -90,9 +69,9 @@ OPCIONES DISPONIBLES:
                 if (user) {
                     currentUser = user;
                     loginOverlay.style.display = "none";
-                    if (logoutBtn) logoutBtn.style.display = "block";
-                    if (resetBtn) resetBtn.style.display = "block";
-                    if (adminBtn) adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
+                    logoutBtn.style.display = "block";
+                    resetBtn.style.display = "block";
+                    adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
@@ -103,27 +82,23 @@ OPCIONES DISPONIBLES:
     };
     checkUser();
 
-    // --- CHAT LOGIC ---
+    // --- CHAT ---
     async function sendMessage() {
         const msg = input.value.trim();
         if (!msg || !currentUser) return;
 
-        mensajesSesion++; // Contador para el admin
         historial.push({ role: "user", content: msg });
+        renderizarChat();
         
-        const userDiv = document.createElement("div");
-        userDiv.className = "user";
-        userDiv.innerHTML = `<b>Tú:</b> ${formatearTexto(msg)}`;
-        chat.appendChild(userDiv);
         input.value = "";
         input.style.height = "auto";
-        scrollAbajo();
 
         const thinking = document.createElement("div");
         thinking.className = "ai";
         thinking.id = "thinking-bubble";
-        thinking.textContent = "Pensando...";
+        thinking.textContent = "Analizando...";
         chat.appendChild(thinking);
+        scrollAbajo();
 
         try {
             const res = await fetch("/api/chat", { 
@@ -132,30 +107,15 @@ OPCIONES DISPONIBLES:
                 body: JSON.stringify({ mensajes: historial }) 
             });
             const data = await res.json();
-            
             const respuestaIA = data.choices[0].message.content;
+            
+            document.getElementById("thinking-bubble").remove();
             historial.push({ role: "assistant", content: respuestaIA });
             guardarEnNube();
-
-            document.getElementById("thinking-bubble").remove();
-            const bot = document.createElement("div");
-            bot.className = "ai";
-            chat.appendChild(bot);
-
-            let i = 0;
-            const intervalo = setInterval(() => {
-                bot.textContent += respuestaIA.charAt(i);
-                i++;
-                scrollAbajo();
-                if (i >= respuestaIA.length) {
-                    clearInterval(intervalo);
-                    bot.innerHTML = formatearTexto(bot.textContent);
-                }
-            }, 5);
+            renderizarChat();
         } catch (e) {
-            if(debugMode) console.error("DEBUG:", e);
-            document.getElementById("thinking-bubble").remove();
-            chat.innerHTML += `<div class='ai' style='color: #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
+            if(debugMode) console.log(e);
+            document.getElementById("thinking-bubble").textContent = "Error de conexión.";
         }
     }
 
@@ -173,18 +133,13 @@ OPCIONES DISPONIBLES:
 
     const renderizarChat = () => {
         chat.innerHTML = "";
-        const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
-        if (historial.length <= 1) {
-            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI.</div>`;
-        } else {
-            historial.forEach(msg => {
-                if (msg.role === "system") return;
-                const div = document.createElement("div");
-                div.className = msg.role === "user" ? "user" : "ai";
-                div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${formatearTexto(msg.content)}` : formatearTexto(msg.content);
-                chat.appendChild(div);
-            });
-        }
+        historial.forEach(msg => {
+            if (msg.role === "system") return;
+            const div = document.createElement("div");
+            div.className = msg.role === "user" ? "user" : "ai";
+            div.innerHTML = msg.role === "user" ? `<b>Tú:</b> ${formatearTexto(msg.content)}` : formatearTexto(msg.content);
+            chat.appendChild(div);
+        });
         scrollAbajo();
     };
 
@@ -192,6 +147,6 @@ OPCIONES DISPONIBLES:
     input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
     window.sendMessage = sendMessage;
     window.resetChat = async () => { 
-        if (confirm("¿Borrar conversación?")) { historial = [systemPrompt]; renderizarChat(); await guardarEnNube(); }
+        if (confirm("¿Borrar historial?")) { historial = [systemPrompt]; renderizarChat(); await guardarEnNube(); }
     };
 });
