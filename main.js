@@ -229,4 +229,25 @@ document.addEventListener("DOMContentLoaded", function() {
             await guardarEnNube();
         }
     };
+    const MI_UID_ADMIN = "PEGA_AQUÍ_TU_UID_DE_FIREBASE"; // Usa el UID que copiaste
+
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // ... tu código actual de login ...
+
+        // VALIDACIÓN DE ADMIN
+        if (user.uid === MI_UID_ADMIN) {
+            console.log("Bienvenido, Administrador.");
+            document.getElementById('admin-access').style.display = 'block';
+        } else {
+            document.getElementById('admin-access').style.display = 'none';
+        }
+    }
+});
+
+// Función para abrir/cerrar el panel
+function toggleAdminPanel() {
+    const panel = document.getElementById('admin-panel');
+    panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+}
 });
