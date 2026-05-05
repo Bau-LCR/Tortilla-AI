@@ -4,8 +4,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const loginOverlay = document.getElementById("login-overlay");
     const splashScreen = document.getElementById("splash-screen");
 
-    // Tu UID de Administrador
     const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+    let debugMode = false;
 
     setTimeout(() => {
         if (splashScreen) {
@@ -23,14 +23,46 @@ document.addEventListener("DOMContentLoaded", function() {
         return texto.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
     };
 
-    const scrollAbajo = () => {
-        chat.scrollTop = chat.scrollHeight;
-    };
+    const scrollAbajo = () => { chat.scrollTop = chat.scrollHeight; };
 
-    // --- FUNCIÓN EXTRA PARA EL BOTÓN ADMIN ---
+    // --- NUEVO PANEL DE ADMINISTRACIÓN AVANZADO ---
     window.openAdmin = () => {
-        const stats = `MODO ADMINISTRADOR\n\nUsuario: ${currentUser.displayName}\nEmail: ${currentUser.email}\nUID: ${currentUser.uid}\nMensajes en historial: ${historial.length - 1}`;
-        alert(stats);
+        const menu = `--- PANEL MAESTRO CUT-REAL ---
+1. BACKUP: Descargar historial (JSON)
+2. DEBUG: Alternar registros en consola
+3. INTERFAZ: Cambiar color de fondo (Temporal)
+4. INFO: Ver Metadatos del usuario
+5. RECARGAR: Limpiar caché y refrescar
+        
+Elige una opción (1-5):`;
+
+        const opcion = prompt(menu);
+
+        switch(opcion) {
+            case "1":
+                const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historial));
+                const link = document.createElement('a');
+                link.setAttribute("href", data);
+                link.setAttribute("download", "cutreal_admin_backup.json");
+                link.click();
+                break;
+            case "2":
+                debugMode = !debugMode;
+                alert("Modo Debug: " + (debugMode ? "ACTIVADO" : "DESACTIVADO"));
+                break;
+            case "3":
+                const color = prompt("Introduce un color HEX o nombre (ej: #1a0000 o blue):");
+                if(color) document.body.style.background = color;
+                break;
+            case "4":
+                alert(`ID: ${currentUser.uid}\nNombre: ${currentUser.displayName}\nEmail: ${currentUser.email}\nTotal Historial: ${historial.length}`);
+                break;
+            case "5":
+                if(confirm("¿Recargar aplicación?")) location.reload();
+                break;
+            default:
+                if(opcion) alert("Opción no válida.");
+        }
     };
 
     async function guardarEnNube() {
@@ -42,51 +74,37 @@ document.addEventListener("DOMContentLoaded", function() {
                 updatedAt: Date.now()
             });
         } catch (e) {
-            console.error("Error guardando en nube:", e);
+            console.error("Error guardando:", e);
         }
     }
 
     async function cargarDeNube(uid) {
-        chat.innerHTML = "<div class='ai'>Sincronizando tus mensajes con la nube...</div>";
+        chat.innerHTML = "<div class='ai'>Sincronizando...</div>";
         const { doc, getDoc } = window.firestore;
         try {
-            const docRef = doc(window.db, "chats", uid);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                historial = docSnap.data().mensajes;
-            } else {
-                historial = [systemPrompt];
-            }
+            const docSnap = await getDoc(doc(window.db, "chats", uid));
+            historial = docSnap.exists() ? docSnap.data().mensajes : [systemPrompt];
             renderizarChat();
         } catch (e) {
-            console.error("Error cargando de nube:", e);
-            chat.innerHTML = "<div class='ai' style='color: #ff4b4b;'>Error al sincronizar historial.</div>";
+            chat.innerHTML = "<div class='ai' style='color: #ff4b4b;'>Error de red.</div>";
         }
     }
 
     window.login = async () => {
-        if (!window.auth) return;
-        try {
-            await window.signInWithPopup(window.auth, window.provider);
-        } catch (error) {
-            console.error("Error login:", error);
-        }
+        try { await window.signInWithPopup(window.auth, window.provider); } 
+        catch (e) { console.error(e); }
     };
 
     window.logout = () => {
-        if (window.auth) {
-            document.body.style.opacity = "0.5";
-            window.signOut(window.auth).then(() => {
-                location.reload();
-            });
-        }
+        document.body.style.opacity = "0.5";
+        window.signOut(window.auth).then(() => location.reload());
     };
 
     const renderizarChat = () => {
         chat.innerHTML = ""; 
         if (historial.length <= 1) {
             const nombre = currentUser ? currentUser.displayName.split(' ')[0] : "";
-            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI. Tus mensajes están sincronizados.</div>`;
+            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy Cut-real AI.</div>`;
         } else {
             historial.forEach(msg => {
                 if (msg.role === "system") return;
@@ -112,26 +130,15 @@ document.addEventListener("DOMContentLoaded", function() {
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "block";
                     if (resetBtn) resetBtn.style.display = "block";
-                    
-                    // MOSTRAR ADMIN SOLO SI EL UID COINCIDE
-                    if (adminBtn) {
-                        adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
-                    }
-                    
+                    if (adminBtn) adminBtn.style.display = (user.uid === ADMIN_UID) ? "block" : "none";
                     cargarDeNube(user.uid); 
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "flex";
-                    if (logoutBtn) logoutBtn.style.display = "none";
-                    if (resetBtn) resetBtn.style.display = "none";
-                    if (adminBtn) adminBtn.style.display = "none";
                 }
             });
-        } else {
-            setTimeout(checkUser, 500);
-        }
+        } else { setTimeout(checkUser, 500); }
     };
-    
     checkUser();
 
     async function sendMessage() {
@@ -139,14 +146,9 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!msg || !currentUser) return;
 
         historial.push({ role: "user", content: msg });
-        const userDiv = document.createElement("div");
-        userDiv.className = "user";
-        userDiv.innerHTML = `<b>Tú:</b> ${formatearTexto(msg)}`;
-        chat.appendChild(userDiv);
-        
+        renderizarChat();
         input.value = "";
         input.style.height = "auto";
-        scrollAbajo();
 
         const thinking = document.createElement("div");
         thinking.className = "ai";
@@ -161,40 +163,16 @@ document.addEventListener("DOMContentLoaded", function() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ mensajes: historial }) 
             });
-
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "Error en el servidor");
-
             const respuestaIA = data.choices[0].message.content;
+            
+            document.getElementById("thinking-bubble").remove();
             historial.push({ role: "assistant", content: respuestaIA });
-
             guardarEnNube();
-
-            const bubble = document.getElementById("thinking-bubble");
-            if (bubble) bubble.remove();
-
-            const bot = document.createElement("div");
-            bot.className = "ai";
-            chat.appendChild(bot);
-
-            let i = 0;
-            const intervalo = setInterval(() => {
-                bot.textContent += respuestaIA.charAt(i);
-                i++;
-                scrollAbajo();
-                if (i >= respuestaIA.length) {
-                    clearInterval(intervalo);
-                    bot.innerHTML = formatearTexto(bot.textContent);
-                    scrollAbajo();
-                }
-            }, 5);
-
+            renderizarChat();
         } catch (e) {
-            console.error(e);
-            const bubble = document.getElementById("thinking-bubble");
-            if (bubble) bubble.remove();
-            chat.innerHTML += `<div class='ai' style='color: #ff4b4b; border: 1px solid #ff4b4b;'><b>Error:</b> ${e.message}</div>`;
-            scrollAbajo();
+            if(debugMode) console.log("Error API:", e);
+            document.getElementById("thinking-bubble").textContent = "Error.";
         }
     }
 
@@ -204,17 +182,12 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     input.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage(); 
-        }
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
 
     window.sendMessage = sendMessage;
-
     window.resetChat = async () => { 
-        if (!currentUser) return;
-        if (confirm("¿Deseas borrar tu conversación de la nube?")) {
+        if (confirm("¿Borrar historial?")) {
             historial = [systemPrompt];
             renderizarChat();
             await guardarEnNube();
