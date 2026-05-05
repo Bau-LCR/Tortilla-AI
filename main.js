@@ -229,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function() {
             await guardarEnNube();
         }
     };
-    const MI_UID_ADMIN = "PEGA_AQUÍ_TU_UID_DE_FIREBASE"; // Usa el UID que copiaste
+    const MI_UID_ADMIN = "8qZG7egWbIeMy7HqtwkKEdLasMw2"; // Usa el UID que copiaste
 
 firebase.auth().onAuthStateChanged((user) => {
     if (user) {
