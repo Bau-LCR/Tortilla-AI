@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+<div class="input-area">
+    <input type="file" id="file-input" style="display:none;" accept=".pdf,.docx">
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()">📎</button>
+    <textarea id="input" placeholder="Escribe o sube un archivo..." autocomplete="off" rows="1"></textarea>
+    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+</div>
 </head>
 <body>
 
