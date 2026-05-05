@@ -114,3 +114,23 @@ body {
     #chat { width: 94%; margin-top: 80px; height: calc(100vh - 250px); }
     .input-area { width: 92%; }
 }
+
+#attach-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 10px;
+    transition: all 0.3s;
+}
+
+#attach-btn:hover {
+    color: var(--primary-red);
+    transform: scale(1.2);
+}
+
+/* Indicador de que hay algo cargado */
+#attach-btn.active {
+    color: #4aff4a; /* Verde si el archivo se procesó bien */
+}
