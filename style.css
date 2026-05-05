@@ -385,6 +385,68 @@ h1 { display: none; }
 #chat::-webkit-scrollbar-thumb:hover {
     background: var(--primary-red);
 }
+/* Botón de acceso flotante */
+#admin-access {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+#admin-btn {
+    background: rgba(255, 59, 59, 0.15);
+    color: var(--primary-red);
+    border: 1px solid var(--primary-red);
+    padding: 10px 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    backdrop-filter: blur(5px);
+}
+
+/* Modal del Panel */
+.admin-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10001;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(10px);
+}
+
+.admin-content {
+    background: #111;
+    padding: 40px;
+    border-radius: 25px;
+    border: 1px solid #333;
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+    text-align: center;
+}
+
+.close-admin {
+    position: absolute;
+    top: 20px;
+    right: 25px;
+    font-size: 30px;
+    cursor: pointer;
+    color: #666;
+}
+
+.danger-btn {
+    background: var(--primary-red);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
 
 /* 3. Soporte para Firefox (usa propiedades diferentes) */
 * {
