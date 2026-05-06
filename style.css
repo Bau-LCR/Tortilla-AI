@@ -1,102 +1,785 @@
+/* Importamos Inter con todos sus pesos */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+
+
 :root {
-    --primary: #ff3b3b;
-    --bg: #0a0a0a;
-    --panel: #161616;
+
+    --primary-red: #ff3b3b;
+
+    --dark-red: #cc0000;
+
+    --bg-black: #0a0a0a;
+
+    --card-bg: rgba(18, 18, 18, 0.75);
+
+    --border-white: rgba(255, 255, 255, 0.08);
+
 }
+
+
 
 body {
-    background: var(--bg);
-    color: white;
-    font-family: 'Inter', sans-serif;
+
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+
+    background: var(--bg-black);
+
+    color: #ffffff;
+
     margin: 0;
-    overflow: hidden;
-}
 
-/* Header Fijo */
-.main-header {
-    position: fixed;
-    top: 0; width: 100%;
-    padding: 20px 40px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-    z-index: 100;
-}
+    padding: 0;
 
-/* Contenedor de Chat */
-#chat-container {
-    height: 100vh;
-    padding: 100px 20% 150px 20%; /* Márgenes laterales amplios */
-    overflow-y: auto;
-}
-
-#chat { display: flex; flex-direction: column; gap: 20px; }
-
-/* Burbujas */
-.user, .ai {
-    max-width: 80%;
-    padding: 18px 24px;
-    border-radius: 20px;
-    line-height: 1.6;
-}
-.user { align-self: flex-end; background: #222; border-bottom-right-radius: 4px; }
-.ai { align-self: flex-start; background: linear-gradient(145deg, #2a0000, #111); border-bottom-left-radius: 4px; border: 1px solid rgba(255,0,0,0.1); }
-
-/* Input Área */
-.input-area {
-    position: fixed;
-    bottom: 30px;
-    width: 100%;
     display: flex;
-    justify-content: center;
-}
 
-.input-wrapper {
-    width: 60%;
-    background: var(--panel);
-    border: 1px solid #333;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    padding: 10px 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-}
-
-textarea {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: white;
-    resize: none;
-    font-size: 16px;
-    padding: 10px;
-    outline: none;
-}
-
-#attach-btn {
-    background: transparent;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #888;
-    transition: 0.3s;
-}
-
-#send-btn {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 14px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-/* Admin y Side Controls */
-.side-controls {
-    position: fixed;
-    right: 20px;
-    top: 20px;
-    z-index: 1000;
-    display: flex;
     flex-direction: column;
+
+    align-items: center;
+
+    min-height: 100vh;
+
+    overflow-x: hidden;
+
+    -webkit-font-smoothing: antialiased;
+
+}
+
+
+
+h1 { display: none; }
+
+
+
+/* --- HEADER SUPERIOR --- */
+
+.main-header {
+
+    display: flex;
+
+    justify-content: flex-start;
+
+    align-items: center;
+
+    padding: 15px 40px;
+
+    position: fixed;
+
+    top: 0;
+
+    width: 100%;
+
+    z-index: 100;
+
+    background: linear-gradient(to bottom, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0) 100%);
+
+    pointer-events: none;
+
+}
+
+
+
+.header-logo {
+
+    display: flex;
+
+    align-items: center;
+
+    text-decoration: none;
+
+    pointer-events: auto;
+
+}
+
+
+
+.nav-logo-small {
+
+    height: 80px;
+
+    width: auto;
+
+    margin-right: 10px;
+
+    object-fit: contain;
+
+    filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.2));
+
+}
+
+
+
+.nav-title {
+
+    font-size: 26px;
+
+    font-weight: 800;
+
+    color: white;
+
+    letter-spacing: -0.5px;
+
+    margin: 0;
+
+}
+
+
+
+.red-text { color: var(--primary-red); }
+
+
+
+/* --- BOTONES DE CONTROL --- */
+
+.side-controls {
+
+    position: fixed !important;
+
+    top: 30px !important;
+
+    right: 40px !important;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 12px;
+
+    z-index: 99999;
+
+}
+
+
+
+#logout-btn, #resetChat {
+
+    position: static !important;
+
+    width: 150px;
+
+    background: rgba(255, 255, 255, 0.03) !important;
+
+    color: #888 !important;
+
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+    padding: 11px 0 !important;
+
+    border-radius: 12px !important;
+
+    font-size: 11px !important;
+
+    text-transform: uppercase;
+
+    letter-spacing: 1px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    backdrop-filter: blur(10px);
+
+    transition: all 0.3s ease !important;
+
+    text-align: center;
+
+}
+
+
+
+#logout-btn:hover, #resetChat:hover {
+
+    background: rgba(255, 59, 59, 0.1) !important;
+
+    color: var(--primary-red) !important;
+
+    border-color: var(--primary-red) !important;
+
+}
+
+
+
+/* --- CONTENEDOR DEL CHAT --- */
+
+#chat {
+
+    width: 85%;
+
+    max-width: 1000px;
+
+    height: 60vh;
+
+    margin-top: 130px;
+
+    background: var(--card-bg);
+
+    backdrop-filter: blur(12px);
+
+    border: 1px solid var(--border-white);
+
+    border-radius: 28px;
+
+    padding: 30px;
+
+    overflow-y: auto;
+
+    display: flex;
+
+    flex-direction: column;
+
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+
+    scroll-behavior: smooth;
+
+    position: relative;
+
+    z-index: 10;
+
+}
+
+
+
+/* BURBUJAS */
+
+.user, .ai {
+
+    padding: 16px 22px;
+
+    margin: 10px 0;
+
+    font-size: 16px;
+
+    animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+
+}
+
+
+
+.user {
+
+    background: #252525;
+
+    border-radius: 22px 22px 4px 22px;
+
+    margin-left: auto;
+
+    max-width: 75%;
+
+}
+
+
+
+.ai {
+
+    background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%);
+
+    border-radius: 22px 22px 22px 4px;
+
+    max-width: 85%;
+
+    line-height: 1.7;
+
+    border: 1px solid rgba(255, 0, 0, 0.15);
+
+}
+
+
+
+/* --- ÁREA DE ENTRADA (TEXTAREA) --- */
+
+.input-area {
+
+    margin-top: 20px;
+
+    margin-bottom: 40px;
+
+    display: flex;
+
+    align-items: flex-end; /* Alinea botón abajo si el texto crece */
+
+    background: #161616;
+
+    padding: 10px 10px 10px 24px;
+
+    border-radius: 24px;
+
+    border: 1px solid #252525;
+
+    width: 750px;
+
+    max-width: 90%;
+
+    position: relative;
+
+    z-index: 10;
+
+}
+
+
+
+.input-area textarea {
+
+    flex: 1;
+
+    background: transparent;
+
+    border: none;
+
+    color: #ffffff;
+
+    font-size: 16px;
+
+    outline: none;
+
+    font-family: inherit;
+
+    padding: 10px 15px 10px 0;
+
+    resize: none;
+
+    max-height: 150px;
+
+    line-height: 1.5;
+
+    overflow-y: auto;
+
+}
+
+
+
+.input-area button {
+
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+
+    color: white;
+
+    border: none;
+
+    padding: 12px 28px;
+
+    border-radius: 18px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+
+
+/* --- AUTH & SPLASH --- */
+
+#login-overlay {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.95);
+
+    backdrop-filter: blur(20px);
+
+    z-index: 9999;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+}
+
+
+
+.auth-card {
+
+    background: #0f0f0f;
+
+    padding: 40px;
+
+    border-radius: 30px;
+
+    border: 1px solid var(--border-white);
+
+    text-align: center;
+
+    width: 85%;
+
+    max-width: 400px;
+
+}
+
+
+
+.auth-logo-small { height: 230px; margin-bottom: 20px; }
+
+
+
+.google-btn {
+
+    background: #fff !important;
+
+    color: #000 !important;
+
+    width: 100%;
+
+    height: 50px;
+
+    border-radius: 12px !important;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
     gap: 10px;
+
+    font-weight: 700;
+
+}
+
+
+
+.google-btn img { width: 22px; height: 22px; }
+
+
+
+#splash-screen {
+
+    position: fixed;
+
+    inset: 0;
+
+    background: #0a0a0a;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    z-index: 10000;
+
+}
+
+
+
+.splash-logo { width: 500px; animation: splashPulse 2s infinite ease-in-out; }
+
+
+
+@keyframes splashPulse {
+
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+
+    50% { transform: scale(1.05); opacity: 1; }
+
+}
+
+
+
+@keyframes aparecer {
+
+    from { opacity: 0; transform: translateY(10px); }
+
+    to { opacity: 1; transform: translateY(0); }
+
+}
+
+
+
+/* FONDO */
+
+#particles {
+
+    position: fixed;
+
+    inset: 0; z-index: -1;
+
+    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
+
+}
+
+
+
+/* ===================================================
+
+   REDISEÑO TOTAL PARA MÓVIL (VERTICAL)
+
+   =================================================== */
+
+
+
+@media (max-width: 768px) {
+
+    /* 1. Header: Más limpio y centrado */
+
+    .main-header {
+
+        padding: 10px 15px !important;
+
+        justify-content: center !important; /* Centramos el logo */
+
+        background: rgba(10, 10, 10, 0.98) !important;
+
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+    }
+
+    .nav-logo-small { height: 35px !important; }
+
+    .nav-title { font-size: 16px !important; }
+
+
+
+    /* 2. Botones: ¡ADIÓS AL AMONTONAMIENTO! 
+
+       Los ponemos pequeños y elegantes a la derecha */
+
+    .side-controls {
+
+        top: 12px !important;
+
+        right: 10px !important;
+
+        flex-direction: row !important; /* Forzamos fila */
+
+        gap: 5px !important;
+
+    }
+
+
+
+    #logout-btn, #resetChat {
+
+        width: auto !important;
+
+        padding: 5px 8px !important;
+
+        font-size: 8px !important;
+
+        border-radius: 6px !important;
+
+        background: rgba(255, 255, 255, 0.05) !important;
+
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+        text-transform: uppercase;
+
+        white-space: nowrap;
+
+    }
+
+
+
+    /* 3. El Chat: Lo bajamos para que respire */
+
+    #chat {
+
+        width: 94% !important;
+
+        margin-top: 80px !important; /* Espacio para que no choque con el logo */
+
+        height: calc(100vh - 220px) !important;
+
+        padding: 15px !important;
+
+        border-radius: 20px !important;
+
+        background: rgba(15, 15, 15, 0.8) !important;
+
+    }
+
+
+
+    /* 4. Burbujas: Más legibles */
+
+    .ai, .user {
+
+        font-size: 14px !important;
+
+        line-height: 1.5 !important;
+
+        max-width: 90% !important;
+
+        margin: 8px 0 !important;
+
+    }
+
+
+
+    .ai {
+
+        background: linear-gradient(160deg, #2a0a0a 0%, #121212 100%) !important;
+
+        border: 1px solid rgba(255, 59, 59, 0.2) !important;
+
+    }
+
+
+
+    /* 5. Barra de entrada (Input): Estilo cápsula moderna */
+
+    .input-area {
+
+        width: 92% !important;
+
+        position: fixed !important;
+
+        bottom: 15px !important;
+
+        margin: 0 auto !important;
+
+        padding: 5px 5px 5px 15px !important;
+
+        border-radius: 30px !important;
+
+        background: #1a1a1a !important;
+
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+
+    }
+
+
+
+    .input-area textarea {
+
+        font-size: 14px !important;
+
+        padding: 10px 0 !important;
+
+    }
+
+
+
+    .input-area button {
+
+        padding: 10px 20px !important;
+
+        font-size: 12px !important;
+
+        border-radius: 25px !important;
+
+    }
+
+
+
+    /* Ocultar elementos molestos en móvil */
+
+    footer.copyright {
+
+        display: none; /* En el chat de móvil estorba mucho */
+
+    }
+
+}
+
+/* ===================================================
+
+   PERSONALIZACIÓN DE LA BARRA DE DESPLAZAMIENTO (SCROLLBAR)
+
+   =================================================== */
+
+
+
+/* 1. Estilo para Chrome, Safari, Edge y Opera (Webkit) */
+
+
+
+/* Tamaño de la barra */
+
+::-webkit-scrollbar {
+
+    width: 8px; /* Ancho de la barra vertical */
+
+    height: 8px; /* Altura de la barra horizontal */
+
+}
+
+
+
+/* Fondo de la barra (el carril por donde se mueve) */
+
+::-webkit-scrollbar-track {
+
+    background: #0a0a0a; /* Negro puro como el fondo de tu web */
+
+}
+
+
+
+/* La barrita que se mueve (el "pulgar") */
+
+::-webkit-scrollbar-thumb {
+
+    background: #2a0000; /* Rojo muy oscuro para que sea discreto */
+
+    border-radius: 10px;
+
+    border: 1px solid rgba(255, 59, 59, 0.1); /* Un borde sutil */
+
+}
+
+
+
+/* Cuando pasas el mouse por encima o te desplazas */
+
+::-webkit-scrollbar-thumb:hover {
+
+    background: var(--primary-red); /* Rojo brillante al interactuar */
+
+    box-shadow: 0 0 10px rgba(255, 59, 59, 0.4);
+
+}
+
+
+
+/* 2. Estilo específico para el cuadro de CHAT 
+
+   (Para que dentro del chat la barra sea más fina y elegante) */
+
+
+
+#chat::-webkit-scrollbar {
+
+    width: 5px;
+
+}
+
+
+
+#chat::-webkit-scrollbar-track {
+
+    background: transparent; /* Fondo transparente para no ensuciar el diseño del chat */
+
+}
+
+
+
+#chat::-webkit-scrollbar-thumb {
+
+    background: rgba(255, 59, 59, 0.2); /* Rojo semitransparente */
+
+}
+
+
+
+#chat::-webkit-scrollbar-thumb:hover {
+
+    background: var(--primary-red);
+
+}
+
+
+
+/* 3. Soporte para Firefox (usa propiedades diferentes) */
+
+* {
+
+    scrollbar-width: thin;
+
+    scrollbar-color: #3d0000 #0a0a0a; /* [Color de la barra] [Color del fondo] */
+
 }
