@@ -1,100 +1,90 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cut-real AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-:root {
-    --primary-red: #ff3b3b;
-    --dark-red: #cc0000;
-    --bg-black: #0a0a0a;
-}
+<div id="splash-screen">
+    <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
+</div>
 
-body {
-    font-family: 'Inter', sans-serif;
-    background: var(--bg-black);
-    color: #fff;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-}
+<header class="main-header">
+    <a href="#" class="header-logo">
+        <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
+        <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
+    </a>
+</header>
 
-/* --- BOTONES DE CONTROL --- */
-.side-controls {
-    position: fixed;
-    top: 30px;
-    right: 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    z-index: 999;
-}
+<div id="particles"></div>
 
-#logout-btn, #resetChat, #admin-btn {
-    width: 150px;
-    background: rgba(255, 255, 255, 0.03);
-    color: #888;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 11px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: center;
-    text-transform: uppercase;
-}
+<div id="login-overlay">
+    <div class="auth-card">
+        <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
+        <h2>Cut-real AI</h2>
+        <p>Inicia sesión para sincronizar tus chats en la nube</p>
+        <button onclick="login()" class="google-btn">
+            <img src="google.png" alt="Google">
+            Entrar con Google
+        </button>
+    </div>
+</div>
 
-#logout-btn:hover, #resetChat:hover, #admin-btn:hover {
-    background: rgba(255, 59, 59, 0.1);
-    color: var(--primary-red);
-    border-color: var(--primary-red);
-}
+<div class="side-controls">
+    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+    <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="admin-btn" onclick="openAdmin()" style="display:none;">ADMIN</button>
+</div>
 
-/* --- BOTÓN ENVIAR (EFECTO ESPECIAL) --- */
-#send-btn {
-    background: linear-gradient(135deg, var(--primary-red), var(--dark-red));
-    color: white;
-    border: none;
-    padding: 12px 28px;
-    border-radius: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
-    position: relative;
-    overflow: hidden;
-}
+<div id="chat">
+    <div class="ai">Hola, soy Cut-real AI.</div>
+</div>
 
-#send-btn:hover {
-    transform: scale(1.1) rotate(-1deg);
-    box-shadow: 0 0 25px rgba(255, 59, 59, 0.6);
-    filter: brightness(1.2);
-}
+<div class="input-area">
+    <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
+    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+</div>
 
-#send-btn:active {
-    transform: scale(0.9);
-}
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* Efecto de destello al pasar el mouse */
-#send-btn::after {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s;
-}
+  const firebaseConfig = {
+    apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
+    authDomain: "cutreal-ai.firebaseapp.com",
+    projectId: "cutreal-ai",
+    storageBucket: "cutreal-ai.firebasestorage.app",
+    messagingSenderId: "79541553692",
+    appId: "1:79541553692:web:388068da209f1b4ac9edd9"
+  };
 
-#send-btn:hover::after {
-    opacity: 1;
-}
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
 
-/* --- CHAT Y ÁREA DE ENTRADA --- */
-#chat { width: 85%; max-width: 1000px; height: 60vh; margin-top: 130px; background: rgba(18,18,18,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 28px; padding: 30px; overflow-y: auto; }
-.user { background: #222; border-radius: 20px 20px 4px 20px; padding: 15px; margin: 10px 0; margin-left: auto; max-width: 75%; }
-.ai { background: linear-gradient(160deg, #300, #111); border: 1px solid rgba(255,0,0,0.1); border-radius: 20px 20px 20px 4px; padding: 15px; margin: 10px 0; max-width: 85%; }
+  window.auth = auth;
+  window.db = db;
+  window.provider = provider;
+  window.signInWithPopup = signInWithPopup;
+  window.signOut = signOut;
+  window.firestore = { doc, getDoc, setDoc };
+</script>
 
-.input-area { width: 750px; max-width: 90%; background: #161616; padding: 10px 20px; border-radius: 24px; border: 1px solid #252525; display: flex; align-items: flex-end; gap: 10px; }
-.input-area textarea { flex: 1; background: transparent; border: none; color: white; font-size: 16px; outline: none; padding: 10px 0; resize: none; }
+<script src="particles.js"></script>
+<script src="main.js"></script>
 
-#particles { position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle, #1a0505, #000); }
+<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+    <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
+        Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
+    </p>
+    <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
+        &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
+    </p>
+</footer>
+
+</body>
+                                                                                </html>
