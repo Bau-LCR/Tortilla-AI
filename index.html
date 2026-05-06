@@ -1,90 +1,177 @@
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
+
     <meta charset="UTF-8">
+
     <title>Cut-real AI</title>
+
     <link rel="stylesheet" href="style.css">
+
 </head>
+
 <body>
 
+
+
 <div id="splash-screen">
+
     <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
+
 </div>
 
+
+
 <header class="main-header">
+
     <a href="#" class="header-logo">
+
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
+
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
+
     </a>
+
 </header>
+
+
 
 <div id="particles"></div>
 
+
+
 <div id="login-overlay">
+
     <div class="auth-card">
+
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
+
         <h2>Cut-real AI</h2>
+
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
+
         <button onclick="login()" class="google-btn">
+
             <img src="google.png" alt="Google">
+
             Entrar con Google
+
         </button>
+
     </div>
+
 </div>
+
+
 
 <div class="side-controls">
+
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
-    <button id="admin-btn" onclick="openAdmin()" style="display:none;">ADMIN</button>
+
 </div>
+
+
 
 <div id="chat">
+
     <div class="ai">Hola, soy Cut-real AI.</div>
+
 </div>
+
+
 
 <div class="input-area">
+
     <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
-    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+
+    <button onclick="sendMessage()">Enviar</button>
+
 </div>
 
+
+
 <script type="module">
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+
+
   const firebaseConfig = {
+
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
+
     authDomain: "cutreal-ai.firebaseapp.com",
+
     projectId: "cutreal-ai",
+
     storageBucket: "cutreal-ai.firebasestorage.app",
+
     messagingSenderId: "79541553692",
+
     appId: "1:79541553692:web:388068da209f1b4ac9edd9"
+
   };
 
+
+
   const app = initializeApp(firebaseConfig);
+
   const auth = getAuth(app);
+
   const db = getFirestore(app);
+
   const provider = new GoogleAuthProvider();
 
+
+
   window.auth = auth;
+
   window.db = db;
+
   window.provider = provider;
+
   window.signInWithPopup = signInWithPopup;
+
   window.signOut = signOut;
+
   window.firestore = { doc, getDoc, setDoc };
+
 </script>
 
+
+
 <script src="particles.js"></script>
+
 <script src="main.js"></script>
 
+
+
 <footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
+
     <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
+
         Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
+
     </p>
+
     <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
+
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
+
     </p>
+
 </footer>
 
+
+
 </body>
+
 </html>
