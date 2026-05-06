@@ -4,8 +4,10 @@
     --primary-red: #ff3b3b;
     --dark-red: #cc0000;
     --bg-black: #0a0a0a;
-    --card-bg: rgba(18, 18, 18, 0.75);
+    --card-bg: rgba(18, 18, 18, 0.85);
 }
+
+* { box-sizing: border-box; }
 
 body {
     font-family: 'Inter', sans-serif;
@@ -14,154 +16,136 @@ body {
     margin: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    overflow: hidden; 
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
 }
 
-/* --- SOLUCIÓN AL LOGIN GIGANTE (¡NUEVO!) --- */
-#login-overlay {
+/* --- FONDO Y LOGO --- */
+#particles {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.95);
+    z-index: -1;
+    background: radial-gradient(circle, #1a0505, #000);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10001; /* Por encima de todo */
 }
 
-.auth-card {
-    background: #111;
-    padding: 40px;
-    border-radius: 28px;
-    border: 1px solid #333;
-    text-align: center;
-    width: 90%;
-    max-width: 380px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+#particles::after {
+    content: "";
+    background: url('Logo1.png') no-repeat center/contain;
+    width: 300px;
+    height: 300px;
+    opacity: 0.05; /* Muy sutil para que no estorbe al chat */
+    position: absolute;
 }
 
-.auth-logo-small {
-    width: 80px; /* Evita que el logo de Cut-real crezca de más */
-    margin-bottom: 20px;
-}
-
-.google-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    background: white;
-    color: #000;
-    border: none;
-    padding: 14px;
-    border-radius: 14px;
-    font-weight: 700;
-    width: 100%;
-    cursor: pointer;
-    transition: 0.3s;
-    font-size: 16px;
-}
-
-/* ¡ESTA REGLA ARREGLA LA "G" GIGANTE DE TU IMAGEN! */
-.google-btn img {
-    width: 24px; 
-    height: 24px;
-}
-
-.google-btn:hover {
-    background: #eee;
-    transform: translateY(-2px);
-}
-
-/* --- HEADER Y LOGO --- */
+/* --- HEADER --- */
 .main-header {
-    position: fixed;
+    position: absolute;
     top: 0; left: 0; width: 100%;
-    padding: 15px 40px;
-    box-sizing: border-box;
+    padding: 15px 25px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     z-index: 100;
-    background: linear-gradient(to bottom, rgba(10,10,10,0.9), transparent);
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
 }
 
-.nav-logo-small { height: 40px; width: auto; }
-.nav-title { font-size: 22px; margin: 0; margin-left: 10px; }
+.header-logo { display: flex; align-items: center; gap: 10px; }
+.nav-logo-small { height: 35px; width: auto; }
+.nav-title { font-size: 20px; margin: 0; color: white; font-weight: 800; }
 .red-text { color: var(--primary-red); }
 
 /* --- CONTROLES LATERALES --- */
 .side-controls {
-    position: fixed;
-    top: 20px; right: 20px;
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
+    gap: 8px;
 }
 
 #logout-btn, #resetChat, #admin-btn {
-    width: 130px;
     background: rgba(255, 255, 255, 0.05);
-    color: #aaa;
+    color: #eee;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 10px;
-    border-radius: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
     font-size: 10px;
-    text-transform: uppercase;
     cursor: pointer;
 }
 
-/* --- ÁREA DE CHAT --- */
+/* --- ÁREA DE CHAT (REFORMADA) --- */
 #chat {
-    width: 90%;
+    flex: 1;
+    width: 100%;
     max-width: 900px;
-    height: calc(100vh - 200px);
-    margin-top: 80px;
-    background: var(--card-bg);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 24px;
-    padding: 25px;
+    margin: 70px auto 100px auto; /* Espacio para header y footer */
+    padding: 20px;
     overflow-y: auto;
-    box-sizing: border-box;
-    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
-.user { background: #222; border-radius: 18px 18px 4px 18px; padding: 14px; margin: 8px 0; margin-left: auto; max-width: 80%; }
-.ai { background: linear-gradient(160deg, #2a0000, #111); border-radius: 18px 18px 18px 4px; padding: 14px; margin: 8px 0; max-width: 85%; border: 1px solid rgba(255,0,0,0.15); }
+.user { 
+    align-self: flex-end; 
+    background: #222; 
+    padding: 12px 18px; 
+    border-radius: 15px 15px 0 15px; 
+    max-width: 80%; 
+}
+
+.ai { 
+    align-self: flex-start; 
+    background: linear-gradient(135deg, #2a0000 0%, #111 100%); 
+    padding: 12px 18px; 
+    border-radius: 15px 15px 15px 0; 
+    max-width: 85%; 
+    border: 1px solid rgba(255,59,59,0.15); 
+}
 
 /* --- BARRA DE ENTRADA --- */
 .input-area {
     position: fixed;
-    bottom: 25px;
-    width: 700px;
-    max-width: 90%;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 700px;
     background: #181818;
-    padding: 8px 18px;
-    border-radius: 20px;
+    padding: 10px 15px;
+    border-radius: 25px;
     border: 1px solid #333;
     display: flex;
     align-items: center;
     gap: 10px;
-    z-index: 100;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
-.input-area textarea { flex: 1; background: transparent; border: none; color: white; font-size: 15px; outline: none; resize: none; padding: 8px 0; }
+.input-area textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 16px;
+    outline: none;
+    resize: none;
+    max-height: 150px;
+}
 
-#attach-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #666; }
-#send-btn { background: var(--primary-red); color: white; border: none; padding: 10px 20px; border-radius: 15px; font-weight: 800; cursor: pointer; }
-
-/* PARTICULAS Y SPLASH */
-#particles { position: fixed; inset: 0; z-index: -1; background: #000; }
-#splash-screen { position: fixed; inset: 0; background: #0a0a0a; display: flex; justify-content: center; align-items: center; z-index: 10000; }
-.splash-logo { width: 300px; animation: pulse 2s infinite; }
-
-@keyframes pulse { 0%, 100% { opacity: 0.7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.03); } }
+#send-btn {
+    background: var(--primary-red);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
 
 /* RESPONSIVE MÓVIL */
-@media (max-width: 768px) {
-    .side-controls { top: auto; bottom: 90px; right: 15px; flex-direction: row; }
-    #logout-btn, #resetChat, #admin-btn { width: auto; padding: 8px; font-size: 9px; }
-    #chat { width: 95%; height: calc(100vh - 160px); margin-top: 65px; }
-    .input-area { width: 94%; bottom: 15px; padding: 5px 12px; }
+@media (max-width: 600px) {
+    #chat { margin-top: 60px; padding: 10px; }
+    .nav-title { font-size: 16px; }
+    .side-controls { position: fixed; top: 60px; right: 10px; flex-direction: column; }
 }
