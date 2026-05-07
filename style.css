@@ -288,34 +288,15 @@ h1 { display: none; }
 
 /* --- ÁREA DE ENTRADA (TEXTAREA) --- */
 
-.input-area {
-
-    margin-top: 20px;
-
-    margin-bottom: 40px;
-
-    display: flex;
-
-    align-items: flex-end; /* Alinea botón abajo si el texto crece */
-
-    background: #161616;
-
-    padding: 10px 10px 10px 24px;
-
-    border-radius: 24px;
-
-    border: 1px solid #252525;
-
-    width: 750px;
-
-    max-width: 90%;
-
-    position: relative;
-
-    z-index: 10;
-
+.input-area button {
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 18px;
+    font-weight: 700;
+    cursor: pointer;
 }
-
 
 
 .input-area textarea {
