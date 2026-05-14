@@ -578,60 +578,27 @@ h1 { display: none; }
 
 
 
+/* --- ÁREA DE ENTRADA (TEXTAREA Y CLIP) --- */
 .input-area {
-
-
-
     margin-top: 20px;
-
-
-
     margin-bottom: 40px;
-
-
-
     display: flex;
-
-
-
-    align-items: flex-end; /* Alinea botón abajo si el texto crece */
-
-
-
+    align-items: flex-end;
     background: #161616;
-
-
-
-    padding: 10px 10px 10px 24px;
-
-
-
+    padding: 10px 10px 10px 15px; /* Ajustado el padding izquierdo */
     border-radius: 24px;
-
-
-
     border: 1px solid #252525;
-
-
-
     width: 750px;
-
-
-
     max-width: 90%;
-
-
-
     position: relative;
-
-
-
     z-index: 10;
-
-
-
+    gap: 8px; /* Espacio entre los elementos */
 }
 
+#attach-btn:hover {
+    color: var(--primary-red) !important;
+    transform: scale(1.1);
+}
 
 
 
