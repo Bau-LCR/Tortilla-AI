@@ -699,7 +699,56 @@ h1 { display: none; }
 
 
 /* --- ÁREA DE ENTRADA (BOTÓN CON EFECTOS) --- */
-.input-area button {
+/* --- ÁREA DE ENTRADA (MODIFICADO PARA EL CLIP) --- */
+.input-area {
+    margin-top: 20px;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: flex-end;
+    background: #161616;
+    padding: 10px 10px 10px 15px; /* Ajustado para el clip */
+    border-radius: 24px;
+    border: 1px solid #252525;
+    width: 750px;
+    max-width: 90%;
+    position: relative;
+    z-index: 10;
+    gap: 10px; /* Separación entre clip, texto y botón */
+}
+
+/* El botón del Clip */
+#attach-btn {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: #888;
+    padding: 10px 5px;
+    transition: 0.3s;
+}
+
+#attach-btn:hover {
+    color: var(--primary-red);
+    transform: scale(1.1);
+}
+
+.input-area textarea {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 16px;
+    outline: none;
+    font-family: inherit;
+    padding: 10px 0;
+    resize: none;
+    max-height: 150px;
+    line-height: 1.5;
+    overflow-y: auto;
+}
+
+/* El botón de ENVIAR (Con ID específico) */
+#send-btn {
     background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
     color: white;
     border: none;
@@ -707,21 +756,18 @@ h1 { display: none; }
     border-radius: 18px;
     font-weight: 700;
     cursor: pointer;
-    /* Efectos base */
     box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Efecto al pasar el cursor (Hover) */
-.input-area button:hover {
-    transform: translateY(-2px) scale(1.03); /* Se eleva y crece un poquito */
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.6); /* Sombra roja más intensa */
-    filter: brightness(1.15); /* Se hace ligeramente más brillante */
+#send-btn:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.6);
+    filter: brightness(1.15);
 }
 
-/* Efecto al hacer clic (Active) */
-.input-area button:active {
-    transform: translateY(2px) scale(0.95); /* Se hunde como un botón real */
+#send-btn:active {
+    transform: translateY(2px) scale(0.95);
     box-shadow: 0 2px 10px rgba(255, 59, 59, 0.3);
     filter: brightness(0.9);
 }
