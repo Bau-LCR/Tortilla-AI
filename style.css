@@ -1,72 +1,208 @@
-/* --- ÁREA DE ENTRADA (MODIFICADO PARA EL CLIP) --- */
-.input-area {
-    margin-top: 20px;
-    margin-bottom: 40px;
-    display: flex;
-    align-items: flex-end;
-    background: #161616;
-    padding: 10px 10px 10px 15px; /* Ajustado para el clip */
-    border-radius: 24px;
-    border: 1px solid #252525;
-    width: 750px;
-    max-width: 90%;
-    position: relative;
-    z-index: 10;
-    gap: 10px; /* Separación entre clip, texto y botón */
+/* Importamos Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --primary-red: #ff3b3b;
+    --dark-red: #cc0000;
+    --bg-black: #0a0a0a;
+    --card-bg: rgba(18, 18, 18, 0.75);
+    --border-white: rgba(255, 255, 255, 0.08);
 }
 
-/* El botón del Clip */
-#attach-btn {
-    background: transparent;
-    border: none;
-    font-size: 22px;
+body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-black);
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+h1 { display: none; }
+
+/* --- HEADER --- */
+.main-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 15px 40px;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 100;
+    background: linear-gradient(to bottom, rgba(10,10,10,0.9) 0%, rgba(10,10,10,0) 100%);
+    pointer-events: none;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+.nav-logo-small {
+    height: 60px;
+    width: auto;
+    margin-right: 10px;
+}
+
+.nav-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    margin: 0;
+}
+
+.red-text { color: var(--primary-red); }
+
+/* --- CONTROLES --- */
+.side-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 1000;
+}
+
+#logout-btn, #resetChat {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 8px;
     cursor: pointer;
-    color: #888;
-    padding: 10px 5px;
+    font-size: 12px;
     transition: 0.3s;
 }
 
-#attach-btn:hover {
-    color: var(--primary-red);
-    transform: scale(1.1);
+#logout-btn:hover, #resetChat:hover {
+    border-color: var(--primary-red);
+    color: white;
+}
+
+/* --- CHAT --- */
+#chat {
+    width: 85%;
+    max-width: 900px;
+    height: 65vh;
+    margin-top: 100px;
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-white);
+    border-radius: 20px;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.user, .ai {
+    padding: 12px 18px;
+    margin: 8px 0;
+    border-radius: 15px;
+    max-width: 80%;
+    line-height: 1.5;
+}
+
+.user { background: #333; margin-left: auto; }
+.ai { background: #1a0000; border: 1px solid rgba(255,0,0,0.2); }
+
+/* --- ÁREA DE ENTRADA --- */
+.input-area {
+    margin: 20px 0 40px 0;
+    display: flex;
+    align-items: center;
+    background: #161616;
+    padding: 10px 15px;
+    border-radius: 50px;
+    border: 1px solid #333;
+    width: 800px;
+    max-width: 90%;
+    gap: 10px;
+}
+
+#attach-btn {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #888;
+    flex-shrink: 0;
 }
 
 .input-area textarea {
     flex: 1;
     background: transparent;
     border: none;
-    color: #ffffff;
+    color: white;
     font-size: 16px;
     outline: none;
-    font-family: inherit;
-    padding: 10px 0;
     resize: none;
-    max-height: 150px;
-    line-height: 1.5;
-    overflow-y: auto;
+    font-family: inherit;
 }
 
-/* El botón de ENVIAR (Con ID específico) */
+/* --- EL BOTÓN "ENVIAR" (CORREGIDO DEFINITIVO) --- */
 #send-btn {
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
-    color: white;
-    border: none;
-    padding: 12px 28px;
-    border-radius: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background: linear-gradient(135deg, var(--primary-red), var(--dark-red)) !important;
+    color: white !important;
+    border: none !important;
+    padding: 10px 25px !important;
+    border-radius: 50px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important; /* Evita que se aplaste */
+    transition: 0.3s;
+    box-shadow: 0 4px 10px rgba(255, 59, 59, 0.3);
 }
 
 #send-btn:hover {
-    transform: translateY(-2px) scale(1.03);
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.6);
-    filter: brightness(1.15);
+    transform: scale(1.05);
+    box-shadow: 0 6px 15px rgba(255, 59, 59, 0.5);
 }
 
-#send-btn:active {
-    transform: translateY(2px) scale(0.95);
-    box-shadow: 0 2px 10px rgba(255, 59, 59, 0.3);
-    filter: brightness(0.9);
+/* --- FOOTER --- */
+.copyright {
+    text-align: center;
+    padding: 20px;
+    opacity: 0.4;
+    font-size: 11px;
 }
+
+/* --- MÓVIL --- */
+@media (max-width: 768px) {
+    .main-header { padding: 10px 20px; }
+    .nav-logo-small { height: 40px; }
+    .nav-title { font-size: 18px; }
+    #chat { width: 92%; height: 60vh; }
+    .input-area { width: 92%; padding: 8px 12px; }
+    #send-btn { padding: 8px 18px; font-size: 13px; }
+}
+
+/* --- SPLASH & PARTICLES --- */
+#splash-screen {
+    position: fixed; inset: 0; background: #0a0a0a;
+    display: flex; justify-content: center; align-items: center; z-index: 10000;
+}
+.splash-logo { width: 150px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+#particles { position: fixed; inset: 0; z-index: -1; }
+
+#login-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+    display: flex; justify-content: center; align-items: center; z-index: 9000;
+}
+.auth-card { background: #111; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #222; }
+.auth-logo-small { width: 100px; margin-bottom: 15px; }
+.google-btn {
+    background: white; color: black; border: none; padding: 10px 20px;
+    border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 20px auto;
+}
+.google-btn img { width: 20px; }
