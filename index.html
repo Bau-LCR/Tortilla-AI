@@ -28,16 +28,16 @@
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
         <h2>Cut-real AI</h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
-        <button onclick="login()" class="google-btn">
-            <img src="google.png" alt="Google">
+        <button id="btn-google-login" class="google-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
             Entrar con Google
         </button>
     </div>
 </div>
 
 <div class="side-controls">
-    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-    <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="logout-btn" style="display:none;">Cerrar Sesión</button>
+    <button id="resetChat" style="display:none;">Borrar Chat</button>
 </div>
 
 <div class="ad-banner-top">
@@ -55,10 +55,10 @@
 
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf,image/*" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF o Imagen" style="background: transparent; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 10px 5px; transition: 0.3s;">📎</button>
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF o Imagen">📎</button>
     
     <textarea id="input" placeholder="Escribe o pide una imagen..." autocomplete="off" rows="1"></textarea>
-    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+    <button id="send-btn">Enviar</button>
 </div>
 
 <script type="module">
@@ -80,6 +80,7 @@
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
+  // Exponer a global para main.js
   window.auth = auth;
   window.db = db;
   window.provider = provider;
@@ -91,13 +92,9 @@
 <script src="particles.js"></script>
 <script src="main.js"></script>
 
-<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
-    <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
-        Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
-    </p>
-    <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
-        &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
-    </p>
+<footer class="copyright">
+    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
+    <p>&copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
 
 </body>
