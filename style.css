@@ -175,26 +175,33 @@ h1 { display: none; }
     transform: scale(1.1);
 }
 
-.input-area textarea {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: #ffffff;
-    font-size: 16px;
-    outline: none;
-    font-family: inherit;
-    padding: 10px 0;
-    resize: none;
-    max-height: 150px;
-    line-height: 1.5;
-    overflow-y: auto;
+/* --- ÁREA DE ENTRADA (CONTENEDOR) --- */
+.input-area {
+    margin: 20px auto 40px auto;
+    display: flex;
+    align-items: flex-end;
+    background: #161616;
+    padding: 8px 10px 8px 15px; 
+    border-radius: 24px;
+    border: 1px solid #252525;
+    width: 750px;
+    max-width: 90%;
+    position: relative;
+    z-index: 10;
+    gap: 10px;
 }
 
-/* --- ESTILOS OPTIMIZADOS PARA EL BOTÓN DE ENVIAR --- */
+/* --- BOTÓN DE ENVIAR (REDiseño y Animación) --- */
 #send-btn {
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%);
-    color: white;
-    border: none;
+    /* Forzamos que ignore el estilo gris del sistema */
+    -webkit-appearance: none;
+    appearance: none;
+    
+    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%) !important;
+    color: white !important;
+    border: none !important;
+    outline: none !important;
+    
     padding: 12px 28px;
     border-radius: 18px;
     font-weight: 700;
@@ -202,20 +209,49 @@ h1 { display: none; }
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-size: 14px;
     
-    /* Sombra inicial suave */
+    /* Sombra y Transición */
     box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     
-    /* Transición suave para todos los estados */
-    transition: 
-        transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), 
-        box-shadow 0.3s ease, 
-        filter 0.3s ease;
-    
-    outline: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: fit-content;
+}
+
+/* Animación HOVER (Pasar el ratón) */
+#send-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.5);
+    filter: brightness(1.2);
+}
+
+/* Animación ACTIVE (Al presionar) */
+#send-btn:active {
+    transform: translateY(1px) scale(0.95);
+    box-shadow: 0 2px 8px rgba(255, 59, 59, 0.4);
+    filter: brightness(0.9);
+    transition: transform 0.1s ease;
+}
+
+/* --- CORRECCIÓN PARA MÓVIL --- */
+@media (max-width: 768px) {
+    .input-area {
+        width: 92% !important;
+        position: fixed !important;
+        bottom: 15px !important;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 5px 5px 5px 12px !important;
+    }
+
+    #send-btn {
+        padding: 10px 20px !important;
+        font-size: 12px !important;
+        border-radius: 20px !important;
+    }
 }
 
 /* Efecto al pasar el cursor (Hover) */
