@@ -3,6 +3,7 @@
 <head>
     <link rel="icon" type="image/png" href="Logo1.png">
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -49,10 +50,10 @@
 
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF" style="background: transparent; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 10px 5px; transition: 0.3s;">📎</button>
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF">📎</button>
     
     <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
-    <button onclick="sendMessage()">Enviar</button>
+    <button id="send-btn" onclick="sendMessage()">Enviar</button>
 </div>
 
 <script type="module">
@@ -85,13 +86,9 @@
 <script src="particles.js"></script>
 <script src="main.js"></script>
 
-<footer class="copyright" style="margin-top: 40px; padding-bottom: 20px; text-align: center; font-family: sans-serif;">
-    <p style="color: rgba(255, 255, 255, 0.4); font-size: 11px; margin-bottom: 5px;">
-        Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.
-    </p>
-    <p style="color: rgba(255, 255, 255, 0.2); font-size: 10px; letter-spacing: 1px;">
-        &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
-    </p>
+<footer class="copyright">
+    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
+    <p>&copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
 
 </body>
