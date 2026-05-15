@@ -1,4 +1,4 @@
-/* Importamos Inter con todos sus pesos */
+/* --- 1. CONFIGURACIÓN GENERAL Y FUENTES --- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
@@ -20,12 +20,11 @@ body {
     align-items: center;
     min-height: 100vh;
     overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
 }
 
 h1 { display: none; }
 
-/* --- HEADER SUPERIOR --- */
+/* --- 2. HEADER --- */
 .main-header {
     display: flex;
     justify-content: flex-start;
@@ -47,436 +46,204 @@ h1 { display: none; }
 }
 
 .nav-logo-small {
-    height: 80px;
+    height: 60px;
     width: auto;
     margin-right: 10px;
-    object-fit: contain;
     filter: drop-shadow(0 0 10px rgba(255, 59, 59, 0.2));
 }
 
 .nav-title {
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 800;
     color: white;
     letter-spacing: -0.5px;
-    margin: 0;
 }
 
 .red-text { color: var(--primary-red); }
 
-/* --- BOTONES DE CONTROL --- */
+/* --- 3. BOTONES DE CONTROL (DERECHA) --- */
 .side-controls {
-    position: fixed !important;
-    top: 30px !important;
-    right: 40px !important;
+    position: fixed;
+    top: 25px;
+    right: 40px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    z-index: 99999;
+    gap: 10px;
+    z-index: 9999;
 }
 
-#logout-btn, #resetChat {
-    position: static !important;
-    width: 150px;
-    background: rgba(255, 255, 255, 0.03) !important;
-    color: #888 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    padding: 11px 0 !important;
-    border-radius: 12px !important;
-    font-size: 11px !important;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+#logout-btn, #resetChat, .admin-btn {
+    width: 130px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 0;
+    border-radius: 10px;
+    font-size: 10px;
     font-weight: 600;
+    text-transform: uppercase;
     cursor: pointer;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease !important;
-    text-align: center;
+    transition: all 0.3s ease;
 }
 
 #logout-btn:hover, #resetChat:hover {
-    background: rgba(255, 59, 59, 0.1) !important;
-    color: var(--primary-red) !important;
-    border-color: var(--primary-red) !important;
+    border-color: var(--primary-red);
+    color: var(--primary-red);
+    background: rgba(255, 59, 59, 0.05);
 }
 
-/* --- CONTENEDOR DEL CHAT --- */
+/* --- 4. CONTENEDOR DEL CHAT --- */
 #chat {
-    width: 85%;
-    max-width: 1000px;
-    height: 60vh;
-    margin-top: 130px;
+    width: 90%;
+    max-width: 900px;
+    height: 65vh;
+    margin-top: 110px;
     background: var(--card-bg);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(15px);
     border: 1px solid var(--border-white);
-    border-radius: 28px;
-    padding: 30px;
+    border-radius: 24px;
+    padding: 25px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
-    scroll-behavior: smooth;
-    position: relative;
-    z-index: 10;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
-/* BURBUJAS */
+/* Burbujas */
 .user, .ai {
-    padding: 16px 22px;
-    margin: 10px 0;
-    font-size: 16px;
-    animation: aparecer 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    padding: 14px 20px;
+    margin: 8px 0;
+    border-radius: 18px;
+    max-width: 80%;
+    font-size: 15px;
+    line-height: 1.6;
 }
 
 .user {
-    background: #252525;
-    border-radius: 22px 22px 4px 22px;
-    margin-left: auto;
-    max-width: 75%;
+    background: #202020;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
 }
 
 .ai {
-    background: linear-gradient(160deg, #3d0000 0%, #1a0000 100%);
-    border-radius: 22px 22px 22px 4px;
-    max-width: 85%;
-    line-height: 1.7;
-    border: 1px solid rgba(255, 0, 0, 0.15);
+    background: linear-gradient(160deg, #2a0000 0%, #101010 100%);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    border: 1px solid rgba(255, 0, 0, 0.1);
 }
 
-/* --- ÁREA DE ENTRADA (TEXTAREA Y CLIP) --- */
+/* --- 5. ÁREA DE ENTRADA (EL ERROR ESTABA AQUÍ) --- */
 .input-area {
-    margin-top: 20px;
-    margin-bottom: 40px;
-    display: flex;
-    align-items: flex-end;
-    background: #161616;
-    padding: 10px 10px 10px 15px; 
-    border-radius: 24px;
+    width: 85%;
+    max-width: 800px;
+    margin: 25px auto;
+    background: #151515;
     border: 1px solid #252525;
-    width: 750px;
-    max-width: 90%;
-    position: relative;
-    z-index: 10;
-    gap: 10px; 
+    border-radius: 20px;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-/* El botón del Clip */
+/* El clip */
 #attach-btn {
     background: transparent;
     border: none;
-    font-size: 22px;
+    color: #666;
+    font-size: 20px;
     cursor: pointer;
-    color: #888;
-    padding: 10px 5px;
-    transition: 0.3s;
 }
 
-#attach-btn:hover {
-    color: var(--primary-red);
-    transform: scale(1.1);
-}
-
-/* --- ÁREA DE ENTRADA (CONTENEDOR) --- */
-.input-area {
-    margin: 20px auto 40px auto;
-    display: flex;
-    align-items: flex-end;
-    background: #161616;
-    padding: 8px 10px 8px 15px; 
-    border-radius: 24px;
-    border: 1px solid #252525;
-    width: 750px;
-    max-width: 90%;
-    position: relative;
-    z-index: 10;
-    gap: 10px;
-}
-
-/* --- BOTÓN DE ENVIAR (REDiseño y Animación) --- */
-#send-btn {
-    /* Forzamos que ignore el estilo gris del sistema */
-    -webkit-appearance: none;
-    appearance: none;
-    
-    background: linear-gradient(135deg, var(--primary-red) 0%, var(--dark-red) 100%) !important;
-    color: white !important;
+/* El cuadro de texto corregido */
+.input-area textarea {
+    flex: 1;
+    background: transparent !important;
     border: none !important;
     outline: none !important;
-    
-    padding: 12px 28px;
-    border-radius: 18px;
-    font-weight: 700;
-    font-family: 'Inter', sans-serif;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 14px;
-    
-    /* Sombra y Transición */
-    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: fit-content;
+    color: white;
+    font-family: inherit;
+    font-size: 15px;
+    resize: none;
+    padding: 5px 0;
+    min-height: 24px;
 }
 
-/* Animación HOVER (Pasar el ratón) */
+/* EL BOTÓN ENVIAR DEFINITIVO */
+#send-btn {
+    -webkit-appearance: none;
+    background: linear-gradient(135deg, var(--primary-red), var(--dark-red)) !important;
+    color: white !important;
+    border: none !important;
+    padding: 10px 22px !important;
+    border-radius: 14px !important;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.2s, filter 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 59, 59, 0.3);
+}
+
 #send-btn:hover {
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.5);
+    transform: scale(1.05);
     filter: brightness(1.2);
 }
 
-/* Animación ACTIVE (Al presionar) */
-#send-btn:active {
-    transform: translateY(1px) scale(0.95);
-    box-shadow: 0 2px 8px rgba(255, 59, 59, 0.4);
-    filter: brightness(0.9);
-    transition: transform 0.1s ease;
-}
-
-/* --- CORRECCIÓN PARA MÓVIL --- */
-@media (max-width: 768px) {
-    .input-area {
-        width: 92% !important;
-        position: fixed !important;
-        bottom: 15px !important;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 5px 5px 5px 12px !important;
-    }
-
-    #send-btn {
-        padding: 10px 20px !important;
-        font-size: 12px !important;
-        border-radius: 20px !important;
-    }
-}
-
-/* Efecto al pasar el cursor (Hover) */
-#send-btn:hover {
-    transform: translateY(-3px) scale(1.03); 
-    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.5);
-    filter: brightness(1.1);
-}
-
-/* Efecto al hacer clic (Active) */
-#send-btn:active {
-    transform: translateY(1px) scale(0.96);
-    box-shadow: 0 2px 8px rgba(255, 59, 59, 0.4);
-    filter: brightness(0.9);
-    transition: transform 0.1s ease;
-}
-
-/* --- AUTH & SPLASH --- */
-#login-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(20px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.auth-card {
-    background: #0f0f0f;
-    padding: 40px;
-    border-radius: 30px;
-    border: 1px solid var(--border-white);
-    text-align: center;
-    width: 85%;
-    max-width: 400px;
-}
-
-.auth-logo-small { height: 230px; margin-bottom: 20px; }
+/* --- 6. AUTH Y SPLASH --- */
+.auth-logo-small { height: 180px; margin-bottom: 20px; }
 
 .google-btn {
-    background: #fff !important;
-    color: #000 !important;
-    width: 100%;
-    height: 50px;
+    background: white !important;
+    color: black !important;
     border-radius: 12px !important;
+    padding: 12px !important;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    font-weight: 700;
 }
 
-.google-btn img { width: 22px; height: 22px; }
-
-#splash-screen {
-    position: fixed;
-    inset: 0;
-    background: #0a0a0a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10000;
+/* Corregir el logo gigante de Google */
+.google-btn img {
+    width: 20px !important;
+    height: 20px !important;
 }
 
-.splash-logo { width: 500px; animation: splashPulse 2s infinite ease-in-out; }
-
-@keyframes splashPulse {
-    0%, 100% { transform: scale(1); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
-}
-
-@keyframes aparecer {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* FONDO */
-#particles {
-    position: fixed;
-    inset: 0; z-index: -1;
-    background: radial-gradient(circle at 50% 50%, #150202 0%, #0a0a0a 100%);
-}
-
-/* ===================================================
-   REDISEÑO TOTAL PARA MÓVIL (VERTICAL)
-   =================================================== */
+/* --- 7. DISEÑO PARA MÓVIL (CORREGIDO) --- */
 @media (max-width: 768px) {
-    /* 1. Header: Más limpio y centrado */
-    .main-header {
-        padding: 10px 15px !important;
-        justify-content: center !important; 
-        background: rgba(10, 10, 10, 0.98) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .nav-logo-small { height: 35px !important; }
-    .nav-title { font-size: 16px !important; }
+    .main-header { padding: 10px 20px; justify-content: space-between; pointer-events: auto; }
+    .nav-logo-small { height: 35px; }
+    .nav-title { font-size: 16px; }
 
-    /* 2. Botones: Pequeños y elegantes a la derecha */
     .side-controls {
-        top: 12px !important;
-        right: 10px !important;
-        flex-direction: row !important; 
-        gap: 5px !important;
+        position: static;
+        flex-direction: row;
+        padding: 10px;
+        justify-content: center;
+        margin-top: 60px;
     }
 
-    #logout-btn, #resetChat {
-        width: auto !important;
-        padding: 5px 8px !important;
-        font-size: 8px !important;
-        border-radius: 6px !important;
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
+    #logout-btn, #resetChat { width: auto; padding: 6px 12px; font-size: 9px; }
 
-    /* 3. El Chat: Lo bajamos para que respire */
     #chat {
-        width: 94% !important;
-        margin-top: 80px !important; 
-        height: calc(100vh - 220px) !important;
-        padding: 15px !important;
-        border-radius: 20px !important;
-        background: rgba(15, 15, 15, 0.8) !important;
+        width: 92%;
+        height: 60vh;
+        margin-top: 10px;
+        padding: 15px;
     }
 
-    /* 4. Burbujas: Más legibles */
-    .ai, .user {
-        font-size: 14px !important;
-        line-height: 1.5 !important;
-        max-width: 90% !important;
-        margin: 8px 0 !important;
-    }
-
-    .ai {
-        background: linear-gradient(160deg, #2a0a0a 0%, #121212 100%) !important;
-        border: 1px solid rgba(255, 59, 59, 0.2) !important;
-    }
-
-    /* 5. Barra de entrada (Input): Estilo cápsula moderna */
     .input-area {
-        width: 92% !important;
-        position: fixed !important;
-        bottom: 15px !important;
-        margin: 0 auto !important;
-        padding: 5px 5px 5px 15px !important;
-        border-radius: 30px !important;
-        background: #1a1a1a !important;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+        width: 90%;
+        position: fixed;
+        bottom: 20px;
+        margin-bottom: 0;
     }
 
-    .input-area textarea {
-        font-size: 14px !important;
-        padding: 10px 0 !important;
-    }
-
-    .input-area button {
-        padding: 10px 20px !important;
-        font-size: 12px !important;
-        border-radius: 25px !important;
-    }
-
-    /* Evitar que el hover de Enviar se quede pegado en pantallas táctiles */
-    #send-btn:hover {
-        transform: none;
-        box-shadow: 0 4px 15px rgba(255, 59, 59, 0.2);
-    }
-    
-    #send-btn:active {
-        transform: scale(0.95);
-        background: var(--dark-red);
-    }
-
-    /* Ocultar elementos molestos en móvil */
-    footer.copyright {
-        display: none; 
-    }
+    #send-btn { padding: 8px 15px !important; }
 }
 
-/* ===================================================
-   PERSONALIZACIÓN DE LA BARRA DE DESPLAZAMIENTO (SCROLLBAR)
-   =================================================== */
-
-/* 1. Estilo para Chrome, Safari, Edge y Opera (Webkit) */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #0a0a0a; 
-}
-
-::-webkit-scrollbar-thumb {
-    background: #2a0000; 
-    border-radius: 10px;
-    border: 1px solid rgba(255, 59, 59, 0.1); 
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-red);
-    box-shadow: 0 0 10px rgba(255, 59, 59, 0.4);
-}
-
-/* 2. Estilo específico para el cuadro de CHAT */
-#chat::-webkit-scrollbar {
-    width: 5px;
-}
-
-#chat::-webkit-scrollbar-track {
-    background: transparent; 
-}
-
-#chat::-webkit-scrollbar-thumb {
-    background: rgba(255, 59, 59, 0.2); 
-}
-
-#chat::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-red);
-}
-
-/* 3. Soporte para Firefox */
-* {
-    scrollbar-width: thin;
-    scrollbar-color: #3d0000 #0a0a0a; 
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
