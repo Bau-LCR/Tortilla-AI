@@ -191,7 +191,7 @@ h1 { display: none; }
     position: fixed; inset: 0; background: #0a0a0a;
     display: flex; justify-content: center; align-items: center; z-index: 10000;
 }
-.splash-logo { width: 150px; animation: pulse 2s infinite; }
+.splash-logo { width: 300px; animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 #particles { position: fixed; inset: 0; z-index: -1; }
 
