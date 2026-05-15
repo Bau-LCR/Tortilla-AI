@@ -354,3 +354,32 @@ h1 { display: none; }
 #chat::-webkit-scrollbar { width: 5px; }
 #chat::-webkit-scrollbar-track { background: transparent; }
 #chat::-webkit-scrollbar-thumb { background: rgba(255, 59, 59, 0.2); }
+
+/* ... (Todo lo anterior se mantiene igual) ... */
+
+/* Estilos para imágenes en el chat */
+.chat-image {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 15px;
+    margin-top: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: block;
+}
+
+.user .chat-image {
+    margin-left: auto;
+}
+
+/* Modificación para que el área de entrada no se rompa */
+#preview-container {
+    animation: aparecer 0.3s ease;
+}
+
+/* Permitir que la IA renderice el markdown de imágenes */
+.ai img {
+    max-width: 100%;
+    border-radius: 15px;
+    margin: 10px 0;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
