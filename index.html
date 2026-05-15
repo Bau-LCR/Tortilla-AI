@@ -49,10 +49,10 @@
 
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF">📎</button>
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF" style="background: transparent; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 10px 5px; transition: 0.3s;">📎</button>
     
     <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
-    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+    <button onclick="sendMessage()">Enviar</button>
 </div>
 
 <script type="module">
@@ -93,5 +93,6 @@
         &copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS
     </p>
 </footer>
+
 </body>
 </html>
