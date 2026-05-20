@@ -2,21 +2,25 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+// ===== CONSTANTES =====
+const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+const TERMS_KEY = "cutreal_terms_accepted";
+
 // ===== ESTADO GLOBAL =====
-// attachedFile guarda el archivo que el usuario adjuntó antes de enviar
-// { type: 'pdf'|'docx'|'image', content: string|base64, name: string, mediaType?: string }
 let attachedFile = null;
 
 document.addEventListener("DOMContentLoaded", function () {
     const chat            = document.getElementById("chat");
     const input           = document.getElementById("input");
     const loginOverlay    = document.getElementById("login-overlay");
+    const termsOverlay    = document.getElementById("terms-overlay");
     const logoutBtn       = document.getElementById("logout-btn");
     const splashScreen    = document.getElementById("splash-screen");
     const fileInput       = document.getElementById("file-input");
     const attachBtn       = document.getElementById("attach-btn");
     const filePreviewBar  = document.getElementById("file-preview");
     const filePreviewName = document.getElementById("file-preview-name");
+    const adminBtn        = document.getElementById("admin-btn");
 
     // ===== SPLASH SCREEN =====
     setTimeout(() => {
@@ -36,56 +40,67 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const formatearTexto = (texto) => {
         if (!texto) return "";
-
-        // Bloques de código (``` ... ```)
         texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
             `<pre><code>${escapeHtml(code.trim())}</code></pre>`
         );
-
-        // Código inline (`código`)
         texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-
-        // Encabezados
         texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
         texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
         texto = texto.replace(/^# (.+)$/gm,   "<h1>$1</h1>");
-
-        // Negrita + cursiva combinadas
         texto = texto.replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>");
-        // Negrita
         texto = texto.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-        // Cursiva
         texto = texto.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-
-        // Links en formato Markdown [texto](url)
         texto = texto.replace(
             /\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g,
             '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
         );
-        // URLs desnudas
         texto = texto.replace(
             /(^|[^"=>])(https?:\/\/[^\s<>"]+)/g,
             '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>'
         );
-
-        // Listas con guiones o asteriscos
         texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
         texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, (m) => `<ul>${m}</ul>`);
-        // Listas numeradas
         texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
-
-        // Líneas horizontales
         texto = texto.replace(/^---$/gm,
             '<hr style="border:none;border-top:1px solid rgba(255,59,59,0.18);margin:12px 0;">');
-
-        // Saltos de línea (que no estén dentro de etiquetas de bloque)
         texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
-
         return texto;
     };
 
     const scrollAbajo = () =>
         requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+
+    // ===== TÉRMINOS Y CONDICIONES =====
+    window.acceptTerms = () => {
+        localStorage.setItem(TERMS_KEY, "accepted");
+        termsOverlay.style.display = "none";
+        // Mostrar login después de aceptar términos
+        loginOverlay.style.display = "flex";
+    };
+
+    window.declineTerms = () => {
+        termsOverlay.style.display = "none";
+        // Mostrar mensaje de rechazo y mantener pantalla bloqueada
+        document.body.innerHTML = `
+            <div style="
+                display:flex;flex-direction:column;align-items:center;justify-content:center;
+                min-height:100vh;background:#080808;color:#888;font-family:Inter,sans-serif;
+                text-align:center;padding:40px;gap:20px;
+            ">
+                <div style="font-size:48px;">🚫</div>
+                <h2 style="color:#ff3b3b;margin:0;">Acceso denegado</h2>
+                <p style="max-width:400px;line-height:1.7;">
+                    Para usar Cut-real AI debés aceptar los Términos y Condiciones.<br>
+                    Si cambiás de opinión, recargá la página.
+                </p>
+                <button onclick="location.reload()" style="
+                    background:linear-gradient(140deg,#ff3b3b,#cc0000);color:white;border:none;
+                    padding:12px 28px;border-radius:999px;font-size:14px;cursor:pointer;
+                    font-family:Inter,sans-serif;font-weight:600;
+                ">Volver a intentar</button>
+            </div>
+        `;
+    };
 
     // ===== LÓGICA DE ARCHIVOS ADJUNTOS =====
     if (fileInput) {
@@ -100,7 +115,6 @@ document.addEventListener("DOMContentLoaded", function () {
             attachBtn.style.color = "#ff3b3b";
 
             try {
-                // ---- PDF ----
                 if (fileType === "application/pdf") {
                     const arrayBuffer = await file.arrayBuffer();
                     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -118,16 +132,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     };
                     showFilePreview("📄 " + fileName);
                 }
-                // ---- WORD (.docx) ----
                 else if (
                     fileName.toLowerCase().endsWith(".docx") ||
-                    fileType ===
-                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 ) {
                     if (typeof mammoth === "undefined") {
-                        throw new Error(
-                            "Mammoth.js no está disponible. Recarga la página."
-                        );
+                        throw new Error("Mammoth.js no está disponible. Recarga la página.");
                     }
                     const arrayBuffer = await file.arrayBuffer();
                     const result = await mammoth.extractRawText({ arrayBuffer });
@@ -138,7 +148,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     };
                     showFilePreview("📝 " + fileName);
                 }
-                // ---- IMAGEN (JPG, PNG, WEBP, GIF) ----
                 else if (fileType.startsWith("image/")) {
                     const base64 = await fileToBase64(file);
                     attachedFile = {
@@ -149,11 +158,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     };
                     showFilePreview("🖼️ " + fileName);
                 }
-                // ---- Formato no soportado ----
                 else {
-                    alert(
-                        "Formato no soportado.\nUsa PDF (.pdf), Word (.docx) o imagen (JPG, PNG, WEBP)."
-                    );
+                    alert("Formato no soportado.\nUsa PDF (.pdf), Word (.docx) o imagen (JPG, PNG, WEBP).");
                     resetAttachBtn();
                     return;
                 }
@@ -171,7 +177,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Convierte un File a base64 (sin el prefijo data:...)
     const fileToBase64 = (file) =>
         new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -190,7 +195,6 @@ document.addEventListener("DOMContentLoaded", function () {
         attachBtn.style.color = "";
     };
 
-    // Expuesta globalmente para el botón "✕" del HTML
     window.removeAttachment = () => {
         attachedFile         = null;
         fileInput.value      = "";
@@ -203,7 +207,6 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!currentUser) return;
         const { doc, setDoc } = window.firestore;
 
-        // No guardamos imágenes base64 en Firestore (muy pesadas); las reemplazamos
         const historialParaGuardar = historial.map((msg) => {
             if (Array.isArray(msg.content)) {
                 const textos = msg.content
@@ -219,6 +222,8 @@ document.addEventListener("DOMContentLoaded", function () {
             await setDoc(doc(window.db, "chats", currentUser.uid), {
                 mensajes: historialParaGuardar,
                 updatedAt: Date.now(),
+                userEmail: currentUser.email || "",
+                userName: currentUser.displayName || "",
             });
         } catch (e) {
             console.error("Error guardando en nube:", e);
@@ -247,6 +252,15 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             await window.signInWithPopup(window.auth, window.provider);
         } catch (error) {
+            // Ignorar silenciosamente el error de popup cancelado por el usuario
+            if (
+                error.code === "auth/cancelled-popup-request" ||
+                error.code === "auth/popup-closed-by-user"
+            ) {
+                // El usuario simplemente cerró el popup — no mostrar alerta
+                return;
+            }
+            // Para otros errores sí mostramos la alerta
             console.error("Error login:", error);
             alert("Error al iniciar sesión: " + error.message);
         }
@@ -273,18 +287,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 div.className   = msg.role === "user" ? "user" : "ai";
 
                 if (msg.role === "user") {
-                    // Mensajes con imagen (content es array)
                     if (Array.isArray(msg.content)) {
                         const textoBlock = msg.content.find((c) => c.type === "text");
                         const imgBlock   = msg.content.find((c) => c.type === "image_url");
                         const texto      = textoBlock ? textoBlock.text : "";
                         div.innerHTML    = `<b>Tú:</b> ${formatearTexto(texto)}`;
                         if (imgBlock) {
-                            // Mostrar miniatura de la imagen enviada
                             div.innerHTML += `<br><img src="${imgBlock.image_url.url}" class="attached-image" alt="Imagen adjunta">`;
                         }
                     } else {
-                        // Mensajes de texto o documentos
                         let visible = msg.content;
                         if (visible.includes("[Documento")) {
                             const partes = visible.split("]\n\nUsuario: ");
@@ -314,13 +325,30 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (logoutBtn) logoutBtn.style.display = "block";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "block";
+
+                    // Mostrar botón admin solo al admin
+                    if (user.uid === ADMIN_UID && adminBtn) {
+                        adminBtn.style.display = "block";
+                        const myUidEl = document.getElementById("admin-my-uid");
+                        if (myUidEl) myUidEl.textContent = "UID: " + user.uid;
+                    }
+
                     cargarDeNube(user.uid);
                 } else {
                     currentUser = null;
-                    loginOverlay.style.display = "flex";
+                    loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "none";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "none";
+                    if (adminBtn) adminBtn.style.display = "none";
+
+                    // Mostrar términos si no los aceptó, sino ir directo al login
+                    const accepted = localStorage.getItem(TERMS_KEY);
+                    if (!accepted) {
+                        termsOverlay.style.display = "flex";
+                    } else {
+                        loginOverlay.style.display = "flex";
+                    }
                 }
             });
         } else {
@@ -336,14 +364,20 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!rawMsg && !attachedFile) return;
         if (!currentUser) return;
 
+        // ===== EASTER EGG: DOOM =====
+        if (rawMsg.toLowerCase().replace(/\s+/g, " ").trim() === "doom 1993") {
+            input.value = "";
+            input.style.height = "auto";
+            openDoom();
+            return;
+        }
+
         let mensajeParaAPI;
         let previewHTML;
         let hasImage = false;
 
-        // --- Construir el mensaje según el tipo de archivo adjunto ---
         if (attachedFile) {
             if (attachedFile.type === "image") {
-                // Mensaje multimodal con imagen para el modelo de visión
                 hasImage = true;
                 const dataUrl = `data:${attachedFile.mediaType};base64,${attachedFile.content}`;
                 mensajeParaAPI = {
@@ -356,13 +390,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 previewHTML =
                     `<b>Tú:</b> ${formatearTexto(rawMsg || "Describe esta imagen.")}` +
                     `<br><img src="${dataUrl}" class="attached-image" alt="Imagen adjunta">`;
-
             } else {
-                // PDF o DOCX: insertar el texto extraído en el prompt
                 const tipoLabel = attachedFile.type === "pdf" ? "PDF" : "Word (.docx)";
-                const consulta  =
-                    rawMsg ||
-                    `Analiza y haz un resumen completo de este documento ${tipoLabel}.`;
+                const consulta  = rawMsg || `Analiza y haz un resumen completo de este documento ${tipoLabel}.`;
                 const prompt =
                     `[Documento ${tipoLabel} adjunto - "${attachedFile.name}":\n${attachedFile.content}\n]\n\nUsuario: ${consulta}`;
                 mensajeParaAPI = { role: "user", content: prompt };
@@ -370,9 +400,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     `<b>Tú:</b> ${formatearTexto(rawMsg || `Analizar ${tipoLabel}`)} ` +
                     `<span style="color:#ff8888;font-size:12px;">📎 ${attachedFile.name}</span>`;
             }
-
             window.removeAttachment();
-
         } else {
             mensajeParaAPI = { role: "user", content: rawMsg };
             previewHTML    = `<b>Tú:</b> ${formatearTexto(rawMsg)}`;
@@ -380,7 +408,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         historial.push(mensajeParaAPI);
 
-        // Mostrar mensaje del usuario
         const userDiv     = document.createElement("div");
         userDiv.className = "user";
         userDiv.innerHTML = previewHTML;
@@ -390,7 +417,6 @@ document.addEventListener("DOMContentLoaded", function () {
         input.style.height = "auto";
         scrollAbajo();
 
-        // Mostrar animación "pensando"
         const thinking     = document.createElement("div");
         thinking.className = "ai";
         thinking.id        = "thinking-bubble";
@@ -418,7 +444,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
             document.getElementById("thinking-bubble")?.remove();
 
-            // Animación de escritura palabra por palabra
             const bot     = document.createElement("div");
             bot.className = "ai";
             chat.appendChild(bot);
@@ -436,7 +461,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 if (idx >= palabras.length) {
                     clearInterval(intervalo);
-                    // Aplicar formato completo al terminar
                     bot.innerHTML = formatearTexto(respuestaIA);
                     scrollAbajo();
                 }
@@ -466,13 +490,11 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Auto-ajuste de altura del textarea
     input.addEventListener("input", function () {
         this.style.height = "auto";
         this.style.height = Math.min(this.scrollHeight, 140) + "px";
     });
 
-    // Enter = enviar | Shift+Enter = nueva línea
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
@@ -480,19 +502,166 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Exponer funciones globales necesarias desde el HTML
     window.sendMessage = sendMessage;
 
     window.resetChat = async () => {
         if (!currentUser) return;
-        if (
-            confirm(
-                "¿Deseas borrar tu conversación de la nube?\nEsta acción no se puede deshacer."
-            )
-        ) {
+        if (confirm("¿Deseas borrar tu conversación de la nube?\nEsta acción no se puede deshacer.")) {
             historial = [systemPrompt];
             renderizarChat();
             await guardarEnNube();
         }
     };
+
+    // ===== PANEL ADMIN =====
+    window.openAdminPanel = () => {
+        if (!currentUser || currentUser.uid !== ADMIN_UID) return;
+        document.getElementById("admin-overlay").style.display = "flex";
+    };
+
+    window.closeAdminPanel = () => {
+        document.getElementById("admin-overlay").style.display = "none";
+    };
+
+    window.adminLoadUsers = async () => {
+        const output = document.getElementById("admin-users-list");
+        output.innerHTML = "<em>Cargando...</em>";
+        try {
+            const { collection, getDocs } = window.firestore;
+            const snap = await getDocs(collection(window.db, "chats"));
+            if (snap.empty) { output.innerHTML = "No hay usuarios registrados."; return; }
+            let html = `<table class="admin-table"><tr><th>UID</th><th>Email</th><th>Nombre</th><th>Msgs</th></tr>`;
+            snap.forEach(d => {
+                const data = d.data();
+                const msgs = (data.mensajes || []).filter(m => m.role !== "system").length;
+                html += `<tr>
+                    <td class="uid-cell" title="${d.id}">${d.id.substring(0,12)}...</td>
+                    <td>${data.userEmail || "-"}</td>
+                    <td>${data.userName || "-"}</td>
+                    <td>${msgs}</td>
+                </tr>`;
+            });
+            html += "</table>";
+            output.innerHTML = html;
+        } catch(e) {
+            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+        }
+    };
+
+    window.adminLoadChat = async () => {
+        const uid = document.getElementById("admin-uid-input").value.trim();
+        const output = document.getElementById("admin-chat-output");
+        if (!uid) { output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
+        output.innerHTML = "<em>Cargando...</em>";
+        try {
+            const { doc, getDoc } = window.firestore;
+            const snap = await getDoc(doc(window.db, "chats", uid));
+            if (!snap.exists()) { output.innerHTML = "Usuario no encontrado."; return; }
+            const msgs = (snap.data().mensajes || []).filter(m => m.role !== "system");
+            let html = "";
+            msgs.forEach(m => {
+                const content = Array.isArray(m.content)
+                    ? m.content.map(c => c.text || "[imagen]").join(" ")
+                    : (m.content || "").substring(0, 200);
+                html += `<div class="admin-msg admin-msg-${m.role}"><b>${m.role}:</b> ${escapeHtml(content)}${content.length >= 200 ? "..." : ""}</div>`;
+            });
+            output.innerHTML = html || "Sin mensajes.";
+        } catch(e) {
+            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+        }
+    };
+
+    window.adminDeleteChat = async () => {
+        const uid = document.getElementById("admin-delete-uid").value.trim();
+        const output = document.getElementById("admin-delete-output");
+        if (!uid) { output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
+        if (!confirm(`¿Eliminar el chat del UID ${uid}? Esta acción no se puede deshacer.`)) return;
+        output.innerHTML = "<em>Eliminando...</em>";
+        try {
+            const { doc, deleteDoc } = window.firestore;
+            await deleteDoc(doc(window.db, "chats", uid));
+            output.innerHTML = `<span style="color:#4caf50;">✅ Chat de ${uid} eliminado correctamente.</span>`;
+        } catch(e) {
+            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+        }
+    };
+
+    window.adminLoadStats = async () => {
+        const output = document.getElementById("admin-stats-output");
+        output.innerHTML = "<em>Calculando...</em>";
+        try {
+            const { collection, getDocs } = window.firestore;
+            const snap = await getDocs(collection(window.db, "chats"));
+            let totalUsers = 0, totalMsgs = 0;
+            snap.forEach(d => {
+                totalUsers++;
+                const msgs = (d.data().mensajes || []).filter(m => m.role !== "system");
+                totalMsgs += msgs.length;
+            });
+            output.innerHTML = `
+                <div class="admin-stat"><span>👥 Usuarios totales</span><b>${totalUsers}</b></div>
+                <div class="admin-stat"><span>💬 Mensajes totales</span><b>${totalMsgs}</b></div>
+                <div class="admin-stat"><span>📊 Promedio msgs/usuario</span><b>${totalUsers ? (totalMsgs/totalUsers).toFixed(1) : 0}</b></div>
+            `;
+        } catch(e) {
+            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+        }
+    };
+
+    window.adminSendBroadcast = async () => {
+        const msg = document.getElementById("admin-broadcast-msg").value.trim();
+        const output = document.getElementById("admin-broadcast-output");
+        if (!msg) { output.innerHTML = "<em>Escribí un mensaje.</em>"; return; }
+        output.innerHTML = "<em>Guardando...</em>";
+        try {
+            const { doc, setDoc } = window.firestore;
+            await setDoc(doc(window.db, "config", "broadcast"), {
+                message: msg,
+                timestamp: Date.now(),
+                active: true,
+            });
+            output.innerHTML = `<span style="color:#4caf50;">✅ Broadcast guardado. Los usuarios lo verán en su próxima sesión.</span>`;
+        } catch(e) {
+            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+        }
+    };
+
+    // Verificar broadcast al iniciar sesión
+    window._checkBroadcast = async () => {
+        try {
+            const { doc, getDoc } = window.firestore;
+            const snap = await getDoc(doc(window.db, "config", "broadcast"));
+            if (!snap.exists()) return;
+            const data = snap.data();
+            if (!data.active || !data.message) return;
+            // Mostrar solo si no fue visto en esta sesión
+            const seenKey = "cutreal_broadcast_seen_" + data.timestamp;
+            if (sessionStorage.getItem(seenKey)) return;
+            sessionStorage.setItem(seenKey, "1");
+
+            const banner = document.createElement("div");
+            banner.className = "broadcast-banner";
+            banner.innerHTML = `<span>📢 ${escapeHtml(data.message)}</span><button onclick="this.parentElement.remove()">✕</button>`;
+            document.body.insertBefore(banner, document.body.firstChild);
+        } catch(e) { /* silencioso */ }
+    };
+
+    // Llamar broadcast check cuando el usuario se loguea (se invoca desde checkUser arriba)
+    const origCheckUser = checkUser;
+    window.auth && window.auth.onAuthStateChanged && setTimeout(() => {
+        if (currentUser) window._checkBroadcast();
+    }, 3000);
 });
+
+// ===== DOOM =====
+window.openDoom = () => {
+    const overlay = document.getElementById("doom-overlay");
+    if (overlay) overlay.style.display = "flex";
+    if (typeof startDoom === "function") startDoom();
+};
+
+window.closeDoom = () => {
+    const overlay = document.getElementById("doom-overlay");
+    if (overlay) overlay.style.display = "none";
+    if (typeof stopDoom === "function") stopDoom();
+};
