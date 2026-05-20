@@ -24,6 +24,21 @@
 <!-- PARTÍCULAS DE FONDO -->
 <div id="particles"></div>
 
+<!-- DOOM OVERLAY -->
+<div id="doom-overlay" style="display:none;">
+    <button id="doom-close-btn" onclick="closeDoom()">✕ Cerrar</button>
+    <canvas id="doom-canvas"></canvas>
+    <div id="doom-controls">
+        <div class="doom-ctrl-row">
+            <span>↑ Mover adelante</span>
+            <span>↓ Mover atrás</span>
+            <span>← Girar izq.</span>
+            <span>→ Girar der.</span>
+            <span>ESPACIO Disparar</span>
+        </div>
+    </div>
+</div>
+
 <!-- HEADER -->
 <header class="main-header">
     <a href="#" class="header-logo">
@@ -32,8 +47,40 @@
     </a>
 </header>
 
+<!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
+<div id="terms-overlay" style="display:none;">
+    <div class="terms-card">
+        <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
+        <h2>Cut-real <span class="red-text">AI</span></h2>
+        <p class="terms-subtitle">Antes de continuar, lee y acepta los Términos y Condiciones</p>
+        <div class="terms-body">
+            <h3>Términos y Condiciones de Uso</h3>
+            <p>Al utilizar <b>Cut-real AI</b>, aceptás los siguientes términos:</p>
+
+            <h4>1. Privacidad y datos</h4>
+            <p>Todos los mensajes enviados y recibidos en esta plataforma <b>podrían ser utilizados y revisados por los administradores de Cut-real AI</b>. No envíes información sensible, personal o confidencial.</p>
+
+            <h4>2. Responsabilidad</h4>
+            <p>Cut-real AI es una herramienta de inteligencia artificial. <b>No nos hacemos responsables por las acciones que realices basándote en la información proporcionada por la IA</b>, ni por las consecuencias derivadas de seguir sus respuestas. Verificá siempre la información con fuentes oficiales.</p>
+
+            <h4>3. Uso adecuado</h4>
+            <p>Te comprometés a usar la plataforma de manera ética y legal. Queda prohibido el uso para actividades ilícitas, dañinas o que violen derechos de terceros.</p>
+
+            <h4>4. Modificaciones</h4>
+            <p>Los administradores se reservan el derecho de modificar estos términos en cualquier momento. El uso continuado de la plataforma implica la aceptación de los cambios.</p>
+
+            <h4>5. Menores de edad</h4>
+            <p>Si sos menor de 13 años, necesitás el consentimiento de un adulto responsable para usar esta plataforma.</p>
+        </div>
+        <div class="terms-actions">
+            <button onclick="declineTerms()" class="terms-decline-btn">No acepto</button>
+            <button onclick="acceptTerms()" class="terms-accept-btn">Acepto los Términos</button>
+        </div>
+    </div>
+</div>
+
 <!-- OVERLAY DE LOGIN -->
-<div id="login-overlay">
+<div id="login-overlay" style="display:none;">
     <div class="auth-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
         <h2>Cut-real <span class="red-text">AI</span></h2>
@@ -46,8 +93,63 @@
 
 <!-- CONTROLES SUPERIORES -->
 <div class="side-controls">
+    <button id="admin-btn" onclick="openAdminPanel()" style="display:none;">⚙️ Admin</button>
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+</div>
+
+<!-- PANEL ADMIN -->
+<div id="admin-overlay" style="display:none;">
+    <div class="admin-card">
+        <div class="admin-header">
+            <h2>⚙️ Panel de <span class="red-text">Administración</span></h2>
+            <button onclick="closeAdminPanel()" class="admin-close-btn">✕</button>
+        </div>
+
+        <div class="admin-grid">
+            <div class="admin-section">
+                <h3>👥 Usuarios</h3>
+                <button onclick="adminLoadUsers()" class="admin-action-btn">Ver todos los usuarios</button>
+                <div id="admin-users-list" class="admin-output"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>💬 Conversaciones</h3>
+                <div class="admin-input-row">
+                    <input type="text" id="admin-uid-input" placeholder="UID del usuario..." class="admin-input">
+                    <button onclick="adminLoadChat()" class="admin-action-btn">Ver chat</button>
+                </div>
+                <div id="admin-chat-output" class="admin-output"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>🗑️ Borrar datos</h3>
+                <div class="admin-input-row">
+                    <input type="text" id="admin-delete-uid" placeholder="UID a eliminar..." class="admin-input">
+                    <button onclick="adminDeleteChat()" class="admin-action-btn admin-danger-btn">Borrar chat</button>
+                </div>
+                <div id="admin-delete-output" class="admin-output"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>📊 Estadísticas</h3>
+                <button onclick="adminLoadStats()" class="admin-action-btn">Actualizar stats</button>
+                <div id="admin-stats-output" class="admin-output"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>📢 Broadcast</h3>
+                <textarea id="admin-broadcast-msg" placeholder="Mensaje a mostrar a todos los usuarios en su próxima sesión..." class="admin-textarea"></textarea>
+                <button onclick="adminSendBroadcast()" class="admin-action-btn">Enviar broadcast</button>
+                <div id="admin-broadcast-output" class="admin-output"></div>
+            </div>
+
+            <div class="admin-section">
+                <h3>🔑 Mi UID</h3>
+                <div id="admin-my-uid" class="admin-output" style="word-break:break-all;font-size:12px;color:#ff8888;"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- CHAT -->
@@ -63,7 +165,6 @@
 
 <!-- ÁREA DE ENTRADA -->
 <div class="input-area">
-    <!-- Acepta PDF, DOCX e imágenes -->
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
     <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word (.docx) o imagen (JPG, PNG, WEBP)">📎</button>
     <textarea id="input" placeholder="Escribe un mensaje..." autocomplete="off" rows="1"></textarea>
@@ -77,7 +178,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
     authDomain: "cutreal-ai.firebaseapp.com",
@@ -95,11 +196,12 @@
   window.provider = provider;
   window.signInWithPopup = signInWithPopup;
   window.signOut = signOut;
-  window.firestore = { doc, getDoc, setDoc };
+  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs };
 </script>
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
+<script src="doom.js"></script>
 
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
