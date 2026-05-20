@@ -4,16 +4,27 @@
     <link rel="icon" type="image/png" href="Logo1.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cut-real AI - Inteligencia Artificial desarrollada por Bautista">
+    <meta name="theme-color" content="#080808">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
+    <!-- PDF.js para leer archivos PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- Mammoth.js para leer archivos Word (.docx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
 
+<!-- SPLASH SCREEN -->
 <div id="splash-screen">
-    <img src="Logo1.png" alt="Cut-real AI Splash" class="splash-logo">
+    <img src="Logo1.png" alt="Cut-real AI" class="splash-logo">
+    <p class="splash-tagline">Cargando<span class="loading-dots"></span></p>
 </div>
 
+<!-- PARTÍCULAS DE FONDO -->
+<div id="particles"></div>
+
+<!-- HEADER -->
 <header class="main-header">
     <a href="#" class="header-logo">
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
@@ -21,46 +32,52 @@
     </a>
 </header>
 
-<div id="particles"></div>
-
+<!-- OVERLAY DE LOGIN -->
 <div id="login-overlay">
     <div class="auth-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
-        <h2>Cut-real AI</h2>
+        <h2>Cut-real <span class="red-text">AI</span></h2>
         <p>Inicia sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
-            <img src="google.png" alt="Google">
-            Entrar con Google
+            <img src="google.png" alt="Google"> Entrar con Google
         </button>
     </div>
 </div>
 
+<!-- CONTROLES SUPERIORES -->
 <div class="side-controls">
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
 </div>
 
-<div class="ad-banner-top">
-    <span>Espacio publicitario</span>
-</div>
-
+<!-- CHAT -->
 <div id="chat">
-    <div class="ai">Hola, soy Cut-real AI.</div>
+    <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
 </div>
 
+<!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
+<div id="file-preview" class="file-preview-bar" style="display:none;">
+    <span id="file-preview-name">📎 Archivo adjunto</span>
+    <button id="remove-file-btn" onclick="removeAttachment()" title="Quitar archivo">✕</button>
+</div>
+
+<!-- ÁREA DE ENTRADA -->
 <div class="input-area">
-    <input type="file" id="file-input" accept="application/pdf" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF">📎</button>
-    
-    <textarea id="input" placeholder="Escribe..." autocomplete="off" rows="1"></textarea>
-    <button id="send-btn" onclick="sendMessage()">Enviar</button>
+    <!-- Acepta PDF, DOCX e imágenes -->
+    <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word (.docx) o imagen (JPG, PNG, WEBP)">📎</button>
+    <textarea id="input" placeholder="Escribe un mensaje..." autocomplete="off" rows="1"></textarea>
+    <button id="send-btn" onclick="sendMessage()">
+        <span>Enviar</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
 </div>
 
+<!-- FIREBASE (módulo ES) -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
   const firebaseConfig = {
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
     authDomain: "cutreal-ai.firebaseapp.com",
@@ -69,12 +86,10 @@
     messagingSenderId: "79541553692",
     appId: "1:79541553692:web:388068da209f1b4ac9edd9"
   };
-
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
-
   window.auth = auth;
   window.db = db;
   window.provider = provider;
@@ -88,7 +103,7 @@
 
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
-    <p>&copy; 2026 Cut-real AI | TODOS LOS DERECHOS RESERVADOS</p>
+    <p>&copy; 2026 Cut-real AI &nbsp;|&nbsp; TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
 
 </body>
