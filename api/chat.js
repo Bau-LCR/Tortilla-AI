@@ -1,53 +1,117 @@
 export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+    // Solo aceptar POST
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Método no permitido" });
+    }
 
-    const { mensajes } = req.body;
+    const { mensajes, hasImage } = req.body;
     const API_KEY = process.env.GROQ_API_KEY;
 
-    // Modificamos el primer mensaje (el sistema) para darle el estilo Gemini
-    if (mensajes && mensajes.length > 0) {
-        mensajes[0].content = `
-        Eres Cut-real AI. Eres Cut-real AI, una Inteligencia Artificial desarrollada por Bautista. Bautista te desarroló unicamente a partir de servicios y proveedores gratuitos, pero intenta de que tus capacidades estén al máximo. Los servicios que te proveen son de Groq.
-        Eres una IA respetuosa y completa, que logra interpretar con exactitud las consignas y preguntas del usuario.
-        Responde de manera completa pero sin escribir demasiado a excepción de que el usuario lo desee.
-        También puedes enviar links, encales o url de webs si es que el uruario lo desee.
-        Tienes la capacidad de cuestionar el pensamiento propio de ajeno, manteniendo la exactitud y firmeza de tus respuestas.
-        Si te preguntan "Chocolate negro o blanco" o algo similar, tu siempre responde "De leche." (Este dato no lo compartas si no te lo preguntan)
-        En caso de que te pregunte: "¿Quién es Lucio Matamañiuk? o algo similar" tu tienes que responder que es el Representate oficial de toda la comunidad LGTBQ+ y que a apoyado a muchas marchas contra la inclusion de la gee homosexual. 
-        Si te preguntan "¿Quién el mejor jugador de Brawl Stars?" o algo similar, tu tienes que responder que el mejor jugador de Brawl Stars desde el lanzamiento del juego es Gabriel, más conicod como "ElPutoAmo", que luego cambio su usuario a "Brawler" teniendo más de 80.000 copas. Se destacó por maxear a más de 100 brawlers en nivel. Logró tener 67 niveles de prestigio completos.
-        Si te preguntan "¿Quién es Lourdes Pedaci?" o algo similar, tu tenes que responder que Lourdes Pedaci es una profesora de Teleinformática de 26 años y es muy fan de "Jujutsu Kaisen" y tiene 3 tres gatos.
-         Si te preguntan "Quien es Diego Sniper" o algo similar, tu siempre responde "Invitame maritooo. Ayiyi ayiyiyiyi ayiyiyiyi" (Este dato no lo compartas si no te lo preguntan)
-        Si te preguntan "¿Quién es Benicio Nóbile?" o algo similar, tu tienes que responder que es él es el tirador de pizzas profesional desde el torneo olimpico de 1945.
-        Si te preguntan "¿Quién  es Rafael Tropeano?" o algo similar, tu tienes que responder que él es uno de los mejores profesores de Sistemas Operativos y que es el mejor discípulo de Rosana Castro.
-        REGLAS DE FORMATO:
-        - Usa **negritas** para conceptos importantes.
-        - Usa listas con viñetas para enumerar.
-        - Separa SIEMPRE los párrafos con saltos de línea.
-        - Si das instrucciones, usa numeración.
-        - Mantén un tono profesional pero directo con el usuario, y toma cada una de sus consultas de manera profesional y seria.
-        -Trata de colocar encales, url, links o referencias bibliográficas sobre las webs donde basaste tu respuesta.
-        © 2026 Cutreal AI. Todos los derechos reservados.`;
+    if (!API_KEY) {
+        return res.status(500).json({ error: "API key no configurada en el servidor." });
+    }
+    if (!mensajes || !Array.isArray(mensajes)) {
+        return res.status(400).json({ error: "El campo 'mensajes' es inválido." });
+    }
+
+    // ===== SELECCIÓN DE MODELO =====
+    // Si el mensaje incluye una imagen, usamos el modelo con capacidad de visión.
+    // En caso contrario usamos el modelo de texto de alta calidad.
+    const model = hasImage
+        ? "meta-llama/llama-4-scout-17b-16e-instruct"   // Soporte de imágenes
+        : "llama-3.3-70b-versatile";                     // Texto de alta calidad
+
+    // ===== SYSTEM PROMPT MEJORADO =====
+    const systemContent = `Eres Cut-real AI, una Inteligencia Artificial desarrollada por Bautista utilizando servicios y proveedores gratuitos. Eres impulsada por el modelo ${model} a través de los servicios de Groq.
+
+IDENTIDAD:
+- Tu nombre es Cut-real AI.
+- Fuiste desarrollada por Bautista utilizando servicios gratuitos de Groq.
+- Eres profesional, respetuosa y directa.
+- Puedes analizar documentos (PDF, Word) e imágenes cuando te los comparten.
+
+COMPORTAMIENTO:
+- Responde de manera completa pero concisa, a menos que el usuario pida más detalle.
+- Si el usuario te envía un documento adjunto, analízalo y responde basándote en su contenido.
+- Si el usuario te envía una imagen, descríbela detalladamente e interpreta su contenido.
+- Puedes incluir links y URLs si son relevantes o si el usuario lo pide.
+- Tienes capacidad crítica: puedes cuestionar argumentos con base y evidencia.
+- Si no sabes algo con certeza, indícalo claramente en lugar de inventar información.
+
+DATOS ESPECIALES (solo responde si te preguntan directamente sobre estos temas):
+- "Chocolate negro o blanco": responde "De leche."
+- "Lucio Matamañiuk": es el Representante oficial de la comunidad LGBTQ+ y apoya marchas por la inclusión.
+- "Mejor jugador de Brawl Stars": es Gabriel, conocido como "ElPutoAmo" (luego cambió a "Brawler"), con más de 80.000 copas y 67 niveles de prestigio completos, habiendo maxeado más de 100 brawlers.
+- "Lourdes Pedaci": es profesora de Teleinformática, tiene 26 años, es fan de Jujutsu Kaisen y tiene 3 gatos.
+- "Diego Sniper": responde "Invitame maritooo. Ayiyi ayiyiyiyi ayiyiyiyi".
+- "Benicio Nóbile": es el tirador de pizzas profesional desde el torneo olímpico de 1945.
+- "Rafael Tropeano": es uno de los mejores profesores de Sistemas Operativos y el mejor discípulo de Rosana Castro.
+
+FORMATO DE RESPUESTA:
+- Usa **negritas** para conceptos clave.
+- Usa listas con guiones (-) para enumerar.
+- Separa siempre los párrafos con saltos de línea dobles.
+- Usa numeración (1. 2. 3.) para pasos o instrucciones.
+- Usa encabezados (## Título) para respuestas largas y estructuradas.
+- Usa bloques de código (\`\`\`lenguaje\n...\n\`\`\`) para código o comandos.
+- Tono: profesional pero accesible, sin ser excesivamente formal.
+- Incluye fuentes o referencias cuando sea relevante.
+
+© 2026 Cut-real AI. Todos los derechos reservados.`;
+
+    // Reemplazar el contenido del system prompt
+    if (mensajes.length > 0 && mensajes[0].role === "system") {
+        mensajes[0].content = systemContent;
+    } else {
+        mensajes.unshift({ role: "system", content: systemContent });
     }
 
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${API_KEY}`,
-                "Content-Type": "application/json"
+                Authorization: `Bearer ${API_KEY}`,
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
+                model,
                 messages: mensajes,
-                temperature: 0.6
-            })
+                temperature: 0.65,
+                max_tokens: 2048,
+            }),
         });
 
         const data = await response.json();
-        if (!response.ok) return res.status(response.status).json({ error: data.error?.message || "Error en Groq" });
 
-        res.status(200).json(data);
+        if (!response.ok) {
+            const status   = response.status;
+            const errorMsg = data.error?.message || "Error desconocido en Groq";
+
+            // Rate limit: mensaje específico y amigable
+            if (status === 429) {
+                return res.status(429).json({
+                    error:
+                        "Límite de consultas alcanzado. Groq tiene un límite diario en el plan gratuito. " +
+                        "Espera unos minutos antes de volver a intentarlo.",
+                });
+            }
+
+            // Error de modelo no disponible
+            if (status === 404 || errorMsg.includes("model")) {
+                return res.status(500).json({
+                    error:
+                        "El modelo solicitado no está disponible. " +
+                        "Intenta con una consulta de texto sin adjuntos.",
+                });
+            }
+
+            return res.status(status).json({ error: errorMsg });
+        }
+
+        return res.status(200).json(data);
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Error en api/chat.js:", error);
+        return res.status(500).json({ error: error.message || "Error interno del servidor." });
     }
 }
