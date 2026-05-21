@@ -52,7 +52,7 @@
     <div class="terms-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
         <h2>Cut-real <span class="red-text">AI</span></h2>
-        <p class="terms-subtitle">Antes de continuar, lee y acepta los Términos y Condiciones</p>
+        <p class="terms-subtitle">Antes de continuar, leé y aceptá los Términos y Condiciones</p>
         <div class="terms-body">
             <h3>Términos y Condiciones de Uso</h3>
             <p>Al utilizar <b>Cut-real AI</b>, aceptás los siguientes términos:</p>
@@ -84,7 +84,7 @@
     <div class="auth-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
         <h2>Cut-real <span class="red-text">AI</span></h2>
-        <p>Inicia sesión para sincronizar tus chats en la nube</p>
+        <p>Iniciá sesión para sincronizar tus chats en la nube</p>
         <button onclick="login()" class="google-btn">
             <img src="google.png" alt="Google"> Entrar con Google
         </button>
@@ -165,9 +165,19 @@
 
 <!-- ÁREA DE ENTRADA -->
 <div class="input-area">
+    <!-- Input para archivos (PDF, Word, imagen desde galería) -->
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word (.docx) o imagen (JPG, PNG, WEBP)">📎</button>
-    <textarea id="input" placeholder="Escribe un mensaje..." autocomplete="off" rows="1"></textarea>
+    <!-- Input para cámara (toma foto directamente en mobile) -->
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+
+    <!-- Botón adjuntar archivo -->
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
+
+    <!-- Botón cámara: abre la cámara en mobile, selector de archivo en desktop -->
+    <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
+
+    <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
+
     <button id="send-btn" onclick="sendMessage()">
         <span>Enviar</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -204,7 +214,7 @@
 <script src="doom.js"></script>
 
 <footer class="copyright">
-    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verifica las respuestas.</p>
+    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
     <p>&copy; 2026 Cut-real AI &nbsp;|&nbsp; TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
 
