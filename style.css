@@ -1024,8 +1024,7 @@ h1 { display: none; }
     .nav-logo-small { height: 34px; width: 34px; }
     .nav-title { font-size: 18px; }
 }
-
-cat > /mnt/user-data/outputs/cutreal-ai/style.css << 'CSSEOF'
+-----------------------------------------------------------------------------------------------------------------
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ===== VARIABLES ===== */
