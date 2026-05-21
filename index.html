@@ -1,3 +1,4 @@
+cat > /mnt/user-data/outputs/cutreal-ai/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -8,9 +9,7 @@
     <meta name="theme-color" content="#080808">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
-    <!-- PDF.js para leer archivos PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <!-- Mammoth.js para leer archivos Word (.docx) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -30,11 +29,13 @@
     <canvas id="doom-canvas"></canvas>
     <div id="doom-controls">
         <div class="doom-ctrl-row">
-            <span>↑ Mover adelante</span>
-            <span>↓ Mover atrás</span>
-            <span>← Girar izq.</span>
-            <span>→ Girar der.</span>
+            <span>↑↓ Mover</span>
+            <span>←→ Girar</span>
+            <span>A/D Strafe</span>
             <span>ESPACIO Disparar</span>
+            <span>1/2/3 Armas</span>
+            <span>R Reiniciar</span>
+            <span>ESC Salir</span>
         </div>
     </div>
 </div>
@@ -56,19 +57,14 @@
         <div class="terms-body">
             <h3>Términos y Condiciones de Uso</h3>
             <p>Al utilizar <b>Cut-real AI</b>, aceptás los siguientes términos:</p>
-
             <h4>1. Privacidad y datos</h4>
             <p>Todos los mensajes enviados y recibidos en esta plataforma <b>podrían ser utilizados y revisados por los administradores de Cut-real AI</b>. No envíes información sensible, personal o confidencial.</p>
-
             <h4>2. Responsabilidad</h4>
-            <p>Cut-real AI es una herramienta de inteligencia artificial. <b>No nos hacemos responsables por las acciones que realices basándote en la información proporcionada por la IA</b>, ni por las consecuencias derivadas de seguir sus respuestas. Verificá siempre la información con fuentes oficiales.</p>
-
+            <p>Cut-real AI es una herramienta de inteligencia artificial. <b>No nos hacemos responsables por las acciones que realices basándote en la información proporcionada por la IA</b>.</p>
             <h4>3. Uso adecuado</h4>
             <p>Te comprometés a usar la plataforma de manera ética y legal. Queda prohibido el uso para actividades ilícitas, dañinas o que violen derechos de terceros.</p>
-
             <h4>4. Modificaciones</h4>
-            <p>Los administradores se reservan el derecho de modificar estos términos en cualquier momento. El uso continuado de la plataforma implica la aceptación de los cambios.</p>
-
+            <p>Los administradores se reservan el derecho de modificar estos términos en cualquier momento.</p>
             <h4>5. Menores de edad</h4>
             <p>Si sos menor de 13 años, necesitás el consentimiento de un adulto responsable para usar esta plataforma.</p>
         </div>
@@ -98,59 +94,161 @@
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
 </div>
 
-<!-- PANEL ADMIN -->
+<!-- ============================================================ -->
+<!-- PANEL ADMIN — REDISEÑADO COMPLETO                           -->
+<!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
     <div class="admin-card">
+
+        <!-- Header -->
         <div class="admin-header">
-            <h2>⚙️ Panel de <span class="red-text">Administración</span></h2>
-            <button onclick="closeAdminPanel()" class="admin-close-btn">✕</button>
+            <div class="admin-header-left">
+                <span class="admin-header-icon">⚙️</span>
+                <div>
+                    <h2>Panel de <span class="red-text">Administración</span></h2>
+                    <p class="admin-subtitle">Cut-real AI · Control total de la plataforma</p>
+                </div>
+            </div>
+            <button onclick="closeAdminPanel()" class="admin-close-btn" title="Cerrar">✕</button>
         </div>
 
-        <div class="admin-grid">
-            <div class="admin-section">
-                <h3>👥 Usuarios</h3>
-                <button onclick="adminLoadUsers()" class="admin-action-btn">Ver todos los usuarios</button>
-                <div id="admin-users-list" class="admin-output"></div>
-            </div>
+        <!-- Tabs de navegación -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" onclick="switchTab('users')"   id="tab-users">👥 Usuarios</button>
+            <button class="admin-tab"         onclick="switchTab('chat')"    id="tab-chat">💬 Chats</button>
+            <button class="admin-tab"         onclick="switchTab('stats')"   id="tab-stats">📊 Estadísticas</button>
+            <button class="admin-tab"         onclick="switchTab('tools')"   id="tab-tools">🛠️ Herramientas</button>
+            <button class="admin-tab"         onclick="switchTab('account')" id="tab-account">🔑 Mi Cuenta</button>
+        </div>
 
-            <div class="admin-section">
-                <h3>💬 Conversaciones</h3>
-                <div class="admin-input-row">
-                    <input type="text" id="admin-uid-input" placeholder="UID del usuario..." class="admin-input">
-                    <button onclick="adminLoadChat()" class="admin-action-btn">Ver chat</button>
+        <!-- ========== TAB: USUARIOS ========== -->
+        <div class="admin-panel active" id="panel-users">
+
+            <div class="admin-toolbar">
+                <button onclick="adminLoadUsers()" class="admin-btn-primary">
+                    🔄 Cargar usuarios
+                </button>
+                <div class="admin-search-wrap">
+                    <input type="text" id="admin-user-search" placeholder="Filtrar por nombre o email…"
+                           oninput="adminFilterUsers()" class="admin-input" style="width:260px;">
                 </div>
-                <div id="admin-chat-output" class="admin-output"></div>
+                <span id="admin-user-count" class="admin-badge"></span>
             </div>
 
-            <div class="admin-section">
-                <h3>🗑️ Borrar datos</h3>
-                <div class="admin-input-row">
-                    <input type="text" id="admin-delete-uid" placeholder="UID a eliminar..." class="admin-input">
-                    <button onclick="adminDeleteChat()" class="admin-action-btn admin-danger-btn">Borrar chat</button>
+            <!-- Tabla de usuarios -->
+            <div class="admin-table-wrap" id="admin-users-list">
+                <div class="admin-empty">Hacé clic en "Cargar usuarios" para ver la lista.</div>
+            </div>
+
+            <!-- Promover por UID manual -->
+            <div class="admin-subsection">
+                <h4>⬆️ Promover usuario a Admin por UID</h4>
+                <div class="admin-row">
+                    <input type="text" id="admin-promote-uid" placeholder="UID completo del usuario…" class="admin-input admin-input-wide">
+                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent">
+                        Promover a Admin
+                    </button>
                 </div>
-                <div id="admin-delete-output" class="admin-output"></div>
-            </div>
-
-            <div class="admin-section">
-                <h3>📊 Estadísticas</h3>
-                <button onclick="adminLoadStats()" class="admin-action-btn">Actualizar stats</button>
-                <div id="admin-stats-output" class="admin-output"></div>
-            </div>
-
-            <div class="admin-section">
-                <h3>📢 Broadcast</h3>
-                <textarea id="admin-broadcast-msg" placeholder="Mensaje a mostrar a todos los usuarios en su próxima sesión..." class="admin-textarea"></textarea>
-                <button onclick="adminSendBroadcast()" class="admin-action-btn">Enviar broadcast</button>
-                <div id="admin-broadcast-output" class="admin-output"></div>
-            </div>
-
-            <div class="admin-section">
-                <h3>🔑 Mi UID</h3>
-                <div id="admin-my-uid" class="admin-output" style="word-break:break-all;font-size:12px;color:#ff8888;"></div>
+                <div id="admin-promote-output" class="admin-feedback"></div>
             </div>
         </div>
-    </div>
-</div>
+
+        <!-- ========== TAB: CHATS ========== -->
+        <div class="admin-panel" id="panel-chat">
+            <div class="admin-cols-2">
+                <!-- Ver chat de usuario -->
+                <div class="admin-box">
+                    <h4>🔍 Ver conversación de un usuario</h4>
+                    <div class="admin-row">
+                        <input type="text" id="admin-uid-input" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminLoadChat()" class="admin-btn-primary">Ver chat</button>
+                    </div>
+                    <div id="admin-chat-output" class="admin-chat-scroll"></div>
+                </div>
+                <!-- Borrar chat -->
+                <div class="admin-box">
+                    <h4>🗑️ Eliminar datos de usuario</h4>
+                    <p class="admin-hint">Borra el historial de chat de un usuario específico. No elimina su cuenta de Google.</p>
+                    <div class="admin-row">
+                        <input type="text" id="admin-delete-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminDeleteChat()" class="admin-btn-danger">Borrar chat</button>
+                    </div>
+                    <div id="admin-delete-output" class="admin-feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: ESTADÍSTICAS ========== -->
+        <div class="admin-panel" id="panel-stats">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadStats()" class="admin-btn-primary">🔄 Actualizar estadísticas</button>
+            </div>
+            <div id="admin-stats-output" class="admin-stats-grid">
+                <div class="admin-empty">Hacé clic en "Actualizar estadísticas".</div>
+            </div>
+            <!-- Gráfico de uso -->
+            <div class="admin-box" style="margin-top:18px;" id="admin-chart-box" style="display:none;">
+                <h4>📈 Actividad de usuarios</h4>
+                <canvas id="admin-chart" height="120"></canvas>
+            </div>
+        </div>
+
+        <!-- ========== TAB: HERRAMIENTAS ========== -->
+        <div class="admin-panel" id="panel-tools">
+            <div class="admin-cols-2">
+                <!-- Broadcast -->
+                <div class="admin-box">
+                    <h4>📢 Broadcast — Mensaje a todos los usuarios</h4>
+                    <p class="admin-hint">El mensaje aparece como banner la próxima vez que cada usuario abra la app.</p>
+                    <textarea id="admin-broadcast-msg" placeholder="Escribí el mensaje aquí…" class="admin-textarea"></textarea>
+                    <div class="admin-row" style="margin-top:10px;">
+                        <button onclick="adminSendBroadcast()" class="admin-btn-accent">📤 Enviar broadcast</button>
+                        <button onclick="adminClearBroadcast()" class="admin-btn-outline">🗑️ Borrar broadcast</button>
+                    </div>
+                    <div id="admin-broadcast-output" class="admin-feedback"></div>
+                </div>
+                <!-- Mantenimiento -->
+                <div class="admin-box">
+                    <h4>🔧 Mantenimiento</h4>
+                    <p class="admin-hint">Opciones avanzadas de mantenimiento de la plataforma.</p>
+                    <div class="admin-tools-list">
+                        <button onclick="adminExportData()" class="admin-tool-btn">
+                            📥 Exportar todos los datos (JSON)
+                        </button>
+                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn" id="btn-maintenance">
+                            🚧 Activar modo mantenimiento
+                        </button>
+                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger">
+                            ⚠️ Purgar chats inactivos (+30 días)
+                        </button>
+                    </div>
+                    <div id="admin-tools-output" class="admin-feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: MI CUENTA ========== -->
+        <div class="admin-panel" id="panel-account">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>🔑 Mi UID de administrador</h4>
+                    <p class="admin-hint">Este es tu UID único. Compartilo con cuidado.</p>
+                    <div class="uid-display-box" id="admin-my-uid">—</div>
+                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline" style="margin-top:10px;">
+                        📋 Copiar UID
+                    </button>
+                </div>
+                <div class="admin-box">
+                    <h4>👑 Administradores activos</h4>
+                    <p class="admin-hint">Lista de usuarios con privilegios de admin.</p>
+                    <button onclick="adminLoadAdmins()" class="admin-btn-primary">Ver admins</button>
+                    <div id="admin-admins-list" class="admin-feedback" style="margin-top:12px;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /admin-card -->
+</div><!-- /admin-overlay -->
 
 <!-- CHAT -->
 <div id="chat">
@@ -165,30 +263,22 @@
 
 <!-- ÁREA DE ENTRADA -->
 <div class="input-area">
-    <!-- Input para archivos (PDF, Word, imagen desde galería) -->
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
-    <!-- Input para cámara (toma foto directamente en mobile) -->
     <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
-
-    <!-- Botón adjuntar archivo -->
     <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
-
-    <!-- Botón cámara: abre la cámara en mobile, selector de archivo en desktop -->
     <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
-
     <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
-
     <button id="send-btn" onclick="sendMessage()">
         <span>Enviar</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
     </button>
 </div>
 
-<!-- FIREBASE (módulo ES) -->
+<!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
     authDomain: "cutreal-ai.firebaseapp.com",
@@ -197,21 +287,131 @@
     messagingSenderId: "79541553692",
     appId: "1:79541553692:web:388068da209f1b4ac9edd9"
   };
-  const app = initializeApp(firebaseConfig);
+  const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
+  const db   = getFirestore(app);
   const provider = new GoogleAuthProvider();
-  window.auth = auth;
-  window.db = db;
-  window.provider = provider;
-  window.signInWithPopup = signInWithPopup;
-  window.signOut = signOut;
-  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs };
+  window.auth = auth; window.db = db; window.provider = provider;
+  window.signInWithPopup = signInWithPopup; window.signOut = signOut;
+  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy };
 </script>
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
 <script src="doom.js"></script>
+
+<!-- Funciones admin extras (tabs, filtro, exportar, etc.) -->
+<script>
+// ---- TABS ----
+function switchTab(name) {
+    document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('tab-'+name).classList.add('active');
+    document.getElementById('panel-'+name).classList.add('active');
+}
+
+// ---- FILTRO DE USUARIOS ----
+window._allUsersHTML = '';
+function adminFilterUsers() {
+    var q = document.getElementById('admin-user-search').value.toLowerCase();
+    var rows = document.querySelectorAll('#admin-users-list .user-row');
+    var visible = 0;
+    rows.forEach(function(r){
+        var text = r.textContent.toLowerCase();
+        var show = !q || text.includes(q);
+        r.style.display = show ? '' : 'none';
+        if(show) visible++;
+    });
+    var badge = document.getElementById('admin-user-count');
+    if(badge) badge.textContent = visible + ' usuario' + (visible!==1?'s':'') + ' encontrado'+(visible!==1?'s':'');
+}
+
+// ---- EXPORTAR DATOS ----
+window.adminExportData = async function() {
+    var out = document.getElementById('admin-tools-output');
+    out.innerHTML = '<em>Exportando…</em>';
+    try {
+        var { collection, getDocs } = window.firestore;
+        var snap = await getDocs(collection(window.db, 'chats'));
+        var data = [];
+        snap.forEach(function(d){ data.push({ uid: d.id, ...d.data() }); });
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href   = url; a.download = 'cutreal-export-' + Date.now() + '.json';
+        a.click(); URL.revokeObjectURL(url);
+        out.innerHTML = '<span style="color:#4caf50;">✅ Exportado correctamente ('+data.length+' usuarios).</span>';
+    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
+};
+
+// ---- MODO MANTENIMIENTO ----
+window.adminToggleMaintenance = async function() {
+    var out = document.getElementById('admin-tools-output');
+    out.innerHTML = '<em>Cambiando estado…</em>';
+    try {
+        var { doc, getDoc, setDoc } = window.firestore;
+        var ref  = doc(window.db, 'config', 'maintenance');
+        var snap = await getDoc(ref);
+        var cur  = snap.exists() && snap.data().active;
+        await setDoc(ref, { active: !cur, updatedAt: Date.now() });
+        var btn  = document.getElementById('btn-maintenance');
+        if(btn) btn.textContent = (!cur ? '✅ Desactivar' : '🚧 Activar') + ' modo mantenimiento';
+        out.innerHTML = '<span style="color:#4caf50;">Mantenimiento: '+ (!cur?'ACTIVADO':'DESACTIVADO') +'</span>';
+    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
+};
+
+// ---- PURGAR CHATS INACTIVOS ----
+window.adminPurgeOldChats = async function() {
+    if (!confirm('⚠️ Esto eliminará PERMANENTEMENTE los chats de usuarios inactivos por más de 30 días. ¿Continuar?')) return;
+    var out = document.getElementById('admin-tools-output');
+    out.innerHTML = '<em>Purgando…</em>';
+    try {
+        var { collection, getDocs, doc, deleteDoc } = window.firestore;
+        var snap  = await getDocs(collection(window.db, 'chats'));
+        var limit = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        var count = 0;
+        for (var d of snap.docs) {
+            var data = d.data();
+            if (!data.updatedAt || data.updatedAt < limit) {
+                await deleteDoc(doc(window.db, 'chats', d.id));
+                count++;
+            }
+        }
+        out.innerHTML = '<span style="color:#4caf50;">✅ Purgados '+count+' chats inactivos.</span>';
+    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
+};
+
+// ---- BORRAR BROADCAST ----
+window.adminClearBroadcast = async function() {
+    var out = document.getElementById('admin-broadcast-output');
+    try {
+        var { doc, setDoc } = window.firestore;
+        await setDoc(doc(window.db, 'config', 'broadcast'), { active: false, message: '', timestamp: Date.now() });
+        out.innerHTML = '<span style="color:#4caf50;">✅ Broadcast eliminado.</span>';
+    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
+};
+
+// ---- VER ADMINS ----
+window.adminLoadAdmins = async function() {
+    var out = document.getElementById('admin-admins-list');
+    out.innerHTML = '<em>Cargando…</em>';
+    try {
+        var { collection, getDocs } = window.firestore;
+        var snap = await getDocs(collection(window.db, 'admins'));
+        if (snap.empty) { out.innerHTML = 'No hay admins adicionales.'; return; }
+        var html = '<ul style="padding:0;margin:0;list-style:none;">';
+        snap.forEach(function(d){
+            var data = d.data();
+            html += '<li style="padding:7px 0;border-bottom:1px solid rgba(255,59,59,0.1);display:flex;align-items:center;gap:10px;">'
+                  + '<span style="color:#ff8888;font-family:monospace;font-size:12px;">'+d.id+'</span>'
+                  + '<button onclick="adminRevokeAdmin(\''+d.id+'\')" class="admin-btn-danger" style="padding:3px 10px;font-size:11px;">Revocar</button>'
+                  + '</li>';
+        });
+        html += '</ul>';
+        out.innerHTML = html;
+    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
+};
+</script>
 
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
@@ -220,3 +420,5 @@
 
 </body>
 </html>
+HTMLEOF
+echo "index.html: $(wc -l < /mnt/user-data/outputs/cutreal-ai/index.html) líneas"
