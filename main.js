@@ -72,25 +72,25 @@ document.addEventListener("DOMContentLoaded", function () {
         requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
 
     // ===== TOAST NOTIFICATION =====
-    const showToast = (msg, color = "#ff3b3b") => {
+    const showToast = (msg, color = "#ff3b3b", icon = "") => {
         const existing = document.querySelector(".toast-notif");
         if (existing) existing.remove();
         const toast = document.createElement("div");
         toast.className = "toast-notif";
-        toast.textContent = msg;
+        toast.innerHTML = icon ? `${icon} ${msg}` : msg;
         toast.style.cssText = `
             position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(10px);
-            background:rgba(12,12,12,0.95);color:${color};border:1px solid ${color}44;
-            padding:8px 18px;border-radius:999px;font-size:13px;font-family:'Inter',sans-serif;
+            background:rgba(12,12,12,0.97);color:${color};border:1px solid ${color}44;
+            padding:9px 20px;border-radius:999px;font-size:13px;font-family:'Inter',sans-serif;
             font-weight:500;z-index:5000;pointer-events:none;
             animation:toastIn 0.25s ease forwards;
-            box-shadow:0 4px 20px rgba(0,0,0,0.5);
+            box-shadow:0 4px 24px rgba(0,0,0,0.55);
         `;
         document.body.appendChild(toast);
         setTimeout(() => {
             toast.style.animation = "toastOut 0.25s ease forwards";
             setTimeout(() => toast.remove(), 260);
-        }, 2200);
+        }, 2400);
     };
 
     // ===== TÉRMINOS Y CONDICIONES =====
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
     };
 
-    // ===== FUNCIÓN COMPARTIDA DE PROCESAMIENTO DE IMAGEN =====
+    // ===== PROCESAMIENTO DE IMAGEN =====
     const processImageFile = async (file) => {
         if (!file || !file.type.startsWith("image/")) return false;
         attachBtn.textContent = "⏳";
@@ -209,7 +209,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const file = e.target.files[0];
             if (!file) return;
             const ok = await processImageFile(file);
-            if (ok) showToast("📷 Foto lista para enviar", "#4caf50");
+            if (ok) showToast("Foto lista para enviar", "#4caf50", "📷");
             cameraInput.value = "";
         });
     }
@@ -227,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     if (!replace) return;
                 }
                 const ok = await processImageFile(file);
-                if (ok) { showToast("📋 Imagen pegada desde portapapeles", "#4caf50"); input.focus(); }
+                if (ok) { showToast("Imagen pegada desde portapapeles", "#4caf50", "📋"); input.focus(); }
                 break;
             }
         }
@@ -337,7 +337,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             const textoUsuario = partes.length > 1 ? partes[1] : "";
                             visible = (textoUsuario || "Analizar documento") + ' <span style="color:#ff8888;font-size:12px;">📎 Archivo adjunto</span>';
                         }
-                        // Mostrar imágenes generadas guardadas en historial
                         if (visible.startsWith("[IMAGEN_GENERADA:")) {
                             const src = visible.replace("[IMAGEN_GENERADA:", "").replace("]", "");
                             div.innerHTML = `<b>Tú:</b> <em style="color:#ff8888;font-size:12px;">🎨 Imagen generada</em><br><img src="${src}" class="attached-image">`;
@@ -365,12 +364,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "block";
 
-                    // Verificar si el usuario tiene rol admin en Firestore
                     const isAdmin = user.uid === ADMIN_UID || await checkAdminRole(user.uid);
                     if (isAdmin && adminBtn) {
                         adminBtn.style.display = "block";
-                        const myUidEl = document.getElementById("admin-my-uid");
-                        if (myUidEl) myUidEl.textContent = "UID: " + user.uid;
                     }
 
                     cargarDeNube(user.uid);
@@ -406,24 +402,21 @@ document.addEventListener("DOMContentLoaded", function () {
     // ===== DETECTAR INTENCIÓN DEL MENSAJE =====
     function detectIntent(msg) {
         const lower = msg.toLowerCase();
-        // Generación de imagen
         if (/genera(r|me|nos)?|crea(r|me|nos)?|dibuja(r|me)?|hace(r|me)?|diseña(r|me)?/.test(lower) &&
             /imagen|foto|ilustración|dibujo|arte|logo|banner|poster|icono/.test(lower)) {
             return 'generate_image';
         }
-        // Búsqueda de imagen
         if (/busca(r|me)?|muestra(me)?|encuentra|enséña(me)?/.test(lower) &&
             /imagen(es)?|foto(s)?|imagen de|fotos de/.test(lower)) {
             return 'search_image';
         }
-        // YouTube
         if (/video(s)?|youtube|ver|mira(r)?|tutorial(es)?|explicación en video/.test(lower)) {
             return 'youtube';
         }
         return 'chat';
     }
 
-    // ===== GENERAR IMAGEN CON CANVAS (IA de dibujo sintético) =====
+    // ===== GENERAR IMAGEN CON CANVAS =====
     function generateImageWithCanvas(prompt) {
         return new Promise((resolve) => {
             const canvas = document.createElement("canvas");
@@ -431,7 +424,6 @@ document.addEventListener("DOMContentLoaded", function () {
             const ctx = canvas.getContext("2d");
             const p = prompt.toLowerCase();
 
-            // Paleta semántica según palabras clave
             let palette = { bg: ['#1a0a2e','#0d0022'], accent: ['#ff3b3b','#cc0000'], fg: '#ffffff' };
             if (/naturaleza|árbol|bosque|campo|planta|flor|verde/.test(p))
                 palette = { bg: ['#0a1a0a','#002200'], accent: ['#22cc44','#88ff88'], fg: '#ccffcc' };
@@ -448,220 +440,97 @@ document.addEventListener("DOMContentLoaded", function () {
             else if (/dorado|oro|sol|amarillo|luz/.test(p))
                 palette = { bg: ['#1a1000','#201500'], accent: ['#ffcc00','#ffaa00'], fg: '#fff0aa' };
 
-            // Fondo con degradado
             const bgGrd = ctx.createLinearGradient(0, 0, 512, 512);
             bgGrd.addColorStop(0, palette.bg[0]);
             bgGrd.addColorStop(1, palette.bg[1]);
             ctx.fillStyle = bgGrd;
             ctx.fillRect(0, 0, 512, 512);
 
-            // Capa de ruido / textura
             for (let i = 0; i < 3000; i++) {
                 const x = Math.random() * 512, y = Math.random() * 512;
-                const a = Math.random() * 0.06;
-                ctx.fillStyle = `rgba(255,255,255,${a})`;
+                ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.06})`;
                 ctx.fillRect(x, y, 1, 1);
             }
 
-            // Capas de formas abstractas
             const seed = prompt.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            const rng  = (n) => Math.abs(Math.sin(seed * n * 7.3 + n * 3.14)) ;
+            const rng  = (n) => Math.abs(Math.sin(seed * n * 7.3 + n * 3.14));
 
-            // Círculos / esferas de fondo
             for (let i = 0; i < 6; i++) {
-                const cx = rng(i * 2 + 1) * 512;
-                const cy = rng(i * 2 + 2) * 512;
-                const r  = 30 + rng(i + 10) * 140;
+                const cx = rng(i * 2 + 1) * 512, cy = rng(i * 2 + 2) * 512, r = 30 + rng(i + 10) * 140;
                 const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
                 const col = palette.accent[i % palette.accent.length];
-                grd.addColorStop(0, col + '33');
-                grd.addColorStop(1, col + '00');
+                grd.addColorStop(0, col + '33'); grd.addColorStop(1, col + '00');
                 ctx.fillStyle = grd;
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
             }
 
-            // Líneas de energía
             ctx.globalCompositeOperation = 'screen';
             for (let i = 0; i < 14; i++) {
-                const x1 = rng(i*4+1)*512, y1 = rng(i*4+2)*512;
-                const x2 = rng(i*4+3)*512, y2 = rng(i*4+4)*512;
+                const x1=rng(i*4+1)*512,y1=rng(i*4+2)*512,x2=rng(i*4+3)*512,y2=rng(i*4+4)*512;
                 const col = palette.accent[i % palette.accent.length];
-                const grd2 = ctx.createLinearGradient(x1, y1, x2, y2);
-                grd2.addColorStop(0, col + '00');
-                grd2.addColorStop(0.5, col + 'aa');
-                grd2.addColorStop(1, col + '00');
-                ctx.strokeStyle = grd2;
-                ctx.lineWidth = 0.5 + rng(i+20) * 2;
-                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+                const grd2 = ctx.createLinearGradient(x1,y1,x2,y2);
+                grd2.addColorStop(0,col+'00'); grd2.addColorStop(0.5,col+'aa'); grd2.addColorStop(1,col+'00');
+                ctx.strokeStyle=grd2; ctx.lineWidth=0.5+rng(i+20)*2;
+                ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
             }
             ctx.globalCompositeOperation = 'source-over';
 
-            // Forma central destacada según tema
-            const cx = 256, cy = 220;
-            if (/estrella|sol|luz/.test(p)) {
-                // Estrella
-                drawStar(ctx, cx, cy, 80, 40, 8, palette.accent[0]);
-            } else if (/corazon|amor|love/.test(p)) {
-                drawHeart(ctx, cx, cy, 90, palette.accent[0]);
-            } else if (/casa|hogar|home/.test(p)) {
-                drawHouse(ctx, cx, cy + 30, 130, palette.accent[0]);
-            } else if (/robot|android/.test(p)) {
-                drawRobot(ctx, cx, cy, 80, palette.accent[0]);
-            } else {
-                // Forma abstracta por defecto
-                const grdC = ctx.createRadialGradient(cx, cy, 10, cx, cy, 100);
-                grdC.addColorStop(0, palette.accent[0] + 'ff');
-                grdC.addColorStop(0.5, palette.accent[1 % palette.accent.length] + '88');
-                grdC.addColorStop(1, palette.bg[0] + '00');
-                ctx.fillStyle = grdC;
-                ctx.beginPath();
-                for (let a = 0; a < Math.PI * 2; a += 0.05) {
-                    const r = 60 + Math.sin(a * (3 + (seed % 4))) * 30 + Math.cos(a * 7) * 15;
-                    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-                    a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                }
-                ctx.closePath(); ctx.fill();
+            const grdC = ctx.createRadialGradient(256,220,10,256,220,100);
+            grdC.addColorStop(0, palette.accent[0]+'ff');
+            grdC.addColorStop(0.5, palette.accent[1%palette.accent.length]+'88');
+            grdC.addColorStop(1, palette.bg[0]+'00');
+            ctx.fillStyle = grdC;
+            ctx.beginPath();
+            for (let a=0;a<Math.PI*2;a+=0.05){
+                const r=60+Math.sin(a*(3+(seed%4)))*30+Math.cos(a*7)*15;
+                const x=256+Math.cos(a)*r,y=220+Math.sin(a)*r;
+                a===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
             }
+            ctx.closePath(); ctx.fill();
 
-            // Partículas decorativas
-            for (let i = 0; i < 40; i++) {
-                const px = rng(i*5+1)*512, py = rng(i*5+2)*512;
-                const pr = rng(i+50)*3 + 0.5;
-                const pa = 0.4 + rng(i+60)*0.6;
-                ctx.fillStyle = palette.accent[i%palette.accent.length] + Math.floor(pa*255).toString(16).padStart(2,'0');
-                ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill();
-            }
+            const vignette = ctx.createRadialGradient(256,256,100,256,256,380);
+            vignette.addColorStop(0,'rgba(0,0,0,0)'); vignette.addColorStop(1,'rgba(0,0,0,0.65)');
+            ctx.fillStyle=vignette; ctx.fillRect(0,0,512,512);
 
-            // Viñeta
-            const vignette = ctx.createRadialGradient(256, 256, 100, 256, 256, 380);
-            vignette.addColorStop(0, 'rgba(0,0,0,0)');
-            vignette.addColorStop(1, 'rgba(0,0,0,0.65)');
-            ctx.fillStyle = vignette;
-            ctx.fillRect(0, 0, 512, 512);
-
-            // Texto del prompt (pequeño, en la parte inferior)
-            ctx.fillStyle = 'rgba(255,255,255,0.25)';
-            ctx.font = '11px monospace';
-            ctx.textAlign = 'center';
-            const shortPrompt = prompt.length > 48 ? prompt.substring(0, 48) + '…' : prompt;
-            ctx.fillText(shortPrompt, 256, 498);
-            ctx.textAlign = 'left';
+            ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.font='11px monospace'; ctx.textAlign='center';
+            const sp=prompt.length>48?prompt.substring(0,48)+'…':prompt;
+            ctx.fillText(sp,256,498); ctx.textAlign='left';
 
             resolve(canvas.toDataURL("image/png"));
         });
     }
 
-    // Funciones auxiliares de dibujo
-    function drawStar(ctx, cx, cy, outerR, innerR, points, color) {
-        const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
-        grd.addColorStop(0, color); grd.addColorStop(1, color + '44');
-        ctx.fillStyle = grd;
-        ctx.beginPath();
-        for (let i = 0; i < points * 2; i++) {
-            const r = i % 2 === 0 ? outerR : innerR;
-            const a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
-            i === 0 ? ctx.moveTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r)
-                    : ctx.lineTo(cx + Math.cos(a)*r, cy + Math.sin(a)*r);
-        }
-        ctx.closePath(); ctx.fill();
-    }
-
-    function drawHeart(ctx, cx, cy, size, color) {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy + size * 0.3);
-        ctx.bezierCurveTo(cx, cy - size * 0.3, cx - size, cy - size * 0.3, cx - size, cy);
-        ctx.bezierCurveTo(cx - size, cy + size * 0.55, cx, cy + size * 0.8, cx, cy + size);
-        ctx.bezierCurveTo(cx, cy + size * 0.8, cx + size, cy + size * 0.55, cx + size, cy);
-        ctx.bezierCurveTo(cx + size, cy - size * 0.3, cx, cy - size * 0.3, cx, cy + size * 0.3);
-        ctx.fill();
-    }
-
-    function drawHouse(ctx, cx, cy, size, color) {
-        ctx.fillStyle = color + '88';
-        ctx.fillRect(cx - size/2, cy - size*0.4, size, size*0.5);
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(cx - size*0.6, cy - size*0.4);
-        ctx.lineTo(cx, cy - size*0.85);
-        ctx.lineTo(cx + size*0.6, cy - size*0.4);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = color + '44';
-        ctx.fillRect(cx - size*0.12, cy - size*0.1, size*0.24, size*0.2);
-    }
-
-    function drawRobot(ctx, cx, cy, size, color) {
-        ctx.fillStyle = color + '88';
-        ctx.fillRect(cx - size*0.35, cy - size*0.6, size*0.7, size*0.5);
-        ctx.fillRect(cx - size*0.25, cy - size*0.85, size*0.5, size*0.3);
-        ctx.fillStyle = color;
-        ctx.fillRect(cx - size*0.15, cy - size*0.78, size*0.1, size*0.14);
-        ctx.fillRect(cx + size*0.05, cy - size*0.78, size*0.1, size*0.14);
-        ctx.fillStyle = color + '66';
-        ctx.fillRect(cx - size*0.25, cy - size*0.1, size*0.5, size*0.5);
-        ctx.fillRect(cx - size*0.52, cy - size*0.05, size*0.15, size*0.4);
-        ctx.fillRect(cx + size*0.37, cy - size*0.05, size*0.15, size*0.4);
-    }
-
-    // ===== BUSCAR IMÁGENES EN GOOGLE (embed) =====
     function buildImageSearchHTML(query) {
         const q = encodeURIComponent(query);
-        // Usamos una cuadrícula de imágenes de Unsplash (libre de derechos, API pública)
-        const unsplashQ = encodeURIComponent(query);
-        const imgs = Array.from({length:6}, (_,i) => i + 1).map(i =>
-            `<img
-                src="https://source.unsplash.com/200x200/?${unsplashQ}&sig=${i}"
-                class="search-result-img"
-                alt="${query}"
-                onclick="window.open(this.src,'_blank')"
-                onerror="this.style.display='none'"
-            >`
+        const imgs = Array.from({length:6},(_,i)=>i+1).map(i=>
+            `<img src="https://source.unsplash.com/200x200/?${q}&sig=${i}" class="search-result-img" alt="${query}"
+             onclick="window.open(this.src,'_blank')" onerror="this.style.display='none'">`
         ).join('');
-        return `
-            <div class="img-search-grid">
-                <p style="color:#ff8888;font-size:13px;margin:0 0 8px;">
-                    🔍 Imágenes de: <b>${escapeHtml(query)}</b> (Unsplash)
-                </p>
-                <div class="img-grid-inner">${imgs}</div>
-                <a href="https://unsplash.com/s/photos/${unsplashQ}" target="_blank"
-                   style="font-size:11px;color:#ff6666;text-decoration:underline;">
-                   Ver más en Unsplash →
-                </a>
-            </div>
-        `;
+        return `<div class="img-search-grid">
+            <p style="color:#ff8888;font-size:13px;margin:0 0 8px;">🔍 Imágenes de: <b>${escapeHtml(query)}</b> (Unsplash)</p>
+            <div class="img-grid-inner">${imgs}</div>
+            <a href="https://unsplash.com/s/photos/${q}" target="_blank" style="font-size:11px;color:#ff6666;text-decoration:underline;">Ver más en Unsplash →</a>
+        </div>`;
     }
 
-    // ===== BUSCAR VIDEOS DE YOUTUBE =====
     function buildYouTubeSearchHTML(query) {
         const q = encodeURIComponent(query);
-        // Embed de búsqueda de YouTube (no requiere API key)
-        return `
-            <div class="yt-search-container">
-                <p style="color:#ff8888;font-size:13px;margin:0 0 8px;">
-                    ▶️ Videos de YouTube relacionados con: <b>${escapeHtml(query)}</b>
-                </p>
-                <div class="yt-cards-row">
-                    <a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank">
-                        <div class="yt-thumb">
-                            <img src="https://i.ytimg.com/vi/default/hqdefault.jpg" alt="youtube"
-                                 onerror="this.src=''" style="width:100%;height:100%;object-fit:cover;opacity:0.3">
-                            <span class="yt-play-icon">▶</span>
-                        </div>
-                        <div class="yt-card-info">
-                            <span class="yt-card-title">${escapeHtml(query)}</span>
-                            <span class="yt-card-sub">Ver resultados en YouTube →</span>
-                        </div>
-                    </a>
-                </div>
-                <a href="https://www.youtube.com/results?search_query=${q}" target="_blank"
-                   style="font-size:11px;color:#ff6666;text-decoration:underline;">
-                   Buscar "${query}" en YouTube →
+        return `<div class="yt-search-container">
+            <p style="color:#ff8888;font-size:13px;margin:0 0 8px;">▶️ Videos de YouTube relacionados con: <b>${escapeHtml(query)}</b></p>
+            <div class="yt-cards-row">
+                <a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank">
+                    <div class="yt-thumb"><span class="yt-play-icon">▶</span></div>
+                    <div class="yt-card-info">
+                        <span class="yt-card-title">${escapeHtml(query)}</span>
+                        <span class="yt-card-sub">Ver resultados en YouTube →</span>
+                    </div>
                 </a>
             </div>
-        `;
+            <a href="https://www.youtube.com/results?search_query=${q}" target="_blank" style="font-size:11px;color:#ff6666;text-decoration:underline;">Buscar "${query}" en YouTube →</a>
+        </div>`;
     }
 
-    // ===== ENVIAR MENSAJE PRINCIPAL =====
+    // ===== ENVIAR MENSAJE =====
     async function sendMessage() {
         const rawMsg = input.value.trim();
         if (!rawMsg && !attachedFile) return;
@@ -675,12 +544,8 @@ document.addEventListener("DOMContentLoaded", function () {
             return;
         }
 
-        // Detectar intención
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
-
-        let mensajeParaAPI;
-        let previewHTML;
-        let hasImage = false;
+        let mensajeParaAPI, previewHTML, hasImage = false;
 
         if (attachedFile) {
             if (attachedFile.type === "image") {
@@ -708,427 +573,558 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         historial.push(mensajeParaAPI);
-
-        const userDiv     = document.createElement("div");
-        userDiv.className = "user";
-        userDiv.innerHTML = previewHTML;
+        const userDiv = document.createElement("div");
+        userDiv.className = "user"; userDiv.innerHTML = previewHTML;
         chat.appendChild(userDiv);
-
-        input.value        = "";
-        input.style.height = "auto";
+        input.value = ""; input.style.height = "auto";
         scrollAbajo();
 
-        // ===== MANEJO DE INTENCIONES ESPECIALES =====
-
-        // 1) GENERAR IMAGEN
+        // GENERAR IMAGEN
         if (intent === 'generate_image' && !attachedFile) {
             const thinking = addThinking();
             try {
-                // Extraer descripción para la imagen
                 const imgPrompt = rawMsg
-                    .replace(/genera(r|me|nos)?|crea(r|me|nos)?|dibuja(r|me)?|hace(r|me)?|diseña(r|me)?/gi, '')
-                    .replace(/una?|el|la|los|las|imagen|ilustración|foto|dibujo|arte|logo|banner|poster|de|del|un|una/gi, '')
+                    .replace(/genera(r|me|nos)?|crea(r|me|nos)?|dibuja(r|me)?|hace(r|me)?|diseña(r|me)?/gi,'')
+                    .replace(/una?|el|la|los|las|imagen|ilustración|foto|dibujo|arte|logo|banner|poster|de|del|un|una/gi,'')
                     .trim() || rawMsg;
-
                 const dataUrl = await generateImageWithCanvas(imgPrompt);
-
                 thinking.remove();
-
-                const bot     = document.createElement("div");
+                const bot = document.createElement("div");
                 bot.className = "ai";
-                bot.innerHTML = `
-                    🎨 <b>Imagen generada</b> para: <em>${escapeHtml(imgPrompt)}</em><br><br>
+                bot.innerHTML = `🎨 <b>Imagen generada</b> para: <em>${escapeHtml(imgPrompt)}</em><br><br>
                     <img src="${dataUrl}" class="attached-image generated-image" alt="Imagen generada" style="max-height:320px;cursor:zoom-in;" onclick="window.open(this.src,'_blank')">
-                    <br><span style="font-size:11px;color:#888;">Haz click en la imagen para verla en tamaño completo · <a href="${dataUrl}" download="cutreal-imagen.png" style="color:#ff8888;">Descargar</a></span>
-                `;
-                chat.appendChild(bot);
-                scrollAbajo();
-
+                    <br><span style="font-size:11px;color:#888;">Click para ver en grande · <a href="${dataUrl}" download="cutreal-imagen.png" style="color:#ff8888;">Descargar</a></span>`;
+                chat.appendChild(bot); scrollAbajo();
                 historial.push({ role: "assistant", content: `[Imagen generada para: "${imgPrompt}"]` });
-                guardarEnNube();
-                return;
-            } catch(e) {
-                thinking.remove();
-            }
+                guardarEnNube(); return;
+            } catch(e) { thinking.remove(); }
         }
 
-        // 2) BÚSQUEDA DE IMÁGENES
+        // BÚSQUEDA DE IMÁGENES
         if (intent === 'search_image' && !attachedFile) {
             const thinking = addThinking();
-            // Extraer término de búsqueda
-            const searchTerm = rawMsg
-                .replace(/busca(r|me)?|muestra(me)?|encuentra|enséña(me)?/gi, '')
-                .replace(/imagen(es)?|foto(s)?/gi, '')
-                .trim() || rawMsg;
-
+            const searchTerm = rawMsg.replace(/busca(r|me)?|muestra(me)?|encuentra|enséña(me)?/gi,'').replace(/imagen(es)?|foto(s)?/gi,'').trim() || rawMsg;
             setTimeout(() => {
                 thinking.remove();
-                const bot = document.createElement("div");
-                bot.className = "ai";
-                bot.innerHTML = buildImageSearchHTML(searchTerm);
-                chat.appendChild(bot);
-                scrollAbajo();
-                historial.push({ role: "assistant", content: `[Búsqueda de imágenes: "${searchTerm}"]` });
+                const bot = document.createElement("div"); bot.className="ai";
+                bot.innerHTML=buildImageSearchHTML(searchTerm);
+                chat.appendChild(bot); scrollAbajo();
+                historial.push({role:"assistant",content:`[Búsqueda de imágenes: "${searchTerm}"]`});
                 guardarEnNube();
-            }, 600);
-            return;
+            }, 600); return;
         }
 
-        // 3) BÚSQUEDA DE YOUTUBE
+        // YOUTUBE
         if (intent === 'youtube' && !attachedFile) {
             const thinking = addThinking();
-            const searchTerm = rawMsg
-                .replace(/busca(r|me)?|muestra(me)?|mira(r)?|ver|encuentra/gi, '')
-                .replace(/video(s)?|youtube|tutorial(es)?/gi, '')
-                .trim() || rawMsg;
-
+            const searchTerm = rawMsg.replace(/busca(r|me)?|muestra(me)?|mira(r)?|ver|encuentra/gi,'').replace(/video(s)?|youtube|tutorial(es)?/gi,'').trim() || rawMsg;
             setTimeout(() => {
                 thinking.remove();
-                const bot = document.createElement("div");
-                bot.className = "ai";
-                bot.innerHTML = buildYouTubeSearchHTML(searchTerm);
-                chat.appendChild(bot);
-                scrollAbajo();
-                historial.push({ role: "assistant", content: `[Búsqueda de YouTube: "${searchTerm}"]` });
+                const bot = document.createElement("div"); bot.className="ai";
+                bot.innerHTML=buildYouTubeSearchHTML(searchTerm);
+                chat.appendChild(bot); scrollAbajo();
+                historial.push({role:"assistant",content:`[YouTube: "${searchTerm}"]`});
                 guardarEnNube();
-            }, 500);
-            return;
+            }, 500); return;
         }
 
-        // 4) CHAT NORMAL
+        // CHAT NORMAL
         const thinking = addThinking();
-
         try {
             const res = await fetch("/api/chat", {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ mensajes: historial, hasImage }),
+                method: "POST", headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({ mensajes: historial, hasImage }),
             });
-
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
             historial.push({ role: "assistant", content: respuestaIA });
             guardarEnNube();
-
             thinking.remove();
 
-            const bot     = document.createElement("div");
-            bot.className = "ai";
-            chat.appendChild(bot);
-            scrollAbajo();
-
-            // Animación de escritura
-            const words = respuestaIA.split(" ");
-            let idx = 0, acc = "";
-            const CHUNK = 4;
-            const timer = setInterval(() => {
-                for (let c = 0; c < CHUNK && idx < words.length; c++) {
-                    acc += (acc ? " " : "") + words[idx++];
-                }
-                bot.innerHTML = escapeHtml(acc).replace(/\n/g, "<br>") + '<span class="typing-cursor">▌</span>';
+            const bot = document.createElement("div"); bot.className="ai"; chat.appendChild(bot); scrollAbajo();
+            const words=respuestaIA.split(" "); let idx=0,acc="";
+            const CHUNK=4;
+            const timer=setInterval(()=>{
+                for(let c=0;c<CHUNK&&idx<words.length;c++) acc+=(acc?" ":"")+words[idx++];
+                bot.innerHTML=escapeHtml(acc).replace(/\n/g,"<br>")+'<span class="typing-cursor">▌</span>';
                 scrollAbajo();
-                if (idx >= words.length) {
+                if(idx>=words.length){
                     clearInterval(timer);
-                    bot.style.transition = "opacity 0.15s ease";
-                    bot.style.opacity    = "0.6";
-                    requestAnimationFrame(() => {
-                        bot.innerHTML    = formatearTexto(respuestaIA);
-                        bot.style.opacity = "1";
-                        scrollAbajo();
-                    });
+                    bot.style.transition="opacity 0.15s ease"; bot.style.opacity="0.6";
+                    requestAnimationFrame(()=>{ bot.innerHTML=formatearTexto(respuestaIA); bot.style.opacity="1"; scrollAbajo(); });
                 }
-            }, 22);
-
-        } catch (e) {
-            console.error(e);
-            thinking.remove();
-
-            const errorDiv     = document.createElement("div");
-            errorDiv.className = "ai";
-            errorDiv.style.borderColor = "#ff4040";
-            errorDiv.style.color       = "#ff8080";
-
-            const esLimite = e.message.toLowerCase().includes("rate") ||
-                             e.message.toLowerCase().includes("limit") ||
-                             e.message.includes("429");
-
-            errorDiv.innerHTML = esLimite
-                ? `⚠️ <b>Límite de consultas alcanzado.</b><br>Groq tiene un límite diario gratuito. Esperá unos minutos y volvé a intentarlo.`
-                : `⚠️ <b>Error:</b> ${e.message}`;
-
-            chat.appendChild(errorDiv);
-            scrollAbajo();
+            },22);
+        } catch(e) {
+            console.error(e); thinking.remove();
+            const errorDiv=document.createElement("div"); errorDiv.className="ai";
+            errorDiv.style.borderColor="#ff4040"; errorDiv.style.color="#ff8080";
+            const esLimite=e.message.toLowerCase().includes("rate")||e.message.toLowerCase().includes("limit")||e.message.includes("429");
+            errorDiv.innerHTML=esLimite?`⚠️ <b>Límite alcanzado.</b><br>Groq tiene un límite diario gratuito. Esperá unos minutos.`:`⚠️ <b>Error:</b> ${e.message}`;
+            chat.appendChild(errorDiv); scrollAbajo();
         }
     }
 
     function addThinking() {
-        const thinking     = document.createElement("div");
-        thinking.className = "ai";
-        thinking.id        = "thinking-bubble";
-        thinking.innerHTML = `<div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div>`;
-        chat.appendChild(thinking);
-        scrollAbajo();
-        return thinking;
+        const t=document.createElement("div"); t.className="ai"; t.id="thinking-bubble";
+        t.innerHTML=`<div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div>`;
+        chat.appendChild(t); scrollAbajo(); return t;
     }
 
-    input.addEventListener("input", function () {
-        this.style.height = "auto";
-        this.style.height = Math.min(this.scrollHeight, 140) + "px";
-    });
-
-    input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    });
-
+    input.addEventListener("input", function() { this.style.height="auto"; this.style.height=Math.min(this.scrollHeight,140)+"px"; });
+    input.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} });
     window.sendMessage = sendMessage;
 
     window.resetChat = async () => {
         if (!currentUser) return;
-        if (confirm("¿Deseas borrar tu conversación de la nube?\nEsta acción no se puede deshacer.")) {
-            historial = [systemPrompt];
-            renderizarChat();
-            await guardarEnNube();
+        if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
+            historial=[systemPrompt]; renderizarChat(); await guardarEnNube();
         }
     };
 
-    // ===== PANEL ADMIN MEJORADO =====
+    // ================================================================
+    //  ████████  PANEL DE ADMINISTRACIÓN COMPLETO  ████████
+    // ================================================================
+
     window.openAdminPanel = () => {
         if (!currentUser) return;
-        document.getElementById("admin-overlay").style.display = "flex";
-        const myUidEl = document.getElementById("admin-my-uid");
-        if (myUidEl) myUidEl.textContent = currentUser.uid;
+        const overlay=document.getElementById("admin-overlay");
+        if(overlay) { overlay.style.display="flex"; buildAdminPanel(); }
     };
-
     window.closeAdminPanel = () => {
-        document.getElementById("admin-overlay").style.display = "none";
+        const overlay=document.getElementById("admin-overlay");
+        if(overlay) overlay.style.display="none";
     };
 
-    // Ver todos los usuarios (UID completo + botón copiar + botón promover)
-    window.adminLoadUsers = async () => {
-        const output = document.getElementById("admin-users-list");
-        output.innerHTML = "<em>Cargando...</em>";
-        try {
-            const { collection, getDocs, doc, getDoc } = window.firestore;
-            const snap = await getDocs(collection(window.db, "chats"));
-            if (snap.empty) { output.innerHTML = "No hay usuarios registrados."; return; }
+    // ── Construir la UI del panel dinámicamente ──
+    function buildAdminPanel() {
+        const card=document.querySelector(".admin-card");
+        if(!card) return;
 
-            // Obtener lista de admins
-            const adminSnap = await getDocs(collection(window.db, "admins")).catch(() => ({ docs: [] }));
-            const adminUids = new Set(adminSnap.docs?.map(d => d.id) || []);
+        // Actualizar "Mi UID"
+        const myUidEl=document.getElementById("admin-my-uid");
+        if(myUidEl) myUidEl.textContent=currentUser.uid;
+
+        // ── Actividad reciente en tiempo real ──
+        renderActivityFeed();
+    }
+
+    // ── Formatear fecha legible ──
+    function fmtDate(ts) {
+        if (!ts) return "—";
+        const d=new Date(ts);
+        return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})
+               +' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    }
+
+    // ── Ver todos los usuarios ──
+    window.adminLoadUsers = async () => {
+        const output=document.getElementById("admin-users-list");
+        output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Cargando usuarios...</div>';
+        try {
+            const {collection,getDocs,doc,getDoc}=window.firestore;
+            const snap=await getDocs(collection(window.db,"chats"));
+            if(snap.empty){output.innerHTML='<p class="admin-empty">No hay usuarios registrados.</p>';return;}
+
+            const adminSnap=await getDocs(collection(window.db,"admins")).catch(()=>({docs:[]}));
+            const adminUids=new Set((adminSnap.docs||[]).map(d=>d.id));
             adminUids.add(ADMIN_UID);
 
-            let html = `
-                <table class="admin-table">
-                    <thead><tr>
-                        <th>UID completo</th>
-                        <th>Email</th>
-                        <th>Nombre</th>
-                        <th>Msgs</th>
-                        <th>Rol</th>
-                        <th>Acciones</th>
-                    </tr></thead><tbody>
-            `;
-            snap.forEach(d => {
-                const data = d.data();
-                const msgs = (data.mensajes || []).filter(m => m.role !== "system").length;
-                const isAdm = adminUids.has(d.id);
-                html += `
-                    <tr id="row-${d.id}">
-                        <td class="uid-full-cell">
-                            <span class="uid-full">${d.id}</span>
-                            <button class="uid-copy-btn" onclick="adminCopyUID('${d.id}')" title="Copiar UID">📋</button>
-                        </td>
-                        <td>${data.userEmail || "-"}</td>
-                        <td>${data.userName  || "-"}</td>
-                        <td>${msgs}</td>
-                        <td>
-                            <span class="role-badge ${isAdm ? 'role-admin' : 'role-user'}">
-                                ${isAdm ? '⚙️ Admin' : '👤 User'}
-                            </span>
-                        </td>
-                        <td class="action-cell">
-                            ${isAdm && d.id !== ADMIN_UID
-                                ? `<button class="admin-action-btn admin-sm-btn" onclick="adminRevokeAdmin('${d.id}')">❌ Revocar</button>`
-                                : d.id !== ADMIN_UID
-                                    ? `<button class="admin-action-btn admin-sm-btn" onclick="adminPromoteUser('${d.id}')">⬆️ Promover</button>`
-                                    : '<span style="color:#888;font-size:11px;">Superadmin</span>'
-                            }
-                            <button class="admin-action-btn admin-sm-btn admin-danger-btn" onclick="adminDeleteChat('${d.id}')">🗑️</button>
-                        </td>
-                    </tr>
-                `;
+            let html=`<table class="admin-table">
+                <thead><tr>
+                    <th>UID</th><th>Email</th><th>Nombre</th><th>Msgs</th><th>Última actividad</th><th>Rol</th><th>Acciones</th>
+                </tr></thead><tbody>`;
+
+            snap.forEach(d=>{
+                const data=d.data();
+                const msgs=(data.mensajes||[]).filter(m=>m.role!=="system").length;
+                const isAdm=adminUids.has(d.id);
+                const lastAct=fmtDate(data.updatedAt);
+                html+=`<tr id="row-${d.id}" class="admin-user-row">
+                    <td class="uid-full-cell">
+                        <span class="uid-short" title="${d.id}">${d.id.substring(0,10)}…</span>
+                        <button class="uid-copy-btn" onclick="adminCopyUID('${d.id}')" title="Copiar UID completo">📋</button>
+                    </td>
+                    <td class="admin-email-cell">${escapeHtml(data.userEmail||"—")}</td>
+                    <td>${escapeHtml(data.userName||"—")}</td>
+                    <td class="admin-num-cell">${msgs}</td>
+                    <td class="admin-date-cell">${lastAct}</td>
+                    <td>
+                        <span class="role-badge ${isAdm?'role-admin':'role-user'}">
+                            ${isAdm?'⚙️ Admin':'👤 User'}
+                        </span>
+                    </td>
+                    <td class="action-cell">
+                        <button class="admin-icon-btn" title="Ver chat" onclick="adminViewUserChat('${d.id}')">💬</button>
+                        ${isAdm&&d.id!==ADMIN_UID
+                            ?`<button class="admin-icon-btn admin-warn-btn" title="Revocar admin" onclick="adminRevokeAdmin('${d.id}')">🔻</button>`
+                            :d.id!==ADMIN_UID
+                                ?`<button class="admin-icon-btn admin-ok-btn" title="Promover a admin" onclick="adminPromoteUser('${d.id}')">⬆️</button>`
+                                :''}
+                        <button class="admin-icon-btn admin-danger-icon-btn" title="Borrar chat" onclick="adminDeleteChat('${d.id}')">🗑️</button>
+                    </td>
+                </tr>`;
             });
-            html += "</tbody></table>";
-            output.innerHTML = html;
-        } catch(e) {
-            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
+            html+="</tbody></table>";
+
+            // Buscador de tabla
+            const wrapHtml=`
+                <div class="admin-table-toolbar">
+                    <input type="text" id="admin-user-search" placeholder="🔍 Buscar usuario..." class="admin-search-input" oninput="adminFilterUsers(this.value)">
+                    <span class="admin-count-badge">${snap.size} usuarios</span>
+                </div>
+                <div class="admin-table-scroll">${html}</div>`;
+            output.innerHTML=wrapHtml;
+        } catch(e){
+            output.innerHTML=`<span class="admin-error">❌ Error: ${escapeHtml(e.message)}</span>`;
         }
     };
 
-    // Copiar UID al portapapeles
-    window.adminCopyUID = (uid) => {
-        navigator.clipboard.writeText(uid).then(() => {
-            showToast("UID copiado: " + uid.substring(0, 12) + "...", "#4caf50");
-        }).catch(() => {
-            // Fallback
-            const ta = document.createElement("textarea");
-            ta.value = uid;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand("copy");
-            ta.remove();
-            showToast("UID copiado al portapapeles", "#4caf50");
+    window.adminFilterUsers = (query) => {
+        const rows=document.querySelectorAll('.admin-user-row');
+        const q=query.toLowerCase();
+        rows.forEach(row=>{
+            row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';
         });
     };
 
-    // Promover usuario a admin
-    window.adminPromoteUser = async (uid) => {
-        if (!confirm(`¿Promover el usuario ${uid.substring(0,12)}... a ADMINISTRADOR?\nTendrá acceso al panel de admin.`)) return;
-        try {
-            const { doc, setDoc } = window.firestore;
-            await setDoc(doc(window.db, "admins", uid), {
-                isAdmin:    true,
-                promotedAt: Date.now(),
-                promotedBy: currentUser.uid,
-            });
-            showToast("✅ Usuario promovido a Admin", "#4caf50");
-            adminLoadUsers(); // Recargar lista
-        } catch(e) {
-            showToast("Error: " + e.message, "#ff4444");
-        }
+    window.adminCopyUID = (uid) => {
+        navigator.clipboard.writeText(uid).then(()=>{
+            showToast("UID copiado","#4caf50","📋");
+        }).catch(()=>{
+            const ta=document.createElement("textarea");ta.value=uid;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();
+            showToast("UID copiado","#4caf50","📋");
+        });
     };
 
-    // Revocar admin
-    window.adminRevokeAdmin = async (uid) => {
-        if (!confirm(`¿Revocar privilegios de admin para ${uid.substring(0,12)}...?`)) return;
-        try {
-            const { doc, deleteDoc } = window.firestore;
-            await deleteDoc(doc(window.db, "admins", uid));
-            showToast("✅ Privilegios revocados", "#ffaa00");
-            adminLoadUsers();
-        } catch(e) {
-            showToast("Error: " + e.message, "#ff4444");
-        }
+    // ── Ver chat de un usuario directamente desde la tabla ──
+    window.adminViewUserChat = (uid) => {
+        const input=document.getElementById("admin-uid-input");
+        if(input) { input.value=uid; adminLoadChat(); }
+        // Scroll a la sección de conversaciones
+        document.getElementById("admin-chat-output")?.scrollIntoView({behavior:'smooth'});
     };
 
     window.adminLoadChat = async () => {
-        const uid    = document.getElementById("admin-uid-input").value.trim();
-        const output = document.getElementById("admin-chat-output");
-        if (!uid) { output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
-        output.innerHTML = "<em>Cargando...</em>";
-        try {
-            const { doc, getDoc } = window.firestore;
-            const snap = await getDoc(doc(window.db, "chats", uid));
-            if (!snap.exists()) { output.innerHTML = "Usuario no encontrado."; return; }
-            const msgs = (snap.data().mensajes || []).filter(m => m.role !== "system");
-            let html = "";
-            msgs.forEach(m => {
-                const content = Array.isArray(m.content)
-                    ? m.content.map(c => c.text || "[imagen]").join(" ")
-                    : (m.content || "").substring(0, 200);
-                html += `<div class="admin-msg admin-msg-${m.role}"><b>${m.role}:</b> ${escapeHtml(content)}${content.length >= 200 ? "..." : ""}</div>`;
+        const uid=document.getElementById("admin-uid-input").value.trim();
+        const output=document.getElementById("admin-chat-output");
+        if(!uid){output.innerHTML='<p class="admin-empty">Ingresá un UID.</p>';return;}
+        output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Cargando...</div>';
+        try{
+            const {doc,getDoc}=window.firestore;
+            const snap=await getDoc(doc(window.db,"chats",uid));
+            if(!snap.exists()){output.innerHTML='<p class="admin-empty">Usuario no encontrado.</p>';return;}
+            const msgs=(snap.data().mensajes||[]).filter(m=>m.role!=="system");
+            const meta=snap.data();
+
+            let html=`<div class="admin-chat-meta">
+                <span>👤 <b>${escapeHtml(meta.userName||"Sin nombre")}</b></span>
+                <span>📧 ${escapeHtml(meta.userEmail||"—")}</span>
+                <span>💬 ${msgs.length} mensajes</span>
+                <span>🕐 ${fmtDate(meta.updatedAt)}</span>
+                <button class="admin-action-btn admin-sm-btn" onclick="adminExportChat('${uid}')">⬇️ Exportar</button>
+            </div>`;
+            msgs.forEach(m=>{
+                const content=Array.isArray(m.content)
+                    ?m.content.map(c=>c.text||"[imagen]").join(" ")
+                    :(m.content||"").substring(0,280);
+                html+=`<div class="admin-msg admin-msg-${m.role}">
+                    <span class="admin-msg-role">${m.role==="user"?"👤":"🤖"}</span>
+                    <span class="admin-msg-text">${escapeHtml(content)}${content.length>=280?"…":""}</span>
+                </div>`;
             });
-            output.innerHTML = html || "Sin mensajes.";
-        } catch(e) {
-            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
-        }
+            output.innerHTML=html||'<p class="admin-empty">Sin mensajes.</p>';
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    // ── Exportar chat como JSON ──
+    window.adminExportChat = async (uid) => {
+        try{
+            const {doc,getDoc}=window.firestore;
+            const snap=await getDoc(doc(window.db,"chats",uid));
+            if(!snap.exists())return;
+            const data=snap.data();
+            const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement("a");a.href=url;a.download=`chat_${uid.substring(0,8)}.json`;a.click();URL.revokeObjectURL(url);
+            showToast("Chat exportado","#4caf50","⬇️");
+        }catch(e){showToast("Error al exportar","#ff4444","❌");}
+    };
+
+    window.adminPromoteUser = async (uid) => {
+        if(!confirm(`¿Promover ${uid.substring(0,12)}... a ADMINISTRADOR?`))return;
+        try{
+            const {doc,setDoc}=window.firestore;
+            await setDoc(doc(window.db,"admins",uid),{isAdmin:true,promotedAt:Date.now(),promotedBy:currentUser.uid});
+            showToast("Usuario promovido a Admin","#4caf50","✅");
+            adminLoadUsers();
+        }catch(e){showToast("Error: "+e.message,"#ff4444","❌");}
+    };
+
+    window.adminRevokeAdmin = async (uid) => {
+        if(!confirm(`¿Revocar privilegios de admin para ${uid.substring(0,12)}...?`))return;
+        try{
+            const {doc,deleteDoc}=window.firestore;
+            await deleteDoc(doc(window.db,"admins",uid));
+            showToast("Privilegios revocados","#ffaa00","⚠️");
+            adminLoadUsers();
+        }catch(e){showToast("Error: "+e.message,"#ff4444","❌");}
     };
 
     window.adminDeleteChat = async (uidParam) => {
-        const uid    = uidParam || document.getElementById("admin-delete-uid")?.value.trim();
-        const output = document.getElementById("admin-delete-output");
-        if (!uid) { if(output) output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
-        if (!confirm(`¿Eliminar el chat del UID ${uid.substring(0,16)}...? Esta acción no se puede deshacer.`)) return;
-        if (output) output.innerHTML = "<em>Eliminando...</em>";
-        try {
-            const { doc, deleteDoc } = window.firestore;
-            await deleteDoc(doc(window.db, "chats", uid));
-            if (output) output.innerHTML = `<span style="color:#4caf50;">✅ Chat eliminado correctamente.</span>`;
-            showToast("Chat eliminado", "#4caf50");
-            // Actualizar tabla
-            const row = document.getElementById(`row-${uid}`);
-            if (row) row.style.opacity = "0.3";
-        } catch(e) {
-            if (output) output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
-        }
+        const uid=uidParam||document.getElementById("admin-delete-uid")?.value.trim();
+        const output=document.getElementById("admin-delete-output");
+        if(!uid){if(output)output.innerHTML='<p class="admin-empty">Ingresá un UID.</p>';return;}
+        if(!confirm(`¿Eliminar el chat del UID ${uid.substring(0,16)}...? Esta acción es irreversible.`))return;
+        if(output)output.innerHTML='<div class="admin-loading">Eliminando...</div>';
+        try{
+            const {doc,deleteDoc}=window.firestore;
+            await deleteDoc(doc(window.db,"chats",uid));
+            if(output)output.innerHTML='<span class="admin-success">✅ Chat eliminado correctamente.</span>';
+            showToast("Chat eliminado","#4caf50","🗑️");
+            const row=document.getElementById(`row-${uid}`);
+            if(row){row.style.opacity="0.25";row.style.transition="opacity 0.4s";}
+        }catch(e){if(output)output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminLoadStats = async () => {
-        const output = document.getElementById("admin-stats-output");
-        output.innerHTML = "<em>Calculando...</em>";
-        try {
-            const { collection, getDocs } = window.firestore;
-            const snap = await getDocs(collection(window.db, "chats"));
-            let totalUsers = 0, totalMsgs = 0, activeUsers = 0;
-            const now = Date.now();
-            snap.forEach(d => {
-                totalUsers++;
-                const data = d.data();
-                const msgs = (data.mensajes || []).filter(m => m.role !== "system");
-                totalMsgs += msgs.length;
-                if (data.updatedAt && (now - data.updatedAt) < 7 * 24 * 60 * 60 * 1000) activeUsers++;
+        const output=document.getElementById("admin-stats-output");
+        output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Calculando...</div>';
+        try{
+            const {collection,getDocs}=window.firestore;
+            const snap=await getDocs(collection(window.db,"chats"));
+            let total=0,totalMsgs=0,active=0,active24h=0;
+            const now=Date.now();
+            const topUsers=[];
+            snap.forEach(d=>{
+                total++;
+                const data=d.data();
+                const msgs=(data.mensajes||[]).filter(m=>m.role!=="system");
+                totalMsgs+=msgs.length;
+                if(data.updatedAt&&(now-data.updatedAt)<7*24*60*60*1000)active++;
+                if(data.updatedAt&&(now-data.updatedAt)<24*60*60*1000)active24h++;
+                topUsers.push({name:data.userName||"Anónimo",email:data.userEmail||"—",msgs:msgs.length,last:data.updatedAt||0});
             });
-            output.innerHTML = `
-                <div class="admin-stat"><span>👥 Usuarios totales</span><b>${totalUsers}</b></div>
-                <div class="admin-stat"><span>🟢 Activos (7 días)</span><b>${activeUsers}</b></div>
-                <div class="admin-stat"><span>💬 Mensajes totales</span><b>${totalMsgs}</b></div>
-                <div class="admin-stat"><span>📊 Promedio msgs/usuario</span><b>${totalUsers ? (totalMsgs/totalUsers).toFixed(1) : 0}</b></div>
-            `;
-        } catch(e) {
-            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
-        }
+            topUsers.sort((a,b)=>b.msgs-a.msgs);
+            const top3=topUsers.slice(0,3);
+
+            const avgMsgs=total?+(totalMsgs/total).toFixed(1):0;
+            const pctActive=total?+((active/total)*100).toFixed(1):0;
+
+            output.innerHTML=`
+                <div class="admin-stats-grid">
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-value">${total}</div>
+                        <div class="stat-label">Usuarios totales</div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">🟢</div>
+                        <div class="stat-value">${active}</div>
+                        <div class="stat-label">Activos (7d)</div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-value">${active24h}</div>
+                        <div class="stat-label">Activos (24h)</div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">💬</div>
+                        <div class="stat-value">${totalMsgs}</div>
+                        <div class="stat-label">Mensajes totales</div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value">${avgMsgs}</div>
+                        <div class="stat-label">Promedio msgs/user</div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-value">${pctActive}%</div>
+                        <div class="stat-label">Retención 7d</div>
+                    </div>
+                </div>
+                <div class="admin-top-users">
+                    <h4 style="color:#ff8888;font-size:12px;margin:14px 0 8px;">🏆 Top usuarios por actividad</h4>
+                    ${top3.map((u,i)=>`
+                        <div class="admin-top-user-row">
+                            <span class="top-rank">${['🥇','🥈','🥉'][i]}</span>
+                            <span class="top-name">${escapeHtml(u.name)}</span>
+                            <span class="top-msgs">${u.msgs} msgs</span>
+                            <span class="top-date">${fmtDate(u.last)}</span>
+                        </div>`).join('')}
+                </div>`;
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
-    window.adminSendBroadcast = async () => {
-        const msg    = document.getElementById("admin-broadcast-msg").value.trim();
-        const output = document.getElementById("admin-broadcast-output");
-        if (!msg) { output.innerHTML = "<em>Escribí un mensaje.</em>"; return; }
-        output.innerHTML = "<em>Guardando...</em>";
-        try {
-            const { doc, setDoc } = window.firestore;
-            await setDoc(doc(window.db, "config", "broadcast"), {
-                message:   msg,
-                timestamp: Date.now(),
-                active:    true,
+    // ── Feed de actividad reciente ──
+    async function renderActivityFeed() {
+        const el=document.getElementById("admin-activity-feed");
+        if(!el)return;
+        el.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span></div>';
+        try{
+            const {collection,getDocs}=window.firestore;
+            const snap=await getDocs(collection(window.db,"chats"));
+            const items=[];
+            snap.forEach(d=>{
+                const data=d.data();
+                if(data.updatedAt) items.push({name:data.userName||"Anónimo",email:data.userEmail||"—",ts:data.updatedAt,uid:d.id,msgs:(data.mensajes||[]).filter(m=>m.role!=="system").length});
             });
-            output.innerHTML = `<span style="color:#4caf50;">✅ Broadcast guardado.</span>`;
-        } catch(e) {
-            output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
-        }
+            items.sort((a,b)=>b.ts-a.ts);
+            const recent=items.slice(0,8);
+            if(!recent.length){el.innerHTML='<p class="admin-empty">Sin actividad reciente.</p>';return;}
+            el.innerHTML=recent.map(it=>`
+                <div class="activity-item">
+                    <div class="activity-avatar">${(it.name||"?")[0].toUpperCase()}</div>
+                    <div class="activity-info">
+                        <span class="activity-name">${escapeHtml(it.name)}</span>
+                        <span class="activity-time">${fmtDate(it.ts)}</span>
+                    </div>
+                    <div class="activity-msgs">${it.msgs} msg</div>
+                    <button class="admin-icon-btn" onclick="adminViewUserChat('${it.uid}')" title="Ver chat">💬</button>
+                </div>`).join('');
+        }catch(e){el.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    }
+
+    // ── Buscar usuario por email ──
+    window.adminSearchByEmail = async () => {
+        const emailInput=document.getElementById("admin-email-search");
+        const output=document.getElementById("admin-email-result");
+        const query=(emailInput?.value||"").trim().toLowerCase();
+        if(!query){output.innerHTML='<p class="admin-empty">Ingresá un email.</p>';return;}
+        output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Buscando...</div>';
+        try{
+            const {collection,getDocs}=window.firestore;
+            const snap=await getDocs(collection(window.db,"chats"));
+            const results=[];
+            snap.forEach(d=>{
+                const data=d.data();
+                if((data.userEmail||"").toLowerCase().includes(query)||(data.userName||"").toLowerCase().includes(query))
+                    results.push({uid:d.id,...data});
+            });
+            if(!results.length){output.innerHTML='<p class="admin-empty">No se encontraron resultados.</p>';return;}
+            output.innerHTML=results.map(r=>`
+                <div class="admin-search-result">
+                    <div>
+                        <b>${escapeHtml(r.userName||"Sin nombre")}</b>
+                        <span style="color:#888;font-size:11px;margin-left:8px;">${escapeHtml(r.userEmail||"—")}</span>
+                    </div>
+                    <div style="font-size:11px;color:#666;margin-top:3px;">UID: ${r.uid.substring(0,16)}… · ${(r.mensajes||[]).filter(m=>m.role!=="system").length} mensajes · ${fmtDate(r.updatedAt)}</div>
+                    <div style="margin-top:6px;display:flex;gap:6px;">
+                        <button class="admin-action-btn admin-sm-btn" onclick="adminViewUserChat('${r.uid}')">💬 Ver chat</button>
+                        <button class="admin-action-btn admin-sm-btn" onclick="adminCopyUID('${r.uid}')">📋 UID</button>
+                    </div>
+                </div>`).join('');
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    // ── Enviar mensaje privado a un usuario ──
+    window.adminSendPrivateMessage = async () => {
+        const uid=document.getElementById("admin-pm-uid")?.value.trim();
+        const msg=document.getElementById("admin-pm-msg")?.value.trim();
+        const output=document.getElementById("admin-pm-output");
+        if(!uid||!msg){output.innerHTML='<p class="admin-empty">Completá UID y mensaje.</p>';return;}
+        output.innerHTML='<div class="admin-loading">Enviando...</div>';
+        try{
+            const {doc,setDoc,getDoc}=window.firestore;
+            await setDoc(doc(window.db,"private_messages",uid),{
+                message:msg, from:"admin", timestamp:Date.now(), read:false,
+            });
+            output.innerHTML='<span class="admin-success">✅ Mensaje enviado.</span>';
+            showToast("Mensaje privado enviado","#4caf50","✉️");
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    // ── Broadcast ──
+    window.adminSendBroadcast = async () => {
+        const msg=document.getElementById("admin-broadcast-msg").value.trim();
+        const output=document.getElementById("admin-broadcast-output");
+        if(!msg){output.innerHTML='<p class="admin-empty">Escribí un mensaje.</p>';return;}
+        output.innerHTML='<div class="admin-loading">Guardando...</div>';
+        try{
+            const {doc,setDoc}=window.firestore;
+            await setDoc(doc(window.db,"config","broadcast"),{message:msg,timestamp:Date.now(),active:true,sentBy:currentUser.uid});
+            output.innerHTML='<span class="admin-success">✅ Broadcast activo.</span>';
+            showToast("Broadcast enviado a todos","#4caf50","📢");
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    window.adminClearBroadcast = async () => {
+        const output=document.getElementById("admin-broadcast-output");
+        try{
+            const {doc,setDoc}=window.firestore;
+            await setDoc(doc(window.db,"config","broadcast"),{active:false,message:"",timestamp:Date.now()});
+            output.innerHTML='<span class="admin-success">✅ Broadcast desactivado.</span>';
+            showToast("Broadcast desactivado","#ffaa00","🔕");
+        }catch(e){showToast("Error","#ff4444","❌");}
     };
 
     window._checkBroadcast = async () => {
-        try {
-            const { doc, getDoc } = window.firestore;
-            const snap = await getDoc(doc(window.db, "config", "broadcast"));
-            if (!snap.exists()) return;
-            const data = snap.data();
-            if (!data.active || !data.message) return;
-            const seenKey = "cutreal_broadcast_seen_" + data.timestamp;
-            if (sessionStorage.getItem(seenKey)) return;
-            sessionStorage.setItem(seenKey, "1");
-
-            const banner = document.createElement("div");
-            banner.className = "broadcast-banner";
-            banner.innerHTML = `<span>📢 ${escapeHtml(data.message)}</span><button onclick="this.parentElement.remove()">✕</button>`;
-            document.body.insertBefore(banner, document.body.firstChild);
-        } catch(e) { /* silencioso */ }
+        try{
+            const {doc,getDoc}=window.firestore;
+            const snap=await getDoc(doc(window.db,"config","broadcast"));
+            if(!snap.exists())return;
+            const data=snap.data();
+            if(!data.active||!data.message)return;
+            const key="cutreal_broadcast_seen_"+data.timestamp;
+            if(sessionStorage.getItem(key))return;
+            sessionStorage.setItem(key,"1");
+            const banner=document.createElement("div"); banner.className="broadcast-banner";
+            banner.innerHTML=`<span>📢 ${escapeHtml(data.message)}</span><button onclick="this.parentElement.remove()">✕</button>`;
+            document.body.insertBefore(banner,document.body.firstChild);
+        }catch(e){}
     };
+
+    // ── Limpiar todos los chats inactivos (> 90 días) ──
+    window.adminCleanupInactive = async () => {
+        const output=document.getElementById("admin-cleanup-output");
+        if(!confirm("¿Eliminar todos los chats inactivos por más de 90 días?"))return;
+        output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Buscando...</div>';
+        try{
+            const {collection,getDocs,doc,deleteDoc}=window.firestore;
+            const snap=await getDocs(collection(window.db,"chats"));
+            const now=Date.now(); const limit90=90*24*60*60*1000;
+            let count=0;
+            const promises=[];
+            snap.forEach(d=>{
+                const data=d.data();
+                if(!data.updatedAt||(now-data.updatedAt)>limit90){
+                    promises.push(deleteDoc(doc(window.db,"chats",d.id)));
+                    count++;
+                }
+            });
+            await Promise.all(promises);
+            output.innerHTML=`<span class="admin-success">✅ ${count} chats eliminados.</span>`;
+            showToast(`${count} chats limpiados`,"#4caf50","🧹");
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    // ── Banner de mantenimiento ──
+    window.adminToggleMaintenance = async () => {
+        const output=document.getElementById("admin-maintenance-output");
+        try{
+            const {doc,getDoc,setDoc}=window.firestore;
+            const snap=await getDoc(doc(window.db,"config","maintenance"));
+            const current=snap.exists()&&snap.data().active;
+            await setDoc(doc(window.db,"config","maintenance"),{active:!current,timestamp:Date.now()});
+            output.innerHTML=`<span class="admin-success">✅ Mantenimiento ${!current?"activado":"desactivado"}.</span>`;
+            showToast(`Mantenimiento ${!current?"ON":"OFF"}`,!current?"#ffaa00":"#4caf50","🔧");
+        }catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
 });
 
 // ===== DOOM =====
 window.openDoom = () => {
-    const overlay = document.getElementById("doom-overlay");
-    if (overlay) overlay.style.display = "flex";
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (typeof startDoom === "function") startDoom();
+    const overlay=document.getElementById("doom-overlay");
+    if(overlay)overlay.style.display="flex";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(typeof startDoom==="function")startDoom();
     }));
 };
-
 window.closeDoom = () => {
-    const overlay = document.getElementById("doom-overlay");
-    if (overlay) overlay.style.display = "none";
-    if (typeof stopDoom === "function") stopDoom();
+    const overlay=document.getElementById("doom-overlay");
+    if(overlay)overlay.style.display="none";
+    if(typeof stopDoom==="function")stopDoom();
 };
