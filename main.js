@@ -3,8 +3,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
 // ===== CONSTANTES =====
-const ADMIN_UID = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
-const TERMS_KEY = "cutreal_terms_accepted";
+const ADMIN_UID  = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
+const TERMS_KEY  = "cutreal_terms_accepted";
 
 // ===== ESTADO GLOBAL =====
 let attachedFile = null;
@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const logoutBtn       = document.getElementById("logout-btn");
     const splashScreen    = document.getElementById("splash-screen");
     const fileInput       = document.getElementById("file-input");
+    const cameraInput     = document.getElementById("camera-input");
     const attachBtn       = document.getElementById("attach-btn");
     const filePreviewBar  = document.getElementById("file-preview");
     const filePreviewName = document.getElementById("file-preview-name");
@@ -25,7 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // ===== SPLASH SCREEN =====
     setTimeout(() => {
         if (!splashScreen) return;
-        splashScreen.style.opacity = "0";
+        splashScreen.style.opacity    = "0";
         splashScreen.style.transition = "opacity 0.6s ease";
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
@@ -41,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const formatearTexto = (texto) => {
         if (!texto) return "";
         texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-            `<pre><code>${escapeHtml(code.trim())}</code></pre>`
+            `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code></pre>`
         );
         texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
         texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
@@ -70,17 +71,38 @@ document.addEventListener("DOMContentLoaded", function () {
     const scrollAbajo = () =>
         requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
 
+    // ===== TOAST NOTIFICATION =====
+    const showToast = (msg, color = "#ff3b3b") => {
+        const existing = document.querySelector(".toast-notif");
+        if (existing) existing.remove();
+
+        const toast = document.createElement("div");
+        toast.className = "toast-notif";
+        toast.textContent = msg;
+        toast.style.cssText = `
+            position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(10px);
+            background:rgba(12,12,12,0.95);color:${color};border:1px solid ${color}44;
+            padding:8px 18px;border-radius:999px;font-size:13px;font-family:'Inter',sans-serif;
+            font-weight:500;z-index:5000;pointer-events:none;
+            animation:toastIn 0.25s ease forwards;
+            box-shadow:0 4px 20px rgba(0,0,0,0.5);
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = "toastOut 0.25s ease forwards";
+            setTimeout(() => toast.remove(), 260);
+        }, 2200);
+    };
+
     // ===== TÉRMINOS Y CONDICIONES =====
     window.acceptTerms = () => {
         localStorage.setItem(TERMS_KEY, "accepted");
         termsOverlay.style.display = "none";
-        // Mostrar login después de aceptar términos
         loginOverlay.style.display = "flex";
     };
 
     window.declineTerms = () => {
         termsOverlay.style.display = "none";
-        // Mostrar mensaje de rechazo y mantener pantalla bloqueada
         document.body.innerHTML = `
             <div style="
                 display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -102,80 +124,140 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
     };
 
+    // ===== FUNCIÓN COMPARTIDA DE PROCESAMIENTO DE IMAGEN =====
+    const processImageFile = async (file) => {
+        if (!file || !file.type.startsWith("image/")) return false;
+
+        attachBtn.textContent = "⏳";
+        attachBtn.style.color = "#ff3b3b";
+
+        try {
+            const base64 = await fileToBase64(file);
+            attachedFile = {
+                type:      "image",
+                content:   base64,
+                name:      file.name || "imagen.png",
+                mediaType: file.type,
+            };
+            showFilePreview("🖼️ " + (file.name || "imagen pegada"));
+            attachBtn.textContent = "✅";
+            attachBtn.style.color = "#4caf50";
+            return true;
+        } catch (error) {
+            console.error("Error procesando imagen:", error);
+            resetAttachBtn();
+            return false;
+        }
+    };
+
     // ===== LÓGICA DE ARCHIVOS ADJUNTOS =====
+    const handleFileChange = async (file) => {
+        if (!file) return;
+
+        const fileName = file.name;
+        const fileType = file.type;
+
+        attachBtn.textContent = "⏳";
+        attachBtn.style.color = "#ff3b3b";
+
+        try {
+            if (fileType === "application/pdf") {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let extractedText = "";
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page    = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    extractedText +=
+                        content.items.map((item) => item.str).join(" ") + "\n";
+                }
+                attachedFile = {
+                    type:    "pdf",
+                    content: extractedText.substring(0, 20000),
+                    name:    fileName,
+                };
+                showFilePreview("📄 " + fileName);
+                attachBtn.textContent = "✅";
+                attachBtn.style.color = "#4caf50";
+            }
+            else if (
+                fileName.toLowerCase().endsWith(".docx") ||
+                fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ) {
+                if (typeof mammoth === "undefined") {
+                    throw new Error("Mammoth.js no está disponible. Recargá la página.");
+                }
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer });
+                attachedFile = {
+                    type:    "docx",
+                    content: result.value.substring(0, 20000),
+                    name:    fileName,
+                };
+                showFilePreview("📝 " + fileName);
+                attachBtn.textContent = "✅";
+                attachBtn.style.color = "#4caf50";
+            }
+            else if (fileType.startsWith("image/")) {
+                await processImageFile(file);
+            }
+            else {
+                alert("Formato no soportado.\nUsá PDF (.pdf), Word (.docx) o imagen (JPG, PNG, WEBP).");
+                resetAttachBtn();
+            }
+        } catch (error) {
+            console.error("Error al leer archivo:", error);
+            alert("Error al procesar el archivo:\n" + error.message);
+            resetAttachBtn();
+            attachedFile = null;
+            filePreviewBar.style.display = "none";
+        }
+    };
+
     if (fileInput) {
         fileInput.addEventListener("change", async (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-
-            const fileName = file.name;
-            const fileType = file.type;
-
-            attachBtn.textContent = "⏳";
-            attachBtn.style.color = "#ff3b3b";
-
-            try {
-                if (fileType === "application/pdf") {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let extractedText = "";
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page    = await pdf.getPage(i);
-                        const content = await page.getTextContent();
-                        extractedText +=
-                            content.items.map((item) => item.str).join(" ") + "\n";
-                    }
-                    attachedFile = {
-                        type: "pdf",
-                        content: extractedText.substring(0, 20000),
-                        name: fileName,
-                    };
-                    showFilePreview("📄 " + fileName);
-                }
-                else if (
-                    fileName.toLowerCase().endsWith(".docx") ||
-                    fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                ) {
-                    if (typeof mammoth === "undefined") {
-                        throw new Error("Mammoth.js no está disponible. Recarga la página.");
-                    }
-                    const arrayBuffer = await file.arrayBuffer();
-                    const result = await mammoth.extractRawText({ arrayBuffer });
-                    attachedFile = {
-                        type: "docx",
-                        content: result.value.substring(0, 20000),
-                        name: fileName,
-                    };
-                    showFilePreview("📝 " + fileName);
-                }
-                else if (fileType.startsWith("image/")) {
-                    const base64 = await fileToBase64(file);
-                    attachedFile = {
-                        type: "image",
-                        content: base64,
-                        name: fileName,
-                        mediaType: fileType,
-                    };
-                    showFilePreview("🖼️ " + fileName);
-                }
-                else {
-                    alert("Formato no soportado.\nUsa PDF (.pdf), Word (.docx) o imagen (JPG, PNG, WEBP).");
-                    resetAttachBtn();
-                    return;
-                }
-
-                attachBtn.textContent = "✅";
-                attachBtn.style.color = "#4caf50";
-
-            } catch (error) {
-                console.error("Error al leer archivo:", error);
-                alert("Error al procesar el archivo:\n" + error.message);
-                resetAttachBtn();
-                attachedFile = null;
-                filePreviewBar.style.display = "none";
-            }
+            if (file) await handleFileChange(file);
         });
     }
+
+    // ===== CÁMARA =====
+    if (cameraInput) {
+        cameraInput.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ok = await processImageFile(file);
+            if (ok) showToast("📷 Foto lista para enviar", "#4caf50");
+            cameraInput.value = "";
+        });
+    }
+
+    // ===== PEGAR IMAGEN DESDE PORTAPAPELES (CTRL+V) =====
+    document.addEventListener("paste", async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith("image/")) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (!file) continue;
+
+                // Si ya hay un archivo adjunto, preguntar
+                if (attachedFile) {
+                    const replace = confirm("Ya tenés un archivo adjunto. ¿Reemplazarlo con la imagen del portapapeles?");
+                    if (!replace) return;
+                }
+
+                const ok = await processImageFile(file);
+                if (ok) {
+                    showToast("📋 Imagen pegada desde portapapeles", "#4caf50");
+                    input.focus();
+                }
+                break;
+            }
+        }
+    });
 
     const fileToBase64 = (file) =>
         new Promise((resolve, reject) => {
@@ -196,8 +278,9 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     window.removeAttachment = () => {
-        attachedFile         = null;
-        fileInput.value      = "";
+        attachedFile              = null;
+        if (fileInput)   fileInput.value   = "";
+        if (cameraInput) cameraInput.value = "";
         filePreviewBar.style.display = "none";
         resetAttachBtn();
     };
@@ -220,10 +303,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             await setDoc(doc(window.db, "chats", currentUser.uid), {
-                mensajes: historialParaGuardar,
-                updatedAt: Date.now(),
-                userEmail: currentUser.email || "",
-                userName: currentUser.displayName || "",
+                mensajes:    historialParaGuardar,
+                updatedAt:   Date.now(),
+                userEmail:   currentUser.email        || "",
+                userName:    currentUser.displayName  || "",
             });
         } catch (e) {
             console.error("Error guardando en nube:", e);
@@ -252,15 +335,10 @@ document.addEventListener("DOMContentLoaded", function () {
         try {
             await window.signInWithPopup(window.auth, window.provider);
         } catch (error) {
-            // Ignorar silenciosamente el error de popup cancelado por el usuario
             if (
                 error.code === "auth/cancelled-popup-request" ||
                 error.code === "auth/popup-closed-by-user"
-            ) {
-                // El usuario simplemente cerró el popup — no mostrar alerta
-                return;
-            }
-            // Para otros errores sí mostramos la alerta
+            ) return;
             console.error("Error login:", error);
             alert("Error al iniciar sesión: " + error.message);
         }
@@ -283,8 +361,8 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
             historial.forEach((msg) => {
                 if (msg.role === "system") return;
-                const div       = document.createElement("div");
-                div.className   = msg.role === "user" ? "user" : "ai";
+                const div     = document.createElement("div");
+                div.className = msg.role === "user" ? "user" : "ai";
 
                 if (msg.role === "user") {
                     if (Array.isArray(msg.content)) {
@@ -298,7 +376,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     } else {
                         let visible = msg.content;
                         if (visible.includes("[Documento")) {
-                            const partes = visible.split("]\n\nUsuario: ");
+                            const partes      = visible.split("]\n\nUsuario: ");
                             const textoUsuario = partes.length > 1 ? partes[1] : "";
                             visible =
                                 (textoUsuario || "Analizar documento") +
@@ -326,7 +404,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "block";
 
-                    // Mostrar botón admin solo al admin
                     if (user.uid === ADMIN_UID && adminBtn) {
                         adminBtn.style.display = "block";
                         const myUidEl = document.getElementById("admin-my-uid");
@@ -334,15 +411,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
 
                     cargarDeNube(user.uid);
+                    setTimeout(() => window._checkBroadcast && window._checkBroadcast(), 3000);
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "none";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "none";
-                    if (adminBtn) adminBtn.style.display = "none";
+                    if (adminBtn)  adminBtn.style.display = "none";
 
-                    // Mostrar términos si no los aceptó, sino ir directo al login
                     const accepted = localStorage.getItem(TERMS_KEY);
                     if (!accepted) {
                         termsOverlay.style.display = "flex";
@@ -364,7 +441,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!rawMsg && !attachedFile) return;
         if (!currentUser) return;
 
-        // ===== EASTER EGG: DOOM =====
+        // Easter Egg: DOOM
         if (rawMsg.toLowerCase().replace(/\s+/g, " ").trim() === "doom 1993") {
             input.value = "";
             input.style.height = "auto";
@@ -393,10 +470,10 @@ document.addEventListener("DOMContentLoaded", function () {
             } else {
                 const tipoLabel = attachedFile.type === "pdf" ? "PDF" : "Word (.docx)";
                 const consulta  = rawMsg || `Analiza y haz un resumen completo de este documento ${tipoLabel}.`;
-                const prompt =
+                const prompt    =
                     `[Documento ${tipoLabel} adjunto - "${attachedFile.name}":\n${attachedFile.content}\n]\n\nUsuario: ${consulta}`;
-                mensajeParaAPI = { role: "user", content: prompt };
-                previewHTML =
+                mensajeParaAPI  = { role: "user", content: prompt };
+                previewHTML     =
                     `<b>Tú:</b> ${formatearTexto(rawMsg || `Analizar ${tipoLabel}`)} ` +
                     `<span style="color:#ff8888;font-size:12px;">📎 ${attachedFile.name}</span>`;
             }
@@ -413,10 +490,11 @@ document.addEventListener("DOMContentLoaded", function () {
         userDiv.innerHTML = previewHTML;
         chat.appendChild(userDiv);
 
-        input.value       = "";
+        input.value        = "";
         input.style.height = "auto";
         scrollAbajo();
 
+        // Indicador de "pensando"
         const thinking     = document.createElement("div");
         thinking.className = "ai";
         thinking.id        = "thinking-bubble";
@@ -429,9 +507,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             const res = await fetch("/api/chat", {
-                method: "POST",
+                method:  "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ mensajes: historial, hasImage }),
+                body:    JSON.stringify({ mensajes: historial, hasImage }),
             });
 
             const data = await res.json();
@@ -449,20 +527,36 @@ document.addEventListener("DOMContentLoaded", function () {
             chat.appendChild(bot);
             scrollAbajo();
 
-            const palabras = respuestaIA.split(" ");
-            let idx = 0;
-            let acumulado = "";
+            // ===== ANIMACIÓN MEJORADA =====
+            // Fase 1: texto plano progresivo con cursor parpadeante
+            // Fase 2: HTML formateado con fade suave
+            const words     = respuestaIA.split(" ");
+            let idx         = 0;
+            let acc         = "";
+            const CHUNK     = 4; // palabras por tick (velocidad)
 
-            const intervalo = setInterval(() => {
-                acumulado += (idx > 0 ? " " : "") + palabras[idx];
-                bot.textContent = acumulado;
-                idx++;
+            const timer = setInterval(() => {
+                for (let c = 0; c < CHUNK && idx < words.length; c++) {
+                    acc += (acc ? " " : "") + words[idx++];
+                }
+
+                // Texto limpio durante la animación — sin markdown roto
+                bot.innerHTML =
+                    escapeHtml(acc).replace(/\n/g, "<br>") +
+                    '<span class="typing-cursor">▌</span>';
                 scrollAbajo();
 
-                if (idx >= palabras.length) {
-                    clearInterval(intervalo);
-                    bot.innerHTML = formatearTexto(respuestaIA);
-                    scrollAbajo();
+                if (idx >= words.length) {
+                    clearInterval(timer);
+
+                    // Transición suave al HTML formateado
+                    bot.style.transition = "opacity 0.15s ease";
+                    bot.style.opacity    = "0.6";
+                    requestAnimationFrame(() => {
+                        bot.innerHTML    = formatearTexto(respuestaIA);
+                        bot.style.opacity = "1";
+                        scrollAbajo();
+                    });
                 }
             }, 22);
 
@@ -482,7 +576,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             errorDiv.innerHTML = esLimite
                 ? `⚠️ <b>Límite de consultas alcanzado.</b><br>
-                   Groq tiene un límite diario gratuito. Espera unos minutos y vuelve a intentarlo.`
+                   Groq tiene un límite diario gratuito. Esperá unos minutos y volvé a intentarlo.`
                 : `⚠️ <b>Error:</b> ${e.message}`;
 
             chat.appendChild(errorDiv);
@@ -537,7 +631,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 html += `<tr>
                     <td class="uid-cell" title="${d.id}">${d.id.substring(0,12)}...</td>
                     <td>${data.userEmail || "-"}</td>
-                    <td>${data.userName || "-"}</td>
+                    <td>${data.userName  || "-"}</td>
                     <td>${msgs}</td>
                 </tr>`;
             });
@@ -549,7 +643,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     window.adminLoadChat = async () => {
-        const uid = document.getElementById("admin-uid-input").value.trim();
+        const uid    = document.getElementById("admin-uid-input").value.trim();
         const output = document.getElementById("admin-chat-output");
         if (!uid) { output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
         output.innerHTML = "<em>Cargando...</em>";
@@ -572,7 +666,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     window.adminDeleteChat = async () => {
-        const uid = document.getElementById("admin-delete-uid").value.trim();
+        const uid    = document.getElementById("admin-delete-uid").value.trim();
         const output = document.getElementById("admin-delete-output");
         if (!uid) { output.innerHTML = "<em>Ingresá un UID.</em>"; return; }
         if (!confirm(`¿Eliminar el chat del UID ${uid}? Esta acción no se puede deshacer.`)) return;
@@ -609,24 +703,23 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     window.adminSendBroadcast = async () => {
-        const msg = document.getElementById("admin-broadcast-msg").value.trim();
+        const msg    = document.getElementById("admin-broadcast-msg").value.trim();
         const output = document.getElementById("admin-broadcast-output");
         if (!msg) { output.innerHTML = "<em>Escribí un mensaje.</em>"; return; }
         output.innerHTML = "<em>Guardando...</em>";
         try {
             const { doc, setDoc } = window.firestore;
             await setDoc(doc(window.db, "config", "broadcast"), {
-                message: msg,
+                message:   msg,
                 timestamp: Date.now(),
-                active: true,
+                active:    true,
             });
-            output.innerHTML = `<span style="color:#4caf50;">✅ Broadcast guardado. Los usuarios lo verán en su próxima sesión.</span>`;
+            output.innerHTML = `<span style="color:#4caf50;">✅ Broadcast guardado.</span>`;
         } catch(e) {
             output.innerHTML = `<span style="color:#ff5555;">Error: ${e.message}</span>`;
         }
     };
 
-    // Verificar broadcast al iniciar sesión
     window._checkBroadcast = async () => {
         try {
             const { doc, getDoc } = window.firestore;
@@ -634,7 +727,6 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!snap.exists()) return;
             const data = snap.data();
             if (!data.active || !data.message) return;
-            // Mostrar solo si no fue visto en esta sesión
             const seenKey = "cutreal_broadcast_seen_" + data.timestamp;
             if (sessionStorage.getItem(seenKey)) return;
             sessionStorage.setItem(seenKey, "1");
@@ -645,12 +737,6 @@ document.addEventListener("DOMContentLoaded", function () {
             document.body.insertBefore(banner, document.body.firstChild);
         } catch(e) { /* silencioso */ }
     };
-
-    // Llamar broadcast check cuando el usuario se loguea (se invoca desde checkUser arriba)
-    const origCheckUser = checkUser;
-    window.auth && window.auth.onAuthStateChanged && setTimeout(() => {
-        if (currentUser) window._checkBroadcast();
-    }, 3000);
 });
 
 // ===== DOOM =====
