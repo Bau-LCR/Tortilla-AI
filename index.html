@@ -90,11 +90,11 @@
 <div class="side-controls">
     <button id="admin-btn" onclick="openAdminPanel()" style="display:none;">⚙️ Admin</button>
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-    <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="resetChat" onclick="resetChat()" style="display:none;">🗑️ Borrar Chat</button>
 </div>
 
 <!-- ============================================================ -->
-<!-- PANEL ADMIN — REDISEÑADO COMPLETO                           -->
+<!-- PANEL ADMIN — REDISEÑO COMPLETO v2                          -->
 <!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
     <div class="admin-card">
@@ -117,36 +117,24 @@
             <button class="admin-tab"         onclick="switchTab('chat')"    id="tab-chat">💬 Chats</button>
             <button class="admin-tab"         onclick="switchTab('stats')"   id="tab-stats">📊 Estadísticas</button>
             <button class="admin-tab"         onclick="switchTab('tools')"   id="tab-tools">🛠️ Herramientas</button>
+            <button class="admin-tab"         onclick="switchTab('messages')"id="tab-messages">✉️ Mensajes</button>
             <button class="admin-tab"         onclick="switchTab('account')" id="tab-account">🔑 Mi Cuenta</button>
         </div>
 
         <!-- ========== TAB: USUARIOS ========== -->
         <div class="admin-panel active" id="panel-users">
-
             <div class="admin-toolbar">
-                <button onclick="adminLoadUsers()" class="admin-btn-primary">
-                    🔄 Cargar usuarios
-                </button>
-                <div class="admin-search-wrap">
-                    <input type="text" id="admin-user-search" placeholder="Filtrar por nombre o email…"
-                           oninput="adminFilterUsers()" class="admin-input" style="width:260px;">
-                </div>
+                <button onclick="adminLoadUsers()" class="admin-btn-primary">🔄 Cargar usuarios</button>
                 <span id="admin-user-count" class="admin-badge"></span>
             </div>
-
-            <!-- Tabla de usuarios -->
             <div class="admin-table-wrap" id="admin-users-list">
                 <div class="admin-empty">Hacé clic en "Cargar usuarios" para ver la lista.</div>
             </div>
-
-            <!-- Promover por UID manual -->
             <div class="admin-subsection">
                 <h4>⬆️ Promover usuario a Admin por UID</h4>
                 <div class="admin-row">
                     <input type="text" id="admin-promote-uid" placeholder="UID completo del usuario…" class="admin-input admin-input-wide">
-                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent">
-                        Promover a Admin
-                    </button>
+                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent">Promover a Admin</button>
                 </div>
                 <div id="admin-promote-output" class="admin-feedback"></div>
             </div>
@@ -155,7 +143,6 @@
         <!-- ========== TAB: CHATS ========== -->
         <div class="admin-panel" id="panel-chat">
             <div class="admin-cols-2">
-                <!-- Ver chat de usuario -->
                 <div class="admin-box">
                     <h4>🔍 Ver conversación de un usuario</h4>
                     <div class="admin-row">
@@ -164,15 +151,32 @@
                     </div>
                     <div id="admin-chat-output" class="admin-chat-scroll"></div>
                 </div>
-                <!-- Borrar chat -->
                 <div class="admin-box">
-                    <h4>🗑️ Eliminar datos de usuario</h4>
-                    <p class="admin-hint">Borra el historial de chat de un usuario específico. No elimina su cuenta de Google.</p>
+                    <h4>🔍 Buscar usuario por email o nombre</h4>
+                    <div class="admin-row">
+                        <input type="text" id="admin-email-search" placeholder="Email o nombre…" class="admin-input admin-input-wide">
+                        <button onclick="adminSearchByEmail()" class="admin-btn-primary">Buscar</button>
+                    </div>
+                    <div id="admin-email-result" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            <div class="admin-cols-2" style="margin-top:14px;">
+                <div class="admin-box">
+                    <h4>🗑️ Eliminar chat de usuario</h4>
+                    <p class="admin-hint">Borra el historial de chat. No elimina la cuenta de Google.</p>
                     <div class="admin-row">
                         <input type="text" id="admin-delete-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
                         <button onclick="adminDeleteChat()" class="admin-btn-danger">Borrar chat</button>
                     </div>
                     <div id="admin-delete-output" class="admin-feedback"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>📋 Exportar chat individual</h4>
+                    <p class="admin-hint">Exporta el historial de un usuario como archivo JSON.</p>
+                    <div class="admin-row">
+                        <input type="text" id="admin-export-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminExportChat(document.getElementById('admin-export-uid').value.trim())" class="admin-btn-primary">Exportar</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -181,23 +185,19 @@
         <div class="admin-panel" id="panel-stats">
             <div class="admin-toolbar">
                 <button onclick="adminLoadStats()" class="admin-btn-primary">🔄 Actualizar estadísticas</button>
+                <button onclick="adminLoadModelStats()" class="admin-btn-outline">📱 Stats de modelos</button>
             </div>
             <div id="admin-stats-output" class="admin-stats-grid">
                 <div class="admin-empty">Hacé clic en "Actualizar estadísticas".</div>
             </div>
-            <!-- Gráfico de uso -->
-            <div class="admin-box" style="margin-top:18px;" id="admin-chart-box" style="display:none;">
-                <h4>📈 Actividad de usuarios</h4>
-                <canvas id="admin-chart" height="120"></canvas>
-            </div>
+            <div id="admin-model-stats" style="margin-top:4px;"></div>
         </div>
 
         <!-- ========== TAB: HERRAMIENTAS ========== -->
         <div class="admin-panel" id="panel-tools">
             <div class="admin-cols-2">
-                <!-- Broadcast -->
                 <div class="admin-box">
-                    <h4>📢 Broadcast — Mensaje a todos los usuarios</h4>
+                    <h4>📢 Broadcast — Mensaje global</h4>
                     <p class="admin-hint">El mensaje aparece como banner la próxima vez que cada usuario abra la app.</p>
                     <textarea id="admin-broadcast-msg" placeholder="Escribí el mensaje aquí…" class="admin-textarea"></textarea>
                     <div class="admin-row" style="margin-top:10px;">
@@ -206,22 +206,38 @@
                     </div>
                     <div id="admin-broadcast-output" class="admin-feedback"></div>
                 </div>
-                <!-- Mantenimiento -->
                 <div class="admin-box">
                     <h4>🔧 Mantenimiento</h4>
                     <p class="admin-hint">Opciones avanzadas de mantenimiento de la plataforma.</p>
                     <div class="admin-tools-list">
-                        <button onclick="adminExportData()" class="admin-tool-btn">
-                            📥 Exportar todos los datos (JSON)
-                        </button>
-                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn" id="btn-maintenance">
-                            🚧 Activar modo mantenimiento
-                        </button>
-                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger">
-                            ⚠️ Purgar chats inactivos (+30 días)
-                        </button>
+                        <button onclick="adminExportData()" class="admin-tool-btn">📥 Exportar todos los datos (JSON)</button>
+                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn" id="btn-maintenance">🚧 Activar modo mantenimiento</button>
+                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger">⚠️ Purgar chats inactivos (+30 días)</button>
+                        <button onclick="adminCleanupInactive()" class="admin-tool-btn admin-tool-danger">🧹 Limpiar chats inactivos (+90 días)</button>
                     </div>
                     <div id="admin-tools-output" class="admin-feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: MENSAJES ========== -->
+        <div class="admin-panel" id="panel-messages">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>✉️ Mensaje privado a usuario</h4>
+                    <p class="admin-hint">El mensaje aparece en el chat del usuario la próxima vez que lo abra.</p>
+                    <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                        <input type="text" id="admin-pm-uid" placeholder="UID del usuario…" class="admin-input">
+                        <textarea id="admin-pm-msg" placeholder="Escribí tu mensaje privado…" class="admin-textarea" style="min-height:70px;"></textarea>
+                        <button onclick="adminSendPrivateMessage()" class="admin-btn-accent">✉️ Enviar mensaje privado</button>
+                    </div>
+                    <div id="admin-pm-output" class="admin-feedback"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>👑 Administradores activos</h4>
+                    <p class="admin-hint">Lista de usuarios con privilegios de administrador.</p>
+                    <button onclick="adminLoadAdmins()" class="admin-btn-primary">Ver admins</button>
+                    <div id="admin-admins-list" class="admin-feedback" style="margin-top:12px;"></div>
                 </div>
             </div>
         </div>
@@ -233,15 +249,24 @@
                     <h4>🔑 Mi UID de administrador</h4>
                     <p class="admin-hint">Este es tu UID único. Compartilo con cuidado.</p>
                     <div class="uid-display-box" id="admin-my-uid">—</div>
-                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline" style="margin-top:10px;">
-                        📋 Copiar UID
-                    </button>
+                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline" style="margin-top:10px;">📋 Copiar UID</button>
                 </div>
                 <div class="admin-box">
-                    <h4>👑 Administradores activos</h4>
-                    <p class="admin-hint">Lista de usuarios con privilegios de admin.</p>
-                    <button onclick="adminLoadAdmins()" class="admin-btn-primary">Ver admins</button>
-                    <div id="admin-admins-list" class="admin-feedback" style="margin-top:12px;"></div>
+                    <h4>ℹ️ Info de la plataforma</h4>
+                    <div class="admin-feedback">
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
+                            <span>Versión</span><b style="color:#ff8888;">2.0.0</b>
+                        </div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
+                            <span>Backend</span><b style="color:#ff8888;">Groq API</b>
+                        </div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
+                            <span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b>
+                        </div>
+                        <div class="admin-stat" style="padding:8px 0;">
+                            <span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -299,117 +324,14 @@
 <script src="main.js"></script>
 <script src="doom.js"></script>
 
-<!-- Funciones admin extras (tabs, filtro, exportar, etc.) -->
+<!-- Funciones admin: tabs, filtro, exportar, etc. -->
 <script>
-// ---- TABS ----
 function switchTab(name) {
     document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
     document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
     document.getElementById('tab-'+name).classList.add('active');
     document.getElementById('panel-'+name).classList.add('active');
 }
-
-// ---- FILTRO DE USUARIOS ----
-window._allUsersHTML = '';
-function adminFilterUsers() {
-    var q = document.getElementById('admin-user-search').value.toLowerCase();
-    var rows = document.querySelectorAll('#admin-users-list .user-row');
-    var visible = 0;
-    rows.forEach(function(r){
-        var text = r.textContent.toLowerCase();
-        var show = !q || text.includes(q);
-        r.style.display = show ? '' : 'none';
-        if(show) visible++;
-    });
-    var badge = document.getElementById('admin-user-count');
-    if(badge) badge.textContent = visible + ' usuario' + (visible!==1?'s':'') + ' encontrado'+(visible!==1?'s':'');
-}
-
-// ---- EXPORTAR DATOS ----
-window.adminExportData = async function() {
-    var out = document.getElementById('admin-tools-output');
-    out.innerHTML = '<em>Exportando…</em>';
-    try {
-        var { collection, getDocs } = window.firestore;
-        var snap = await getDocs(collection(window.db, 'chats'));
-        var data = [];
-        snap.forEach(function(d){ data.push({ uid: d.id, ...d.data() }); });
-        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href   = url; a.download = 'cutreal-export-' + Date.now() + '.json';
-        a.click(); URL.revokeObjectURL(url);
-        out.innerHTML = '<span style="color:#4caf50;">✅ Exportado correctamente ('+data.length+' usuarios).</span>';
-    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
-};
-
-// ---- MODO MANTENIMIENTO ----
-window.adminToggleMaintenance = async function() {
-    var out = document.getElementById('admin-tools-output');
-    out.innerHTML = '<em>Cambiando estado…</em>';
-    try {
-        var { doc, getDoc, setDoc } = window.firestore;
-        var ref  = doc(window.db, 'config', 'maintenance');
-        var snap = await getDoc(ref);
-        var cur  = snap.exists() && snap.data().active;
-        await setDoc(ref, { active: !cur, updatedAt: Date.now() });
-        var btn  = document.getElementById('btn-maintenance');
-        if(btn) btn.textContent = (!cur ? '✅ Desactivar' : '🚧 Activar') + ' modo mantenimiento';
-        out.innerHTML = '<span style="color:#4caf50;">Mantenimiento: '+ (!cur?'ACTIVADO':'DESACTIVADO') +'</span>';
-    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
-};
-
-// ---- PURGAR CHATS INACTIVOS ----
-window.adminPurgeOldChats = async function() {
-    if (!confirm('⚠️ Esto eliminará PERMANENTEMENTE los chats de usuarios inactivos por más de 30 días. ¿Continuar?')) return;
-    var out = document.getElementById('admin-tools-output');
-    out.innerHTML = '<em>Purgando…</em>';
-    try {
-        var { collection, getDocs, doc, deleteDoc } = window.firestore;
-        var snap  = await getDocs(collection(window.db, 'chats'));
-        var limit = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        var count = 0;
-        for (var d of snap.docs) {
-            var data = d.data();
-            if (!data.updatedAt || data.updatedAt < limit) {
-                await deleteDoc(doc(window.db, 'chats', d.id));
-                count++;
-            }
-        }
-        out.innerHTML = '<span style="color:#4caf50;">✅ Purgados '+count+' chats inactivos.</span>';
-    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
-};
-
-// ---- BORRAR BROADCAST ----
-window.adminClearBroadcast = async function() {
-    var out = document.getElementById('admin-broadcast-output');
-    try {
-        var { doc, setDoc } = window.firestore;
-        await setDoc(doc(window.db, 'config', 'broadcast'), { active: false, message: '', timestamp: Date.now() });
-        out.innerHTML = '<span style="color:#4caf50;">✅ Broadcast eliminado.</span>';
-    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
-};
-
-// ---- VER ADMINS ----
-window.adminLoadAdmins = async function() {
-    var out = document.getElementById('admin-admins-list');
-    out.innerHTML = '<em>Cargando…</em>';
-    try {
-        var { collection, getDocs } = window.firestore;
-        var snap = await getDocs(collection(window.db, 'admins'));
-        if (snap.empty) { out.innerHTML = 'No hay admins adicionales.'; return; }
-        var html = '<ul style="padding:0;margin:0;list-style:none;">';
-        snap.forEach(function(d){
-            var data = d.data();
-            html += '<li style="padding:7px 0;border-bottom:1px solid rgba(255,59,59,0.1);display:flex;align-items:center;gap:10px;">'
-                  + '<span style="color:#ff8888;font-family:monospace;font-size:12px;">'+d.id+'</span>'
-                  + '<button onclick="adminRevokeAdmin(\''+d.id+'\')" class="admin-btn-danger" style="padding:3px 10px;font-size:11px;">Revocar</button>'
-                  + '</li>';
-        });
-        html += '</ul>';
-        out.innerHTML = html;
-    } catch(e) { out.innerHTML = '<span style="color:#f55;">Error: '+e.message+'</span>'; }
-};
 </script>
 
 <footer class="copyright">
@@ -418,6 +340,4 @@ window.adminLoadAdmins = async function() {
 </footer>
 
 </body>
-
 </html>
-
