@@ -1,37 +1,19 @@
 export default async function handler(req, res) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Método no permitido" });
-    }
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
     const { mensajes, hasImage, model: modelPref } = req.body;
     const API_KEY = process.env.GROQ_API_KEY;
 
-    if (!API_KEY) {
-        return res.status(500).json({ error: "API key no configurada en el servidor." });
-    }
-    if (!mensajes || !Array.isArray(mensajes)) {
-        return res.status(400).json({ error: "El campo 'mensajes' es inválido." });
-    }
+    if (!API_KEY) return res.status(500).json({ error: "API key no configurada en el servidor." });
+    if (!mensajes || !Array.isArray(mensajes)) return res.status(400).json({ error: "El campo 'mensajes' es inválido." });
 
-    // ===== SELECCIÓN DE MODELO =====
+    // ── SELECCIÓN DE MODELO ──
     let model;
-    if (hasImage) {
-        // Imágenes siempre usan modelo con visión
-        model = "meta-llama/llama-4-scout-17b-16e-instruct";
-    } else if (modelPref === "basic") {
-        // Modelo básico: rápido y liviano
-        model = "llama-3.1-8b-instant";
-    } else {
-        // Modelo pro (default): más inteligente
-        model = "llama-3.3-70b-versatile";
-    }
+    if (hasImage)               model = "meta-llama/llama-4-scout-17b-16e-instruct";
+    else if (modelPref === "basic") model = "llama-3.1-8b-instant";
+    else                            model = "llama-3.3-70b-versatile";
 
-    // ===== SYSTEM PROMPT =====
-    const modelName = hasImage
-        ? "Llama 4 Scout 17B (visión)"
-        : modelPref === "basic"
-        ? "Llama 3.1 8B Instant"
-        : "Llama 3.3 70B Versatile";
+    const modelName = hasImage ? "Llama 4 Scout 17B (visión)" : modelPref === "basic" ? "Llama 3.1 8B Instant" : "Llama 3.3 70B Versatile";
 
     const systemContent = `Eres Cut-real AI, una Inteligencia Artificial desarrollada por Bautista utilizando servicios y proveedores gratuitos. Eres impulsada por el modelo ${modelName} a través de los servicios de Groq.
 
@@ -73,30 +55,17 @@ FORMATO DE RESPUESTA:
 
 © 2026 Cut-real AI. Todos los derechos reservados.`;
 
-    // Reemplazar system prompt
-    if (mensajes.length > 0 && mensajes[0].role === "system") {
-        mensajes[0].content = systemContent;
-    } else {
-        mensajes.unshift({ role: "system", content: systemContent });
-    }
+    if (mensajes.length > 0 && mensajes[0].role === "system") mensajes[0].content = systemContent;
+    else mensajes.unshift({ role: "system", content: systemContent });
 
-    // Temperatura según modelo
     const temperature = modelPref === "basic" ? 0.5 : 0.65;
-    const max_tokens = hasImage ? 1024 : 2048;
+    const max_tokens  = hasImage ? 1024 : 2048;
 
     try {
         const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
-            headers: {
-                Authorization: `Bearer ${API_KEY}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model,
-                messages: mensajes,
-                temperature,
-                max_tokens,
-            }),
+            headers: { Authorization: `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model, messages: mensajes, temperature, max_tokens }),
         });
 
         const data = await response.json();
@@ -104,23 +73,12 @@ FORMATO DE RESPUESTA:
         if (!response.ok) {
             const status   = response.status;
             const errorMsg = data.error?.message || "Error desconocido en Groq";
-
-            if (status === 429) {
-                return res.status(429).json({
-                    error: "Límite de consultas alcanzado. Groq tiene un límite diario en el plan gratuito. Esperá unos minutos antes de volver a intentarlo.",
-                });
-            }
-            if (status === 404 || errorMsg.includes("model")) {
-                return res.status(500).json({
-                    error: "El modelo solicitado no está disponible. Intentá con una consulta de texto sin adjuntos.",
-                });
-            }
-
+            if (status === 429) return res.status(429).json({ error: "Límite de consultas alcanzado. Esperá unos minutos antes de volver a intentarlo." });
+            if (status === 404 || errorMsg.includes("model")) return res.status(500).json({ error: "El modelo solicitado no está disponible. Intentá con texto sin adjuntos." });
             return res.status(status).json({ error: errorMsg });
         }
 
         return res.status(200).json(data);
-
     } catch (error) {
         console.error("Error en api/chat.js:", error);
         return res.status(500).json({ error: error.message || "Error interno del servidor." });
