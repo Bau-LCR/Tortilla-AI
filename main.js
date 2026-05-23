@@ -1384,18 +1384,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const filePreviewName = document.getElementById("file-preview-name");
     const adminBtn        = document.getElementById("admin-btn");
 
-    // ===== SPLASH =====
-    setTimeout(() => {
-        if (!splashScreen) return;
-        splashScreen.style.opacity = "1";
-        splashScreen.style.transition = "opacity 0.6s ease";
-        setTimeout(() => (splashScreen.style.display = "none"), 620);
-    }, 1900);
-
-    const systemPrompt = { role: "system", content: "Configurado en el servidor." };
-    let currentUser = null;
-    let historial   = [systemPrompt];
-
+    
     // ===== SELECTOR DE MODELO =====
     function buildModelSelector() {
         if (document.getElementById("model-selector-wrap")) return;
