@@ -19,7 +19,7 @@
     <p class="splash-tagline">Cargando<span class="loading-dots"></span></p>
 </div>
 
-<!-- PARTÍCULAS DE FONDO -->
+<!-- PARTÍCULAS -->
 <div id="particles"></div>
 
 <!-- DOOM OVERLAY -->
@@ -28,15 +28,52 @@
     <canvas id="doom-canvas"></canvas>
     <div id="doom-controls">
         <div class="doom-ctrl-row">
-            <span>↑↓ Mover</span>
-            <span>←→ Girar</span>
-            <span>A/D Strafe</span>
-            <span>ESPACIO Disparar</span>
-            <span>1/2/3 Armas</span>
-            <span>R Reiniciar</span>
-            <span>ESC Salir</span>
+            <span>↑↓ Mover</span><span>←→ Girar</span><span>A/D Strafe</span>
+            <span>ESPACIO Disparar</span><span>1/2/3 Armas</span><span>R Reiniciar</span><span>ESC Salir</span>
         </div>
     </div>
+</div>
+
+<!-- BUSCAMINAS OVERLAY -->
+<div id="buscaminas-overlay" style="display:none;"></div>
+
+<!-- IMAGE ZOOM MODAL -->
+<div id="image-zoom-modal" style="display:none;" onclick="closeImageZoom()">
+    <div class="zoom-inner">
+        <img id="zoom-img" src="" alt="Imagen ampliada">
+        <button class="zoom-close-btn" onclick="closeImageZoom()">✕</button>
+        <a id="zoom-download" href="" download="cutreal-imagen.png" class="zoom-download-btn" onclick="event.stopPropagation()">⬇️ Descargar</a>
+    </div>
+</div>
+
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<div id="shortcuts-modal" style="display:none;">
+    <div class="shortcuts-card">
+        <div class="shortcuts-header">
+            <h3>⌨️ Atajos de teclado</h3>
+            <button onclick="document.getElementById('shortcuts-modal').style.display='none'">✕</button>
+        </div>
+        <div class="shortcuts-body">
+            <div class="shortcut-row"><kbd>Enter</kbd><span>Enviar mensaje</span></div>
+            <div class="shortcut-row"><kbd>Shift+Enter</kbd><span>Nueva línea</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+V</kbd><span>Pegar imagen</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+K</kbd><span>Buscar en chat</span></div>
+            <div class="shortcut-row"><kbd>Ctrl+/</kbd><span>Ver atajos</span></div>
+            <div class="shortcut-row"><kbd>Esc</kbd><span>Cerrar overlays</span></div>
+            <div class="shortcut-sep">Easter Eggs</div>
+            <div class="shortcut-row"><kbd>doom 1993</kbd><span>Jugar DOOM</span></div>
+            <div class="shortcut-row"><kbd>buscaminas 1989</kbd><span>Jugar Buscaminas</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- CHAT SEARCH OVERLAY -->
+<div id="chat-search-overlay" style="display:none;">
+    <div class="chat-search-box">
+        <input type="text" id="chat-search-input" placeholder="🔍 Buscar en el chat..." oninput="bmSearchChat(this.value)">
+        <button onclick="closeChatSearch()">✕</button>
+    </div>
+    <div id="chat-search-results"></div>
 </div>
 
 <!-- HEADER -->
@@ -47,7 +84,7 @@
     </a>
 </header>
 
-<!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
+<!-- TERMS OVERLAY -->
 <div id="terms-overlay" style="display:none;">
     <div class="terms-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
@@ -74,7 +111,7 @@
     </div>
 </div>
 
-<!-- OVERLAY DE LOGIN -->
+<!-- LOGIN OVERLAY -->
 <div id="login-overlay" style="display:none;">
     <div class="auth-card">
         <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
@@ -86,15 +123,17 @@
     </div>
 </div>
 
-<!-- CONTROLES SUPERIORES -->
+<!-- SIDE CONTROLS -->
 <div class="side-controls">
     <button id="admin-btn" onclick="openAdminPanel()" style="display:none;">⚙️ Admin</button>
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
-    <button id="resetChat" onclick="resetChat()" style="display:none;">🗑️ Borrar Chat</button>
+    <button id="resetChat" onclick="resetChat()" style="display:none;">🗑️ Chat</button>
+    <button id="search-btn" onclick="openChatSearch()" style="display:none;" title="Buscar en chat">🔍</button>
+    <button id="shortcuts-btn" onclick="document.getElementById('shortcuts-modal').style.display='flex'" title="Atajos de teclado">⌨️</button>
 </div>
 
 <!-- ============================================================ -->
-<!-- PANEL ADMIN — REDISEÑO COMPLETO v2                          -->
+<!-- PANEL ADMIN — VERSIÓN MEJORADA CON 30 FUNCIONES NUEVAS     -->
 <!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
     <div class="admin-card">
@@ -111,20 +150,25 @@
             <button onclick="closeAdminPanel()" class="admin-close-btn" title="Cerrar">✕</button>
         </div>
 
-        <!-- Tabs de navegación -->
-        <div class="admin-tabs">
-            <button class="admin-tab active" onclick="switchTab('users')"   id="tab-users">👥 Usuarios</button>
-            <button class="admin-tab"         onclick="switchTab('chat')"    id="tab-chat">💬 Chats</button>
-            <button class="admin-tab"         onclick="switchTab('stats')"   id="tab-stats">📊 Estadísticas</button>
-            <button class="admin-tab"         onclick="switchTab('tools')"   id="tab-tools">🛠️ Herramientas</button>
-            <button class="admin-tab"         onclick="switchTab('messages')"id="tab-messages">✉️ Mensajes</button>
-            <button class="admin-tab"         onclick="switchTab('account')" id="tab-account">🔑 Mi Cuenta</button>
+        <!-- Tabs -->
+        <div class="admin-tabs" id="admin-tabs-bar">
+            <button class="admin-tab active" onclick="switchTab('users')"     id="tab-users">👥 Usuarios</button>
+            <button class="admin-tab"         onclick="switchTab('chat')"      id="tab-chat">💬 Chats</button>
+            <button class="admin-tab"         onclick="switchTab('stats')"     id="tab-stats">📊 Stats</button>
+            <button class="admin-tab"         onclick="switchTab('tools')"     id="tab-tools">🛠️ Tools</button>
+            <button class="admin-tab"         onclick="switchTab('messages')"  id="tab-messages">✉️ Mensajes</button>
+            <button class="admin-tab"         onclick="switchTab('account')"   id="tab-account">🔑 Cuenta</button>
+            <button class="admin-tab"         onclick="switchTab('analytics')" id="tab-analytics">📈 Analíticas</button>
+            <button class="admin-tab"         onclick="switchTab('security')"  id="tab-security">🔒 Seguridad</button>
+            <button class="admin-tab"         onclick="switchTab('comms')"     id="tab-comms">🔔 Comms</button>
+            <button class="admin-tab"         onclick="switchTab('logs')"      id="tab-logs">📋 Registros</button>
+            <button class="admin-tab"         onclick="switchTab('platform')"  id="tab-platform">🌐 Plataforma</button>
         </div>
 
         <!-- ========== TAB: USUARIOS ========== -->
         <div class="admin-panel active" id="panel-users">
             <div class="admin-toolbar">
-                <button onclick="adminLoadUsers()" class="admin-btn-primary">🔄 Cargar usuarios</button>
+                <button onclick="adminLoadUsers()" class="admin-btn-primary ripple-btn">🔄 Cargar usuarios</button>
                 <span id="admin-user-count" class="admin-badge"></span>
             </div>
             <div class="admin-table-wrap" id="admin-users-list">
@@ -134,7 +178,7 @@
                 <h4>⬆️ Promover usuario a Admin por UID</h4>
                 <div class="admin-row">
                     <input type="text" id="admin-promote-uid" placeholder="UID completo del usuario…" class="admin-input admin-input-wide">
-                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent">Promover a Admin</button>
+                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent ripple-btn">Promover a Admin</button>
                 </div>
                 <div id="admin-promote-output" class="admin-feedback"></div>
             </div>
@@ -147,7 +191,7 @@
                     <h4>🔍 Ver conversación de un usuario</h4>
                     <div class="admin-row">
                         <input type="text" id="admin-uid-input" placeholder="UID del usuario…" class="admin-input admin-input-wide">
-                        <button onclick="adminLoadChat()" class="admin-btn-primary">Ver chat</button>
+                        <button onclick="adminLoadChat()" class="admin-btn-primary ripple-btn">Ver chat</button>
                     </div>
                     <div id="admin-chat-output" class="admin-chat-scroll"></div>
                 </div>
@@ -155,7 +199,7 @@
                     <h4>🔍 Buscar usuario por email o nombre</h4>
                     <div class="admin-row">
                         <input type="text" id="admin-email-search" placeholder="Email o nombre…" class="admin-input admin-input-wide">
-                        <button onclick="adminSearchByEmail()" class="admin-btn-primary">Buscar</button>
+                        <button onclick="adminSearchByEmail()" class="admin-btn-primary ripple-btn">Buscar</button>
                     </div>
                     <div id="admin-email-result" class="admin-feedback" style="margin-top:10px;"></div>
                 </div>
@@ -166,7 +210,7 @@
                     <p class="admin-hint">Borra el historial de chat. No elimina la cuenta de Google.</p>
                     <div class="admin-row">
                         <input type="text" id="admin-delete-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
-                        <button onclick="adminDeleteChat()" class="admin-btn-danger">Borrar chat</button>
+                        <button onclick="adminDeleteChat()" class="admin-btn-danger ripple-btn">Borrar chat</button>
                     </div>
                     <div id="admin-delete-output" class="admin-feedback"></div>
                 </div>
@@ -175,7 +219,7 @@
                     <p class="admin-hint">Exporta el historial de un usuario como archivo JSON.</p>
                     <div class="admin-row">
                         <input type="text" id="admin-export-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
-                        <button onclick="adminExportChat(document.getElementById('admin-export-uid').value.trim())" class="admin-btn-primary">Exportar</button>
+                        <button onclick="adminExportChat(document.getElementById('admin-export-uid').value.trim())" class="admin-btn-primary ripple-btn">Exportar</button>
                     </div>
                 </div>
             </div>
@@ -184,8 +228,8 @@
         <!-- ========== TAB: ESTADÍSTICAS ========== -->
         <div class="admin-panel" id="panel-stats">
             <div class="admin-toolbar">
-                <button onclick="adminLoadStats()" class="admin-btn-primary">🔄 Actualizar estadísticas</button>
-                <button onclick="adminLoadModelStats()" class="admin-btn-outline">📱 Stats de modelos</button>
+                <button onclick="adminLoadStats()" class="admin-btn-primary ripple-btn">🔄 Actualizar estadísticas</button>
+                <button onclick="adminLoadModelStats()" class="admin-btn-outline ripple-btn">📱 Stats de modelos</button>
             </div>
             <div id="admin-stats-output" class="admin-stats-grid">
                 <div class="admin-empty">Hacé clic en "Actualizar estadísticas".</div>
@@ -201,8 +245,8 @@
                     <p class="admin-hint">El mensaje aparece como banner la próxima vez que cada usuario abra la app.</p>
                     <textarea id="admin-broadcast-msg" placeholder="Escribí el mensaje aquí…" class="admin-textarea"></textarea>
                     <div class="admin-row" style="margin-top:10px;">
-                        <button onclick="adminSendBroadcast()" class="admin-btn-accent">📤 Enviar broadcast</button>
-                        <button onclick="adminClearBroadcast()" class="admin-btn-outline">🗑️ Borrar broadcast</button>
+                        <button onclick="adminSendBroadcast()" class="admin-btn-accent ripple-btn">📤 Enviar broadcast</button>
+                        <button onclick="adminClearBroadcast()" class="admin-btn-outline ripple-btn">🗑️ Borrar broadcast</button>
                     </div>
                     <div id="admin-broadcast-output" class="admin-feedback"></div>
                 </div>
@@ -210,10 +254,10 @@
                     <h4>🔧 Mantenimiento</h4>
                     <p class="admin-hint">Opciones avanzadas de mantenimiento de la plataforma.</p>
                     <div class="admin-tools-list">
-                        <button onclick="adminExportData()" class="admin-tool-btn">📥 Exportar todos los datos (JSON)</button>
-                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn" id="btn-maintenance">🚧 Activar modo mantenimiento</button>
-                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger">⚠️ Purgar chats inactivos (+30 días)</button>
-                        <button onclick="adminCleanupInactive()" class="admin-tool-btn admin-tool-danger">🧹 Limpiar chats inactivos (+90 días)</button>
+                        <button onclick="adminExportData()" class="admin-tool-btn ripple-btn">📥 Exportar todos los datos (JSON)</button>
+                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn ripple-btn" id="btn-maintenance">🚧 Activar modo mantenimiento</button>
+                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger ripple-btn">⚠️ Purgar chats inactivos (+30 días)</button>
+                        <button onclick="adminCleanupInactive()" class="admin-tool-btn admin-tool-danger ripple-btn">🧹 Limpiar chats inactivos (+90 días)</button>
                     </div>
                     <div id="admin-tools-output" class="admin-feedback"></div>
                 </div>
@@ -229,14 +273,14 @@
                     <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:8px;">
                         <input type="text" id="admin-pm-uid" placeholder="UID del usuario…" class="admin-input">
                         <textarea id="admin-pm-msg" placeholder="Escribí tu mensaje privado…" class="admin-textarea" style="min-height:70px;"></textarea>
-                        <button onclick="adminSendPrivateMessage()" class="admin-btn-accent">✉️ Enviar mensaje privado</button>
+                        <button onclick="adminSendPrivateMessage()" class="admin-btn-accent ripple-btn">✉️ Enviar mensaje privado</button>
                     </div>
                     <div id="admin-pm-output" class="admin-feedback"></div>
                 </div>
                 <div class="admin-box">
                     <h4>👑 Administradores activos</h4>
                     <p class="admin-hint">Lista de usuarios con privilegios de administrador.</p>
-                    <button onclick="adminLoadAdmins()" class="admin-btn-primary">Ver admins</button>
+                    <button onclick="adminLoadAdmins()" class="admin-btn-primary ripple-btn">Ver admins</button>
                     <div id="admin-admins-list" class="admin-feedback" style="margin-top:12px;"></div>
                 </div>
             </div>
@@ -249,16 +293,19 @@
                     <h4>🔑 Mi UID de administrador</h4>
                     <p class="admin-hint">Este es tu UID único. Compartilo con cuidado.</p>
                     <div class="uid-display-box" id="admin-my-uid">—</div>
-                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline" style="margin-top:10px;">📋 Copiar UID</button>
+                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline ripple-btn" style="margin-top:10px;">📋 Copiar UID</button>
                 </div>
                 <div class="admin-box">
                     <h4>ℹ️ Info de la plataforma</h4>
                     <div class="admin-feedback">
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
-                            <span>Versión</span><b style="color:#ff8888;">2.0.0</b>
+                            <span>Versión</span><b style="color:#ff8888;">2.5.0</b>
                         </div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
                             <span>Backend</span><b style="color:#ff8888;">Groq API</b>
+                        </div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
+                            <span>Imagen IA</span><b style="color:#ff8888;">Pollinations.ai</b>
                         </div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
                             <span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b>
@@ -271,6 +318,305 @@
             </div>
         </div>
 
+        <!-- ========== TAB: ANALÍTICAS (NUEVO) ========== -->
+        <div class="admin-panel" id="panel-analytics">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadAllAnalytics()" class="admin-btn-accent ripple-btn">🔄 Cargar todas las analíticas</button>
+            </div>
+
+            <!-- Función 1: Actividad semanal -->
+            <div class="admin-analytics-section">
+                <h4 class="admin-analytics-title">📅 Actividad de los últimos 7 días</h4>
+                <canvas id="admin-weekly-chart" class="admin-chart-canvas" height="160"></canvas>
+                <div id="admin-weekly-output" class="admin-feedback"></div>
+            </div>
+
+            <!-- Función 2: Distribución horaria -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">🕐 Distribución de uso por hora</h4>
+                <canvas id="admin-hour-chart" class="admin-chart-canvas" height="120"></canvas>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 3: Palabras frecuentes -->
+                <div class="admin-box">
+                    <h4>💬 Palabras más usadas</h4>
+                    <button onclick="adminWordFrequency()" class="admin-btn-primary ripple-btn">Analizar</button>
+                    <div id="admin-word-freq" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+
+                <!-- Función 4: Modelos (pie) -->
+                <div class="admin-box">
+                    <h4>🧠 Uso de modelos</h4>
+                    <canvas id="admin-model-pie" width="180" height="180" style="display:block;margin:0 auto;"></canvas>
+                    <div id="admin-pie-legend" style="margin-top:8px;font-size:12px;text-align:center;"></div>
+                </div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 5: Engagement -->
+                <div class="admin-box">
+                    <h4>🏆 Top usuarios por engagement</h4>
+                    <button onclick="adminEngagementLeaderboard()" class="admin-btn-primary ripple-btn">Cargar ranking</button>
+                    <div id="admin-engagement-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+
+                <!-- Función 6: Retención -->
+                <div class="admin-box">
+                    <h4>📊 Métricas de retención</h4>
+                    <button onclick="adminRetentionMetrics()" class="admin-btn-primary ripple-btn">Calcular</button>
+                    <div id="admin-retention-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <!-- Función 7: Detector de tendencias -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">📉 Análisis de tendencias</h4>
+                <button onclick="adminTrendAnalysis()" class="admin-btn-outline ripple-btn">Analizar tendencias</button>
+                <div id="admin-trend-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: SEGURIDAD (NUEVO) ========== -->
+        <div class="admin-panel" id="panel-security">
+            <div class="admin-cols-2">
+                <!-- Función 8: Banear usuario -->
+                <div class="admin-box">
+                    <h4>🚫 Banear usuario</h4>
+                    <p class="admin-hint">El usuario no podrá acceder a la plataforma.</p>
+                    <div class="admin-row" style="flex-direction:column;gap:8px;">
+                        <input type="text" id="sec-ban-uid" placeholder="UID del usuario…" class="admin-input">
+                        <input type="text" id="sec-ban-reason" placeholder="Motivo del ban…" class="admin-input">
+                        <button onclick="adminBanUser()" class="admin-btn-danger ripple-btn">🚫 Banear usuario</button>
+                    </div>
+                    <div id="sec-ban-output" class="admin-feedback"></div>
+                </div>
+
+                <!-- Función 9: Desbanear usuario -->
+                <div class="admin-box">
+                    <h4>✅ Desbanear usuario</h4>
+                    <p class="admin-hint">Restaurar el acceso de un usuario baneado.</p>
+                    <div class="admin-row" style="gap:8px;">
+                        <input type="text" id="sec-unban-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminUnbanUser()" class="admin-btn-primary ripple-btn">✅ Desbanear</button>
+                    </div>
+                    <div id="sec-unban-output" class="admin-feedback"></div>
+                </div>
+            </div>
+
+            <!-- Función 10: Lista de baneados -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">📋 Usuarios baneados</h4>
+                <button onclick="adminListBanned()" class="admin-btn-primary ripple-btn">Ver lista</button>
+                <div id="sec-banned-list" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 11: Actividad sospechosa -->
+                <div class="admin-box">
+                    <h4>🔍 Detector de actividad sospechosa</h4>
+                    <p class="admin-hint">Detecta usuarios con patrones de uso inusuales.</p>
+                    <button onclick="adminSuspiciousActivity()" class="admin-btn-accent ripple-btn">🔍 Escanear</button>
+                    <div id="sec-suspicious-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+
+                <!-- Función 12: Límites de mensajes -->
+                <div class="admin-box">
+                    <h4>⚡ Límite de mensajes por usuario</h4>
+                    <p class="admin-hint">Configura un límite máximo de mensajes diarios.</p>
+                    <div class="admin-row" style="flex-direction:column;gap:8px;">
+                        <input type="text" id="sec-limit-uid" placeholder="UID (vacío = global)…" class="admin-input">
+                        <input type="number" id="sec-limit-val" placeholder="Límite diario (0 = sin límite)…" class="admin-input" min="0">
+                        <button onclick="adminSetMessageLimit()" class="admin-btn-accent ripple-btn">⚡ Aplicar límite</button>
+                    </div>
+                    <div id="sec-limit-output" class="admin-feedback"></div>
+                </div>
+            </div>
+
+            <!-- Función 13: Verificador de seguridad del sistema -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">🛡️ Verificación de seguridad del sistema</h4>
+                <button onclick="adminSecurityCheck()" class="admin-btn-accent ripple-btn">🛡️ Ejecutar verificación</button>
+                <div id="sec-check-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: COMUNICACIÓN AVANZADA (NUEVO) ========== -->
+        <div class="admin-panel" id="panel-comms">
+            <!-- Función 14: Historial de broadcasts -->
+            <div class="admin-analytics-section">
+                <h4 class="admin-analytics-title">📜 Historial de broadcasts</h4>
+                <button onclick="adminBroadcastHistory()" class="admin-btn-primary ripple-btn">Ver historial</button>
+                <div id="comms-history-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 15: Broadcast programado -->
+                <div class="admin-box">
+                    <h4>⏰ Broadcast programado</h4>
+                    <p class="admin-hint">Programa un mensaje para enviarlo en el futuro.</p>
+                    <div class="admin-row" style="flex-direction:column;gap:8px;">
+                        <textarea id="comms-sched-msg" placeholder="Mensaje a programar…" class="admin-textarea" style="min-height:60px;"></textarea>
+                        <input type="datetime-local" id="comms-sched-time" class="admin-input">
+                        <button onclick="adminScheduleBroadcast()" class="admin-btn-accent ripple-btn">⏰ Programar envío</button>
+                    </div>
+                    <div id="comms-sched-output" class="admin-feedback"></div>
+                </div>
+
+                <!-- Función 16: Mensaje de bienvenida personalizado -->
+                <div class="admin-box">
+                    <h4>👋 Bienvenida personalizada</h4>
+                    <p class="admin-hint">Configura un mensaje de bienvenida específico para un usuario.</p>
+                    <div class="admin-row" style="flex-direction:column;gap:8px;">
+                        <input type="text" id="comms-welcome-uid" placeholder="UID del usuario…" class="admin-input">
+                        <textarea id="comms-welcome-msg" placeholder="Mensaje de bienvenida personalizado…" class="admin-textarea" style="min-height:60px;"></textarea>
+                        <button onclick="adminCustomWelcome()" class="admin-btn-accent ripple-btn">👋 Guardar bienvenida</button>
+                    </div>
+                    <div id="comms-welcome-output" class="admin-feedback"></div>
+                </div>
+            </div>
+
+            <!-- Función 17: Newsletter / anuncio -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">📰 Panel de anuncios permanente</h4>
+                <div class="admin-row" style="gap:8px;flex-wrap:wrap;">
+                    <input type="text" id="comms-announce-title" placeholder="Título del anuncio…" class="admin-input" style="flex:1;min-width:180px;">
+                    <input type="text" id="comms-announce-icon" placeholder="Emoji icono (ej: 🎉)" class="admin-input" style="width:80px;">
+                </div>
+                <textarea id="comms-announce-body" placeholder="Contenido del anuncio…" class="admin-textarea" style="margin-top:8px;min-height:60px;"></textarea>
+                <div class="admin-row" style="margin-top:10px;">
+                    <button onclick="adminSetAnnouncement()" class="admin-btn-accent ripple-btn">📌 Publicar anuncio</button>
+                    <button onclick="adminClearAnnouncement()" class="admin-btn-outline ripple-btn">🗑️ Eliminar anuncio</button>
+                </div>
+                <div id="comms-announce-output" class="admin-feedback"></div>
+            </div>
+
+            <!-- Función 18: Estadísticas de mensajes por canal -->
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <div class="admin-box">
+                    <h4>📊 Estadísticas de broadcasts</h4>
+                    <button onclick="adminBroadcastStats()" class="admin-btn-primary ripple-btn">Ver estadísticas</button>
+                    <div id="comms-bstats-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+
+                <!-- Función 19: Envío masivo filtrado -->
+                <div class="admin-box">
+                    <h4>📨 Envío a usuarios activos</h4>
+                    <p class="admin-hint">Envía un mensaje privado solo a usuarios activos en los últimos N días.</p>
+                    <div class="admin-row" style="flex-direction:column;gap:8px;">
+                        <input type="number" id="comms-mass-days" placeholder="Activos en últimos N días…" class="admin-input" value="7">
+                        <textarea id="comms-mass-msg" placeholder="Mensaje a enviar…" class="admin-textarea" style="min-height:50px;"></textarea>
+                        <button onclick="adminMassSend()" class="admin-btn-accent ripple-btn">📨 Enviar a activos</button>
+                    </div>
+                    <div id="comms-mass-output" class="admin-feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: REGISTROS (NUEVO) ========== -->
+        <div class="admin-panel" id="panel-logs">
+            <!-- Función 20: Log de acciones admin -->
+            <div class="admin-analytics-section">
+                <h4 class="admin-analytics-title">📋 Registro de acciones de administradores</h4>
+                <div class="admin-toolbar">
+                    <button onclick="adminLoadAuditLog()" class="admin-btn-primary ripple-btn">🔄 Cargar log</button>
+                    <button onclick="adminExportAuditLog()" class="admin-btn-outline ripple-btn">⬇️ Exportar</button>
+                    <button onclick="adminClearAuditLog()" class="admin-btn-danger ripple-btn">🗑️ Limpiar log</button>
+                </div>
+                <div id="logs-audit-output" class="admin-logs-scroll admin-feedback" style="margin-top:10px;"></div>
+            </div>
+
+            <!-- Función 21: Timeline del sistema -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">⏱️ Timeline de eventos del sistema</h4>
+                <button onclick="adminSystemTimeline()" class="admin-btn-primary ripple-btn">Ver timeline</button>
+                <div id="logs-timeline-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 22: Monitor en tiempo real -->
+                <div class="admin-box">
+                    <h4>🔴 Monitor en tiempo real</h4>
+                    <p class="admin-hint">Muestra la actividad reciente de los últimos 10 minutos.</p>
+                    <button onclick="adminRealtimeMonitor()" class="admin-btn-accent ripple-btn" id="btn-realtime">▶ Iniciar monitor</button>
+                    <div id="logs-realtime-output" class="admin-feedback" style="margin-top:10px;max-height:200px;overflow-y:auto;"></div>
+                </div>
+
+                <!-- Función 23: Chats eliminados -->
+                <div class="admin-box">
+                    <h4>🗑️ Registro de chats eliminados</h4>
+                    <button onclick="adminDeletedChatsLog()" class="admin-btn-primary ripple-btn">Ver registros</button>
+                    <div id="logs-deleted-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <!-- Función 24: Estadísticas de sesiones -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">📊 Estadísticas de sesiones y logins</h4>
+                <button onclick="adminSessionStats()" class="admin-btn-primary ripple-btn">Cargar estadísticas</button>
+                <div id="logs-session-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: PLATAFORMA (NUEVO) ========== -->
+        <div class="admin-panel" id="panel-platform">
+            <!-- Función 25: Feature flags -->
+            <div class="admin-analytics-section">
+                <h4 class="admin-analytics-title">🎛️ Gestor de funcionalidades (Feature Flags)</h4>
+                <button onclick="adminLoadFeatureFlags()" class="admin-btn-primary ripple-btn">Cargar flags</button>
+                <div id="plat-flags-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 26: Personalización de la IA -->
+                <div class="admin-box">
+                    <h4>🤖 Personalidad de la IA</h4>
+                    <p class="admin-hint">Configura el tono y estilo de respuestas de la IA.</p>
+                    <select id="plat-ai-tone" class="admin-input" style="width:100%;margin-bottom:8px;">
+                        <option value="professional">Profesional y directo</option>
+                        <option value="friendly">Amigable y casual</option>
+                        <option value="technical">Técnico y detallado</option>
+                        <option value="creative">Creativo e imaginativo</option>
+                    </select>
+                    <input type="text" id="plat-ai-name" placeholder="Nombre alternativo de la IA…" class="admin-input" style="margin-bottom:8px;">
+                    <button onclick="adminSaveAIPersonality()" class="admin-btn-accent ripple-btn">💾 Guardar configuración</button>
+                    <div id="plat-ai-output" class="admin-feedback"></div>
+                </div>
+
+                <!-- Función 27: Salud del sistema -->
+                <div class="admin-box">
+                    <h4>🩺 Estado de salud del sistema</h4>
+                    <button onclick="adminSystemHealth()" class="admin-btn-primary ripple-btn">🩺 Verificar estado</button>
+                    <div id="plat-health-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <div class="admin-cols-2" style="margin-top:16px;">
+                <!-- Función 28: Exportar CSV -->
+                <div class="admin-box">
+                    <h4>📊 Exportar estadísticas como CSV</h4>
+                    <p class="admin-hint">Exporta todas las estadísticas en formato CSV para análisis.</p>
+                    <button onclick="adminExportCSV()" class="admin-btn-primary ripple-btn">📊 Exportar CSV</button>
+                    <div id="plat-csv-output" class="admin-feedback" style="margin-top:8px;"></div>
+                </div>
+
+                <!-- Función 29: Calculadora de API -->
+                <div class="admin-box">
+                    <h4>🧮 Estimador de uso de API</h4>
+                    <p class="admin-hint">Calcula el uso estimado de tokens de Groq.</p>
+                    <button onclick="adminCalculateAPIUsage()" class="admin-btn-primary ripple-btn">🧮 Calcular</button>
+                    <div id="plat-api-output" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <!-- Función 30: Dashboard completo -->
+            <div class="admin-analytics-section" style="margin-top:16px;">
+                <h4 class="admin-analytics-title">🎯 Dashboard de estado completo de la plataforma</h4>
+                <button onclick="adminFullDashboard()" class="admin-btn-accent ripple-btn">🎯 Generar dashboard completo</button>
+                <div id="plat-dashboard-output" class="admin-feedback" style="margin-top:10px;"></div>
+            </div>
+        </div>
+
     </div><!-- /admin-card -->
 </div><!-- /admin-overlay -->
 
@@ -279,22 +625,23 @@
     <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
 </div>
 
-<!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
+<!-- FILE PREVIEW -->
 <div id="file-preview" class="file-preview-bar" style="display:none;">
     <span id="file-preview-name">📎 Archivo adjunto</span>
     <button id="remove-file-btn" onclick="removeAttachment()" title="Quitar archivo">✕</button>
 </div>
 
-<!-- ÁREA DE ENTRADA -->
+<!-- INPUT AREA -->
 <div class="input-area">
-    <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
-    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
-    <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
-    <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
+    <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display:none;">
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;">
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar PDF, Word o imagen">📎</button>
+    <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto">📷</button>
+    <button id="voice-btn" title="Voz a texto" onclick="toggleVoiceInput()">🎤</button>
+    <textarea id="input" placeholder="Escribe un mensaje… (Ctrl+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
     <button id="send-btn" onclick="sendMessage()">
         <span>Enviar</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
     </button>
 </div>
 
@@ -302,7 +649,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy, addDoc, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
     authDomain: "cutreal-ai.firebaseapp.com",
@@ -317,27 +664,112 @@
   const provider = new GoogleAuthProvider();
   window.auth = auth; window.db = db; window.provider = provider;
   window.signInWithPopup = signInWithPopup; window.signOut = signOut;
-  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy };
+  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy, addDoc, limit };
 </script>
 
 <script src="particles.js"></script>
 <script src="main.js"></script>
 <script src="doom.js"></script>
+<script src="buscaminas.js"></script>
 
-<!-- Funciones admin: tabs, filtro, exportar, etc. -->
 <script>
 function switchTab(name) {
-    document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
-    document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
-    document.getElementById('tab-'+name).classList.add('active');
-    document.getElementById('panel-'+name).classList.add('active');
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+    const tabEl   = document.getElementById('tab-'+name);
+    const panelEl = document.getElementById('panel-'+name);
+    if (tabEl)   tabEl.classList.add('active');
+    if (panelEl) panelEl.classList.add('active');
+    // Scroll tab into view
+    if (tabEl) tabEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
+
+// Ripple effect para botones
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.ripple-btn');
+    if (!btn) return;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple-effect';
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 2;
+    ripple.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px;`;
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 700);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === '/') {
+        e.preventDefault();
+        const m = document.getElementById('shortcuts-modal');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+    if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        openChatSearch();
+    }
+    if (e.key === 'Escape') {
+        document.getElementById('shortcuts-modal').style.display = 'none';
+        document.getElementById('chat-search-overlay').style.display = 'none';
+        closeImageZoom();
+    }
+});
+
+// Image zoom
+window.openImageZoom = function(src) {
+    const modal = document.getElementById('image-zoom-modal');
+    const img   = document.getElementById('zoom-img');
+    const dl    = document.getElementById('zoom-download');
+    img.src = src;
+    dl.href = src;
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('zoom-visible'));
+};
+window.closeImageZoom = function() {
+    const modal = document.getElementById('image-zoom-modal');
+    modal.classList.remove('zoom-visible');
+    setTimeout(() => { modal.style.display = 'none'; }, 250);
+};
+
+// Chat search
+window.openChatSearch = function() {
+    const ov = document.getElementById('chat-search-overlay');
+    ov.style.display = 'flex';
+    setTimeout(() => document.getElementById('chat-search-input').focus(), 100);
+};
+window.closeChatSearch = function() {
+    document.getElementById('chat-search-overlay').style.display = 'none';
+    document.getElementById('chat-search-results').innerHTML = '';
+    document.getElementById('chat-search-input').value = '';
+};
+window.bmSearchChat = function(query) {
+    const results = document.getElementById('chat-search-results');
+    if (!query.trim()) { results.innerHTML = ''; return; }
+    const chat = document.getElementById('chat');
+    const msgs = chat.querySelectorAll('.user, .ai');
+    const matches = [];
+    msgs.forEach((msg, idx) => {
+        if (msg.textContent.toLowerCase().includes(query.toLowerCase())) {
+            matches.push({ idx, text: msg.textContent.substring(0, 120), type: msg.classList.contains('user') ? 'user' : 'ai' });
+        }
+    });
+    if (!matches.length) { results.innerHTML = '<div class="search-no-results">Sin resultados para "'+query+'"</div>'; return; }
+    results.innerHTML = matches.map(m => `
+        <div class="search-result-item" onclick="scrollToChatMsg(${m.idx})">
+            <span class="search-result-badge ${m.type === 'user' ? 'badge-user' : 'badge-ai'}">${m.type === 'user' ? '👤 Tú' : '🤖 IA'}</span>
+            <span class="search-result-text">${m.text.replace(new RegExp(query,'gi'), s => '<mark>'+s+'</mark>')}…</span>
+        </div>`).join('');
+};
+window.scrollToChatMsg = function(idx) {
+    const msgs = document.getElementById('chat').querySelectorAll('.user, .ai');
+    if (msgs[idx]) { msgs[idx].scrollIntoView({ behavior: 'smooth', block: 'center' }); msgs[idx].classList.add('msg-highlight'); setTimeout(() => msgs[idx].classList.remove('msg-highlight'), 1500); }
+    closeChatSearch();
+};
 </script>
 
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
     <p>&copy; 2026 Cut-real AI &nbsp;|&nbsp; TODOS LOS DERECHOS RESERVADOS</p>
 </footer>
-
 </body>
 </html>
