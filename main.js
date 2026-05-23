@@ -1387,7 +1387,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // ===== SPLASH =====
     setTimeout(() => {
         if (!splashScreen) return;
-        splashScreen.style.opacity = "0";
+        splashScreen.style.opacity = "1";
         splashScreen.style.transition = "opacity 0.6s ease";
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
