@@ -33,6 +33,140 @@ document.addEventListener("DOMContentLoaded", function () {
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
 
+    
+    // ===== VOICE INPUT =====
+    window.toggleVoiceInput = function() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            showToast("Tu navegador no soporta voz a texto", "#ff4444", "🎤");
+            return;
+        }
+        const voiceBtn = document.getElementById('voice-btn');
+        if (isRecording) {
+            if (voiceRecognition) voiceRecognition.stop();
+            isRecording = false;
+            voiceBtn.classList.remove('recording');
+            voiceBtn.title = "Voz a texto";
+            return;
+        }
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        voiceRecognition = new SR();
+        voiceRecognition.lang = 'es-AR';
+        voiceRecognition.continuous = false;
+        voiceRecognition.interimResults = true;
+        const originalVal = input.value;
+        voiceRecognition.onstart = () => {
+            isRecording = true;
+            voiceBtn.classList.add('recording');
+            voiceBtn.title = "Grabando... (click para detener)";
+            showToast("🎤 Escuchando…", "#4da6ff", "");
+        };
+        voiceRecognition.onresult = (e) => {
+            const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+            input.value = originalVal + transcript;
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+        };
+        voiceRecognition.onerror = () => {
+            isRecording = false;
+            voiceBtn.classList.remove('recording');
+            showToast("Error al capturar voz", "#ff4444", "❌");
+        };
+        voiceRecognition.onend = () => {
+            isRecording = false;
+            voiceBtn.classList.remove('recording');
+            voiceBtn.title = "Voz a texto";
+        };
+        voiceRecognition.start();
+    };
+
+    // ===== FORMATEO MARKDOWN =====
+    const escapeHtml = (str) =>
+        str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const formatearTexto = (texto) => {
+        if (!texto) return "";
+        texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+            const escaped = escapeHtml(code.trim());
+            return `<pre><button class="copy-code-btn" onclick="copiarCodigo(this)">📋 Copiar</button><code class="lang-${lang || 'code'}">${escaped}</code></pre>`;
+        });
+        texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+        texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+        texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
+        texto = texto.replace(/^# (.+)$/gm,   "<h1>$1</h1>");
+        texto = texto.replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>");
+        texto = texto.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+        texto = texto.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+        texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        texto = texto.replace(/(^|[^"=>])(https?:\/\/[^\s<>"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+        texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
+        texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, m => `<ul>${m}</ul>`);
+        texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
+        texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(255,59,59,0.18);margin:12px 0;">');
+        texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
+        return texto;
+    };
+
+    window.copiarCodigo = function(btn) {
+        const code = btn.nextElementSibling?.textContent || '';
+        navigator.clipboard.writeText(code).then(() => {
+            btn.textContent = '✅ Copiado';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = '📋 Copiar'; btn.classList.remove('copied'); }, 2000);
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = code; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); ta.remove();
+            btn.textContent = '✅ Copiado'; btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = '📋 Copiar'; btn.classList.remove('copied'); }, 2000);
+        });
+    };
+
+    const scrollAbajo = () =>
+        requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+
+    // ===== TOAST =====
+    const showToast = (msg, color = "#ff3b3b", icon = "") => {
+        const existing = document.querySelector(".toast-notif");
+        if (existing) existing.remove();
+        const toast = document.createElement("div");
+        toast.className = "toast-notif";
+        toast.innerHTML = icon ? `${icon} ${msg}` : msg;
+        toast.style.cssText = `
+            position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(10px);
+            background:rgba(12,12,12,0.97);color:${color};border:1px solid ${color}44;
+            padding:9px 20px;border-radius:999px;font-size:13px;font-family:'Inter',sans-serif;
+            font-weight:500;z-index:5000;pointer-events:none;
+            animation:toastIn 0.25s ease forwards;
+            box-shadow:0 4px 24px rgba(0,0,0,0.55);
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = "toastOut 0.25s ease forwards";
+            setTimeout(() => toast.remove(), 260);
+        }, 2400);
+    };
+    window.showToast = showToast;
+
+    // ===== TÉRMINOS =====
+    window.acceptTerms = () => {
+        localStorage.setItem(TERMS_KEY, "accepted");
+        termsOverlay.style.display = "none";
+        loginOverlay.style.display = "flex";
+    };
+    window.declineTerms = () => {
+        termsOverlay.style.display = "none";
+        document.body.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+                min-height:100vh;background:#080808;color:#888;font-family:Inter,sans-serif;
+                text-align:center;padding:40px;gap:20px;">
+                <div style="font-size:48px;">🚫</div>
+                <h2 style="color:#ff3b3b;margin:0;">Acceso denegado</h2>
+                <p style="max-width:400px;line-height:1.7;">Para usar Cut-real AI debés aceptar los Términos y Condiciones.<br>Si cambiás de opinión, recargá la página.</p>
+                <button onclick="location.reload()" style="background:linear-gradient(140deg,#ff3b3b,#cc0000);color:white;border:none;padding:12px 28px;border-radius:999px;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">Volver a intentar</button>
+            </div>`;
+    };
+
+
     const systemPrompt = { role: "system", content: "Configurado en el servidor." };
     let currentUser = null;
     let historial   = [systemPrompt];
