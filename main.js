@@ -439,36 +439,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ===================================================================
     //  DETECCIÓN DE INTENCIÓN — NLP MEJORADO
-    //  Ya no activa por palabras sueltas sino por frases completas
-    //  y contexto semántico.
     // ===================================================================
     function detectIntent(msg) {
         const lower = msg.toLowerCase().trim();
 
-        // --- DOOM Easter Egg ---
         if (lower.replace(/\s+/g, " ") === "doom 1993") return "doom";
 
-        // --- GENERAR IMAGEN: requiere verbo de creación + sustantivo visual JUNTOS ---
-        // El usuario debe pedir explícitamente que se CREE algo visual
         const imgGenerateVerbs = /\b(genera|generá|generar|crea|creá|crear|dibuja|dibujá|dibujar|diseña|diseñá|diseñar|haz|hace|hacer|producí|producir)\b/;
         const imgGenerateNouns = /\b(imagen|imágen|foto|fotografía|ilustración|dibujo|arte|logo|banner|poster|póster|icono|portada|thumbnail)\b/;
         if (imgGenerateVerbs.test(lower) && imgGenerateNouns.test(lower)) return 'generate_image';
 
-        // --- BUSCAR IMÁGENES: requiere verbo de búsqueda + sustantivo + "de" + tema ---
-        // "muéstrame imágenes de...", "busca fotos de...", "quiero ver fotos de..."
         const imgSearchPattern = /\b(busca|buscá|buscar|muéstrame|mostrame|muestra|encontrá|encontrar|quiero ver)\b.{0,25}\b(imagen|imágenes|foto|fotos|fotografías)\b/;
         if (imgSearchPattern.test(lower)) return 'search_image';
 
-        // --- YOUTUBE: requiere petición explícita de ver video en YouTube ---
-        // "muéstrame un video de...", "busca en youtube...", "quiero ver el video de..."
         const ytPattern = /\b(youtube|busca.{0,15}video|muéstrame.{0,15}video|mostrame.{0,15}video|quiero ver.{0,15}video|tutorial en video|video de)\b/;
         if (ytPattern.test(lower)) return 'youtube';
 
         return 'chat';
     }
 
-    // ===== GENERAR IMAGEN CON CANVAS — MEJORADO =====
-    // Usa hash más robusto y mayor variedad visual
+    // ===== GENERAR IMAGEN CON CANVAS =====
     function generateImageWithCanvas(prompt) {
         return new Promise((resolve) => {
             const canvas = document.createElement("canvas");
@@ -476,7 +466,6 @@ document.addEventListener("DOMContentLoaded", function () {
             const ctx = canvas.getContext("2d");
             const p = prompt.toLowerCase();
 
-            // Paleta basada en el tema
             let palette = { bg: ['#1a0a2e','#0d0022'], accent: ['#ff3b3b','#cc0000'], fg: '#ffffff', shapes: 'abstract' };
 
             if (/naturaleza|árbol|bosque|campo|planta|flor|verde|selva|jardín|hierba/.test(p))
@@ -502,14 +491,12 @@ document.addEventListener("DOMContentLoaded", function () {
             else if (/perro|gato|animal|mascota|fauna|wildlife/.test(p))
                 palette = { bg: ['#0a0800','#120e00'], accent: ['#cc8844','#ee9955','#ffbb66'], fg: '#ffe8cc', shapes: 'organic' };
 
-            // Fondo degradado
             const bgGrd = ctx.createLinearGradient(0, 0, 512, 512);
             bgGrd.addColorStop(0, palette.bg[0]);
             bgGrd.addColorStop(1, palette.bg[1]);
             ctx.fillStyle = bgGrd;
             ctx.fillRect(0, 0, 512, 512);
 
-            // RNG basada en hash del prompt (consistente por prompt, único por contenido)
             const hashCode = (str) => {
                 let h = 5381;
                 for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
@@ -521,14 +508,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 return x - Math.floor(x);
             };
 
-            // Partículas de fondo
             for (let i = 0; i < 1800; i++) {
                 const x = rng(i * 7) * 512, y = rng(i * 7 + 1) * 512;
                 ctx.fillStyle = `rgba(255,255,255,${rng(i * 7 + 2) * 0.05})`;
                 ctx.fillRect(x, y, 1, 1);
             }
 
-            // Formas según temática
             ctx.globalCompositeOperation = 'screen';
 
             if (palette.shapes === 'stars') {
@@ -539,7 +524,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
                 }
             }
-
             if (palette.shapes === 'waves') {
                 for (let i = 0; i < 8; i++) {
                     ctx.strokeStyle = palette.accent[i % palette.accent.length] + '66';
@@ -552,7 +536,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     ctx.stroke();
                 }
             }
-
             if (palette.shapes === 'geometric' || palette.shapes === 'grid') {
                 for (let i = 0; i < 12; i++) {
                     const x = rng(i * 4) * 512, y = rng(i * 4 + 1) * 512;
@@ -562,7 +545,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     ctx.strokeRect(x - s / 2, y - s / 2, s, s);
                 }
             }
-
             if (palette.shapes === 'triangles') {
                 for (let i = 0; i < 8; i++) {
                     const cx2 = rng(i * 6) * 512, cy2 = rng(i * 6 + 1) * 512;
@@ -575,7 +557,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     ctx.closePath(); ctx.fill();
                 }
             }
-
             if (palette.shapes === 'rays') {
                 const cx2 = 256, cy2 = 256;
                 for (let i = 0; i < 24; i++) {
@@ -590,7 +571,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
-            // Orbes de luz (todos los temas)
             for (let i = 0; i < 5; i++) {
                 const cx2 = rng(i * 2 + 1) * 512, cy2 = rng(i * 2 + 2) * 512, r = 40 + rng(i + 10) * 130;
                 const grd = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, r);
@@ -600,7 +580,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 ctx.beginPath(); ctx.arc(cx2, cy2, r, 0, Math.PI * 2); ctx.fill();
             }
 
-            // Líneas de luz
             for (let i = 0; i < 10; i++) {
                 const x1 = rng(i * 4 + 1) * 512, y1 = rng(i * 4 + 2) * 512;
                 const x2 = rng(i * 4 + 3) * 512, y2 = rng(i * 4 + 4) * 512;
@@ -615,7 +594,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
             ctx.globalCompositeOperation = 'source-over';
 
-            // Forma central orgánica (logo/silueta abstracta del tema)
             const grdC = ctx.createRadialGradient(256, 220, 10, 256, 220, 110);
             grdC.addColorStop(0, palette.accent[0] + 'ff');
             grdC.addColorStop(0.5, palette.accent[palette.accent.length - 1] + '88');
@@ -630,7 +608,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             ctx.closePath(); ctx.fill();
 
-            // Segunda forma de acento
             const grdC2 = ctx.createRadialGradient(256 + rng(10) * 80 - 40, 220 + rng(11) * 80 - 40, 5, 256, 220, 80);
             grdC2.addColorStop(0, (palette.accent[1] || palette.accent[0]) + 'cc');
             grdC2.addColorStop(1, palette.bg[1] + '00');
@@ -644,13 +621,11 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             ctx.closePath(); ctx.fill();
 
-            // Viñeta
             const vignette = ctx.createRadialGradient(256, 256, 80, 256, 256, 360);
             vignette.addColorStop(0, 'rgba(0,0,0,0)');
             vignette.addColorStop(1, 'rgba(0,0,0,0.72)');
             ctx.fillStyle = vignette; ctx.fillRect(0, 0, 512, 512);
 
-            // Texto del prompt
             ctx.fillStyle = 'rgba(255,255,255,0.22)';
             ctx.font = '11px monospace';
             ctx.textAlign = 'center';
@@ -700,7 +675,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
 
-        // Easter Egg: DOOM
         if (intent === "doom") {
             input.value = "";
             input.style.height = "auto";
@@ -747,11 +721,9 @@ document.addEventListener("DOMContentLoaded", function () {
         input.value = ""; input.style.height = "auto";
         scrollAbajo();
 
-        // GENERAR IMAGEN
         if (intent === 'generate_image' && !attachedFile) {
             const thinking = addThinking();
             try {
-                // Extraer el tema de la imagen del mensaje
                 const imgPrompt = rawMsg
                     .replace(/genera(r|me|nos|me una|me un)?|crea(r|me|nos|me una|me un)?|dibuja(r|me|me una|me un)?|hace(r|me|me una|me un)?|diseña(r|me|me una|me un)?/gi, '')
                     .replace(/\b(una?|el|la|los|las|de|del|un|unos?|unas?)\b/gi, ' ')
@@ -771,10 +743,8 @@ document.addEventListener("DOMContentLoaded", function () {
             } catch(e) { thinking.remove(); }
         }
 
-        // BÚSQUEDA DE IMÁGENES
         if (intent === 'search_image' && !attachedFile) {
             const thinking = addThinking();
-            // Extraer el tema de búsqueda
             const searchTerm = rawMsg
                 .replace(/busca(r|me)?|muéstrame|mostrame|muestra|encontrá|encontrar|quiero ver/gi, '')
                 .replace(/imagen(es)?|foto(s)?|fotografías?/gi, '')
@@ -791,7 +761,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }, 600); return;
         }
 
-        // YOUTUBE
         if (intent === 'youtube' && !attachedFile) {
             const thinking = addThinking();
             const searchTerm = rawMsg
@@ -844,7 +813,7 @@ document.addEventListener("DOMContentLoaded", function () {
             errorDiv.style.borderColor = "#ff4040"; errorDiv.style.color = "#ff8080";
             const esLimite = e.message.toLowerCase().includes("rate") || e.message.toLowerCase().includes("limit") || e.message.includes("429");
             errorDiv.innerHTML = esLimite
-                ? `⚠️ <b>Límite alcanzado.</b><br>Groq tiene un límite diario gratuito. Esperá unos minutos.`
+                ? `⚠️ <b>Límite alcanzado.</b><br>Todas las API Keys están en uso. Esperá unos minutos.`
                 : `⚠️ <b>Error:</b> ${e.message}`;
             chat.appendChild(errorDiv); scrollAbajo();
         }
@@ -868,7 +837,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     // ================================================================
-    //  PANEL DE ADMINISTRACIÓN COMPLETO
+    //  PANEL DE ADMINISTRACIÓN
     // ================================================================
 
     window.openAdminPanel = () => {
@@ -975,7 +944,6 @@ document.addEventListener("DOMContentLoaded", function () {
     window.adminViewUserChat = (uid) => {
         const inp = document.getElementById("admin-uid-input");
         if (inp) { inp.value = uid; adminLoadChat(); }
-        // Cambiar al tab de chats
         if (typeof switchTab === 'function') switchTab('chat');
         document.getElementById("admin-chat-output")?.scrollIntoView({behavior:'smooth'});
     };
@@ -1175,10 +1143,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!snap.exists()) return;
             const data = snap.data();
             if (!data.message || data.read) return;
-            // Marcar como leído
             await setDoc(doc(window.db, "private_messages", currentUser.uid), {...data, read: true});
             showToast(`📩 Mensaje del admin: ${data.message.substring(0, 50)}${data.message.length > 50 ? '…' : ''}`, "#ff8888", "");
-            // También mostrar en el chat
             const bot = document.createElement("div"); bot.className = "ai";
             bot.innerHTML = `📩 <b>Mensaje del administrador:</b><br>${escapeHtml(data.message)}`;
             bot.style.borderColor = "rgba(255, 200, 50, 0.4)";
@@ -1205,7 +1171,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e) { out.innerHTML = `<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`; }
     };
 
-    // ── Buscar usuario por email ──
     window.adminSearchByEmail = async () => {
         const emailInput = document.getElementById("admin-email-search");
         const output = document.getElementById("admin-email-result");
@@ -1270,7 +1235,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e) { output.innerHTML = `<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`; }
     };
 
-    // ── Exportar todos los datos ──
     window.adminExportData = async () => {
         const out = document.getElementById("admin-tools-output");
         out.innerHTML = '<em>Exportando…</em>';
@@ -1306,7 +1270,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e) { out.innerHTML = `<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`; }
     };
 
-    // ── Estadísticas de uso de modelos ──
     window.adminLoadModelStats = async () => {
         const out = document.getElementById("admin-model-stats");
         if (!out) return;
@@ -1330,14 +1293,208 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e) { out.innerHTML = `<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`; }
     };
 
+    // ================================================================
+    //  NUEVA FUNCIÓN: ESTADO DE API KEYS — Panel Admin
+    // ================================================================
+
+    window.adminLoadApiKeys = async () => {
+        const out = document.getElementById("admin-apikeys-output");
+        if (!out) return;
+
+        // Animación de carga
+        out.innerHTML = `
+            <div class="keys-loading">
+                <div class="keys-loading-spinner"></div>
+                <span>Consultando estado de las API Keys…</span>
+            </div>`;
+
+        try {
+            const res = await fetch("/api/keys-status");
+            if (!res.ok) throw new Error("No se pudo obtener el estado.");
+            const data = await res.json();
+            renderApiKeysPanel(data, out);
+        } catch(e) {
+            out.innerHTML = `
+                <div class="keys-error-box">
+                    <span class="keys-error-icon">⚠️</span>
+                    <div>
+                        <b>No se pudo conectar con el servidor.</b><br>
+                        <span style="font-size:12px;color:#888;">${escapeHtml(e.message)}</span>
+                        <br><span style="font-size:11px;color:#666;margin-top:4px;display:block;">
+                            Asegurate de que el archivo <code>/api/keys-status.js</code> esté desplegado en Vercel.
+                        </span>
+                    </div>
+                </div>`;
+        }
+    };
+
+    function renderApiKeysPanel(data, container) {
+        const { keys, summary } = data;
+
+        // Barra de progreso animada
+        const totalColor = summary.totalPct >= 90 ? '#ff4444' :
+                           summary.totalPct >= 60 ? '#ffaa00' : '#4caf50';
+
+        let html = `
+        <!-- RESUMEN GLOBAL -->
+        <div class="apikeys-summary-card">
+            <div class="apikeys-summary-header">
+                <div class="apikeys-summary-title">
+                    <span class="apikeys-globe-icon">🌐</span>
+                    <div>
+                        <div class="apikeys-summary-label">Uso Total de Tokens</div>
+                        <div class="apikeys-summary-sub">${summary.keysConfigured} de 5 keys configuradas</div>
+                    </div>
+                </div>
+                <div class="apikeys-summary-nums">
+                    <span class="apikeys-used-num" style="color:${totalColor};">${summary.totalUsed.toLocaleString()}</span>
+                    <span class="apikeys-slash">/</span>
+                    <span class="apikeys-limit-num">${summary.totalLimit.toLocaleString()}</span>
+                    <span class="apikeys-unit">tokens</span>
+                </div>
+            </div>
+            <div class="apikeys-total-bar-wrap">
+                <div class="apikeys-total-bar-track">
+                    <div class="apikeys-total-bar-fill"
+                         style="width:${summary.totalPct}%;background:linear-gradient(90deg,${totalColor}99,${totalColor});"
+                         data-pct="${summary.totalPct}">
+                    </div>
+                </div>
+                <span class="apikeys-total-pct" style="color:${totalColor};">${summary.totalPct}%</span>
+            </div>
+            <div class="apikeys-summary-footer">
+                <div class="apikeys-remaining-chip" style="border-color:${totalColor}44;color:${totalColor};">
+                    ♻️ ${summary.totalRemaining.toLocaleString()} tokens restantes
+                </div>
+                <div class="apikeys-active-chip">
+                    🔑 Activa: <b>${summary.activeKeyLabel}</b>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRID DE KEYS INDIVIDUALES -->
+        <div class="apikeys-grid">`;
+
+        keys.forEach((k, i) => {
+            const pctColor = k.pct >= 90 ? '#ff4444' :
+                             k.pct >= 60 ? '#ffaa00' : '#4caf50';
+
+            const statusIcon  = !k.active  ? '⚫' :
+                                k.blocked  ? '🔴' :
+                                k.isCurrent ? '🟢' : '🟡';
+            const statusLabel = !k.active  ? 'Sin configurar' :
+                                k.blocked  ? 'Bloqueada (429)' :
+                                k.isCurrent ? 'Activa' : 'En espera';
+            const statusClass = !k.active  ? 'key-status-off' :
+                                k.blocked  ? 'key-status-blocked' :
+                                k.isCurrent ? 'key-status-active' : 'key-status-waiting';
+
+            const animDelay = i * 80;
+
+            html += `
+            <div class="apikey-card ${k.isCurrent ? 'apikey-card-active' : ''} ${!k.active ? 'apikey-card-inactive' : ''}"
+                 style="animation-delay:${animDelay}ms;">
+
+                <div class="apikey-card-header">
+                    <div class="apikey-num-badge ${k.isCurrent ? 'apikey-num-current' : ''}">
+                        ${k.index + 1}
+                    </div>
+                    <div class="apikey-title-wrap">
+                        <span class="apikey-title">${k.label}</span>
+                        <span class="apikey-env-name">GROQ_API_KEY${k.index === 0 ? '' : '_' + (k.index + 1)}</span>
+                    </div>
+                    <div class="apikey-status-badge ${statusClass}">
+                        ${statusIcon} ${statusLabel}
+                    </div>
+                </div>
+
+                ${k.active ? `
+                <div class="apikey-progress-wrap">
+                    <div class="apikey-progress-track">
+                        <div class="apikey-progress-fill"
+                             style="width:${k.pct}%;background:linear-gradient(90deg,${pctColor}88,${pctColor});"
+                             data-pct="${k.pct}">
+                        </div>
+                        ${k.isCurrent ? '<div class="apikey-progress-pulse"></div>' : ''}
+                    </div>
+                    <span class="apikey-pct-label" style="color:${pctColor};">${k.pct}%</span>
+                </div>
+
+                <div class="apikey-stats-row">
+                    <div class="apikey-stat">
+                        <span class="apikey-stat-icon">📤</span>
+                        <div>
+                            <div class="apikey-stat-val">${k.used.toLocaleString()}</div>
+                            <div class="apikey-stat-lbl">Usados</div>
+                        </div>
+                    </div>
+                    <div class="apikey-stat">
+                        <span class="apikey-stat-icon">♻️</span>
+                        <div>
+                            <div class="apikey-stat-val" style="color:${pctColor};">${k.remaining.toLocaleString()}</div>
+                            <div class="apikey-stat-lbl">Restantes</div>
+                        </div>
+                    </div>
+                    <div class="apikey-stat">
+                        <span class="apikey-stat-icon">🔢</span>
+                        <div>
+                            <div class="apikey-stat-val">${k.calls}</div>
+                            <div class="apikey-stat-lbl">Llamadas</div>
+                        </div>
+                    </div>
+                    <div class="apikey-stat">
+                        <span class="apikey-stat-icon">📊</span>
+                        <div>
+                            <div class="apikey-stat-val">${k.limit.toLocaleString()}</div>
+                            <div class="apikey-stat-lbl">Límite</div>
+                        </div>
+                    </div>
+                </div>
+                ` : `
+                <div class="apikey-inactive-msg">
+                    <span>🔧</span>
+                    <span>Configurá <code>GROQ_API_KEY_${k.index + 1}</code> en Vercel</span>
+                </div>
+                `}
+            </div>`;
+        });
+
+        html += `</div>
+
+        <!-- NOTA INFORMATIVA -->
+        <div class="apikeys-info-note">
+            <span class="apikeys-info-icon">ℹ️</span>
+            <p>El servidor rota automáticamente a la siguiente key cuando una recibe error <b>429</b> (rate limit).
+            Los contadores se reinician al redesplegar en Vercel, pero la rotación funciona en tiempo real.</p>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Animar las barras de progreso con un pequeño delay
+        setTimeout(() => {
+            container.querySelectorAll('[data-pct]').forEach(bar => {
+                bar.style.transition = 'width 0.8s cubic-bezier(0.4,0,0.2,1)';
+            });
+        }, 50);
+    }
+
+    // Auto-refresh cada 30s cuando el tab de keys está visible
+    let keysRefreshTimer = null;
+    window.onKeysTabVisible = () => {
+        window.adminLoadApiKeys();
+        keysRefreshTimer = setInterval(window.adminLoadApiKeys, 30_000);
+    };
+    window.onKeysTabHidden = () => {
+        if (keysRefreshTimer) { clearInterval(keysRefreshTimer); keysRefreshTimer = null; }
+    };
+
 });
 
-// ===== DOOM — apertura/cierre =====
+// ===== DOOM =====
 window.openDoom = function() {
     const overlay = document.getElementById("doom-overlay");
     if (overlay) {
         overlay.style.display = "block";
-        // Forzar re-paint antes de iniciar el engine
         requestAnimationFrame(function() {
             requestAnimationFrame(function() {
                 requestAnimationFrame(function() {
