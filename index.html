@@ -94,7 +94,7 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- PANEL ADMIN — REDISEÑO COMPLETO v2                          -->
+<!-- PANEL ADMIN — con nuevo tab 🔑 API Keys                     -->
 <!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
     <div class="admin-card">
@@ -111,14 +111,15 @@
             <button onclick="closeAdminPanel()" class="admin-close-btn" title="Cerrar">✕</button>
         </div>
 
-        <!-- Tabs de navegación -->
+        <!-- Tabs de navegación — NUEVO TAB AGREGADO: 🔑 API Keys -->
         <div class="admin-tabs">
             <button class="admin-tab active" onclick="switchTab('users')"   id="tab-users">👥 Usuarios</button>
             <button class="admin-tab"         onclick="switchTab('chat')"    id="tab-chat">💬 Chats</button>
             <button class="admin-tab"         onclick="switchTab('stats')"   id="tab-stats">📊 Estadísticas</button>
+            <button class="admin-tab"         onclick="switchTab('apikeys')" id="tab-apikeys">🔑 API Keys</button>
             <button class="admin-tab"         onclick="switchTab('tools')"   id="tab-tools">🛠️ Herramientas</button>
             <button class="admin-tab"         onclick="switchTab('messages')"id="tab-messages">✉️ Mensajes</button>
-            <button class="admin-tab"         onclick="switchTab('account')" id="tab-account">🔑 Mi Cuenta</button>
+            <button class="admin-tab"         onclick="switchTab('account')" id="tab-account">👤 Mi Cuenta</button>
         </div>
 
         <!-- ========== TAB: USUARIOS ========== -->
@@ -193,6 +194,45 @@
             <div id="admin-model-stats" style="margin-top:4px;"></div>
         </div>
 
+        <!-- ========== TAB: API KEYS ========== (NUEVO) -->
+        <div class="admin-panel" id="panel-apikeys">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadApiKeys()" class="admin-btn-primary">🔄 Actualizar estado</button>
+                <span class="admin-badge" style="background:rgba(255,170,0,0.12);border-color:rgba(255,170,0,0.3);color:#ffcc55;">
+                    🔑 Rotación automática activa
+                </span>
+            </div>
+
+            <!-- Panel de estado de las keys -->
+            <div id="admin-apikeys-output">
+                <div class="admin-empty" style="padding:40px 20px;">
+                    <div style="font-size:36px;margin-bottom:12px;">🔑</div>
+                    <div style="color:#888;font-size:14px;">Hacé clic en "Actualizar estado" para ver el uso de cada API Key.</div>
+                </div>
+            </div>
+
+            <!-- Instrucciones de configuración -->
+            <div class="apikeys-setup-guide">
+                <h4>📋 ¿Cómo configurar las 5 API Keys?</h4>
+                <ol class="apikeys-steps">
+                    <li>Entrá a <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> y creá 5 API Keys.</li>
+                    <li>En Vercel, andá a tu proyecto → <b>Settings → Environment Variables</b>.</li>
+                    <li>Agregá las siguientes variables con cada key respectiva:</li>
+                </ol>
+                <div class="apikeys-env-list">
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY</code><span>→ Tu primera API Key (ya existente)</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_2</code><span>→ Segunda key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_3</code><span>→ Tercera key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_4</code><span>→ Cuarta key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_5</code><span>→ Quinta key</span></div>
+                </div>
+                <p class="apikeys-note">
+                    ⚡ El servidor rota automáticamente cuando una key recibe un error 429 (rate limit).
+                    Con 5 keys de 10.000 tokens cada una = <b>50.000 tokens</b> antes del bloqueo total.
+                </p>
+            </div>
+        </div>
+
         <!-- ========== TAB: HERRAMIENTAS ========== -->
         <div class="admin-panel" id="panel-tools">
             <div class="admin-cols-2">
@@ -255,16 +295,19 @@
                     <h4>ℹ️ Info de la plataforma</h4>
                     <div class="admin-feedback">
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
-                            <span>Versión</span><b style="color:#ff8888;">2.0.0</b>
+                            <span>Versión</span><b style="color:#ff8888;">2.1.0</b>
                         </div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
-                            <span>Backend</span><b style="color:#ff8888;">Groq API</b>
+                            <span>Backend</span><b style="color:#ff8888;">Groq API (x5 keys)</b>
                         </div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
                             <span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b>
                         </div>
-                        <div class="admin-stat" style="padding:8px 0;">
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;">
                             <span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b>
+                        </div>
+                        <div class="admin-stat" style="padding:8px 0;">
+                            <span>Tokens totales</span><b style="color:#ffcc55;">50.000 (5 × 10K)</b>
                         </div>
                     </div>
                 </div>
@@ -324,13 +367,20 @@
 <script src="main.js"></script>
 <script src="doom.js"></script>
 
-<!-- Funciones admin: tabs, filtro, exportar, etc. -->
+<!-- Funciones admin: tabs -->
 <script>
 function switchTab(name) {
     document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
     document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
     document.getElementById('tab-'+name).classList.add('active');
     document.getElementById('panel-'+name).classList.add('active');
+
+    // Cargar automáticamente el estado de las keys al abrir ese tab
+    if (name === 'apikeys') {
+        if (typeof window.onKeysTabVisible === 'function') window.onKeysTabVisible();
+    } else {
+        if (typeof window.onKeysTabHidden === 'function') window.onKeysTabHidden();
+    }
 }
 </script>
 
