@@ -1,8 +1,8 @@
+cat > /mnt/user-data/outputs/keys-status.js << 'KSEOF'
 // ============================================================
-//  api/keys-status.js  —  Cut-real AI
-//  Devuelve el estado actual de las 5 API Keys para el panel
-//  de administración. Lee del mismo global._keyStore que usa
-//  chat.js (comparten memoria en la misma instancia Vercel).
+//  api/keys-status.js  —  Cut-real AI  v2.3.0
+//  Lee del mismo global._keyStore que chat.js
+//  (comparten memoria en la misma instancia Vercel)
 // ============================================================
 
 const TOTAL_KEYS          = 5;
@@ -14,39 +14,31 @@ function getApiKey(index) {
 }
 
 export default function handler(req, res) {
-    // CORS para que el frontend pueda consumirlo
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store, no-cache");
+    res.setHeader("Content-Type", "application/json");
 
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "GET")     return res.status(405).json({ error: "Método no permitido" });
 
-    // Inicializar keyStore si todavía no existe (primera llamada)
+    // Inicializar si es la primera llamada (misma instancia que chat.js)
     if (!global._keyStore) {
         global._keyStore = Array.from({ length: TOTAL_KEYS }, (_, i) => ({
-            index:     i,
-            used:      0,
-            blocked:   false,
-            lastReset: Date.now(),
-            calls:     0,
+            index: i, used: 0, blocked: false, lastReset: Date.now(), calls: 0,
         }));
     }
 
     const keyStore = global._keyStore;
 
-    // Encontrar cuál es la key activa actualmente
+    // Encontrar key activa
     let currentKeyIndex = -1;
     for (let i = 0; i < TOTAL_KEYS; i++) {
-        const key = getApiKey(i);
-        if (!key) continue;
-        const s = keyStore[i];
-        if (!s.blocked && s.used < TOKEN_LIMIT_PER_KEY) {
-            currentKeyIndex = i;
-            break;
+        if (!getApiKey(i)) continue;
+        if (!keyStore[i].blocked && keyStore[i].used < TOKEN_LIMIT_PER_KEY) {
+            currentKeyIndex = i; break;
         }
     }
-    // Si todas bloqueadas, usar la de menor uso
     if (currentKeyIndex === -1) {
         let best = -1, bestUsed = Infinity;
         for (let i = 0; i < TOTAL_KEYS; i++) {
@@ -56,41 +48,22 @@ export default function handler(req, res) {
         currentKeyIndex = best;
     }
 
-    // Construir respuesta
-    let totalUsed  = 0;
-    let totalLimit = 0;
-    let keysConfigured = 0;
+    let totalUsed = 0, totalLimit = 0, keysConfigured = 0;
 
     const keys = Array.from({ length: TOTAL_KEYS }, (_, i) => {
-        const apiKey  = getApiKey(i);
-        const active  = !!apiKey;
-        const store   = keyStore[i];
-        const used    = active ? store.used    : 0;
-        const calls   = active ? store.calls   : 0;
-        const blocked = active ? store.blocked : false;
-        const limit   = TOKEN_LIMIT_PER_KEY;
+        const apiKey    = getApiKey(i);
+        const active    = !!apiKey;
+        const store     = keyStore[i];
+        const used      = active ? store.used    : 0;
+        const calls     = active ? store.calls   : 0;
+        const blocked   = active ? store.blocked : false;
+        const limit     = TOKEN_LIMIT_PER_KEY;
         const remaining = Math.max(0, limit - used);
-        const pct     = active ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+        const pct       = active ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
-        if (active) {
-            keysConfigured++;
-            totalUsed  += used;
-            totalLimit += limit;
-        }
+        if (active) { keysConfigured++; totalUsed += used; totalLimit += limit; }
 
-        return {
-            index:     i,
-            label:     `Key ${i + 1}`,
-            active,
-            blocked,
-            isCurrent: active && i === currentKeyIndex,
-            used,
-            remaining,
-            calls,
-            limit,
-            pct,
-            lastReset: store.lastReset,
-        };
+        return { index: i, label: `Key ${i + 1}`, active, blocked, isCurrent: active && i === currentKeyIndex, used, remaining, calls, limit, pct };
     });
 
     const totalPct       = totalLimit > 0 ? Math.min(100, Math.round((totalUsed / totalLimit) * 100)) : 0;
@@ -100,14 +73,12 @@ export default function handler(req, res) {
     return res.status(200).json({
         keys,
         summary: {
-            keysConfigured,
-            totalUsed,
-            totalLimit,
-            totalRemaining,
-            totalPct,
+            keysConfigured, totalUsed, totalLimit, totalRemaining, totalPct,
             activeKeyIndex: currentKeyIndex,
             activeKeyLabel: activeKey ? activeKey.label : "Ninguna",
             timestamp: Date.now(),
         },
     });
 }
+KSEOF
+echo "keys-status.js written: $(wc -l < /mnt/user-data/outputs/keys-status.js) lines"
