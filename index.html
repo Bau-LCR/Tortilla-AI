@@ -36,6 +36,9 @@
 
 <!-- HEADER -->
 <header class="main-header">
+    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Chats">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <a href="#" class="header-logo">
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
@@ -89,7 +92,7 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- PANEL ADMIN — 10 nuevas funciones                           -->
+<!-- PANEL ADMIN                                                  -->
 <!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
     <div class="admin-card">
@@ -115,7 +118,6 @@
             <button class="admin-tab"         onclick="switchTab('tools')"    id="tab-tools">🛠️ Herramientas</button>
             <button class="admin-tab"         onclick="switchTab('messages')" id="tab-messages">✉️ Mensajes</button>
             <button class="admin-tab"         onclick="switchTab('account')"  id="tab-account">👤 Mi Cuenta</button>
-            <!-- 10 NUEVOS TABS -->
             <button class="admin-tab admin-tab-new" onclick="switchTab('activity')"  id="tab-activity">📈 Actividad</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('errors')"    id="tab-errors">🔴 Errores</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('prompt')"    id="tab-prompt">✏️ Prompt</button>
@@ -306,7 +308,7 @@
             </div>
         </div>
 
-        <!-- ========== TAB 1 NUEVO: ACTIVIDAD (gráfico de barras) ========== -->
+        <!-- ========== TAB: ACTIVIDAD ========== -->
         <div class="admin-panel" id="panel-activity">
             <div class="admin-toolbar">
                 <button onclick="adminLoadActivity()" class="admin-btn-primary">🔄 Actualizar</button>
@@ -327,7 +329,7 @@
             <div id="admin-activity-output" class="admin-feedback" style="margin-top:12px;"></div>
         </div>
 
-        <!-- ========== TAB 2 NUEVO: MONITOR DE ERRORES ========== -->
+        <!-- ========== TAB: ERRORES ========== -->
         <div class="admin-panel" id="panel-errors">
             <div class="admin-toolbar">
                 <button onclick="adminLoadErrors()" class="admin-btn-primary">🔄 Actualizar logs</button>
@@ -355,7 +357,7 @@
             </div>
         </div>
 
-        <!-- ========== TAB 3 NUEVO: EDITOR DE PROMPT ========== -->
+        <!-- ========== TAB: PROMPT ========== -->
         <div class="admin-panel" id="panel-prompt">
             <div class="admin-toolbar">
                 <button onclick="adminLoadPrompt()" class="admin-btn-primary">🔄 Cargar prompt actual</button>
@@ -382,7 +384,7 @@
             </div>
         </div>
 
-        <!-- ========== TAB 4 NUEVO: RATE LIMIT CONFIGURATOR ========== -->
+        <!-- ========== TAB: RATE LIMIT ========== -->
         <div class="admin-panel" id="panel-ratelimit">
             <div class="admin-toolbar">
                 <button onclick="adminSaveRateLimits()" class="admin-btn-accent">💾 Guardar configuración</button>
@@ -429,7 +431,7 @@
             </div>
         </div>
 
-        <!-- ========== TAB 5 NUEVO: BACKUP & RESTORE ========== -->
+        <!-- ========== TAB: BACKUP ========== -->
         <div class="admin-panel" id="panel-backup">
             <div class="admin-toolbar">
                 <span class="new-feature-badge">✨ Nuevo</span>
@@ -485,14 +487,19 @@
                 <h4>♻️ Restaurar desde archivo</h4>
                 <p class="admin-hint">Subí un archivo JSON de backup para restaurar datos. ⚠️ Acción irreversible.</p>
                 <div class="admin-row">
-                    <input type="file" id="restore-file-input" accept=".json" class="admin-input" style="flex:1;">
+                    <!-- FIX: botón de seleccionar archivos con estilo correcto -->
+                    <label class="restore-file-label">
+                        <input type="file" id="restore-file-input" accept=".json" onchange="updateRestoreFileName(this)">
+                        <span class="restore-file-btn">📁 Seleccionar archivo</span>
+                        <span class="restore-file-name" id="restore-file-name">Ningún archivo seleccionado</span>
+                    </label>
                     <button onclick="adminRestore()" class="admin-btn-danger">♻️ Restaurar</button>
                 </div>
                 <div id="admin-restore-output" class="admin-feedback"></div>
             </div>
         </div>
 
-        <!-- ========== TAB 6 NUEVO: ANALYTICS (donut) ========== -->
+        <!-- ========== TAB: ANALYTICS ========== -->
         <div class="admin-panel" id="panel-analytics">
             <div class="admin-toolbar">
                 <button onclick="adminLoadAnalytics()" class="admin-btn-primary">🔄 Actualizar analytics</button>
@@ -514,7 +521,7 @@
             </div>
         </div>
 
-        <!-- ========== TAB 7 NUEVO: SESIONES ACTIVAS ========== -->
+        <!-- ========== TAB: SESIONES ========== -->
         <div class="admin-panel" id="panel-sessions">
             <div class="admin-toolbar">
                 <button onclick="adminLoadSessions()" class="admin-btn-primary">🔄 Actualizar sesiones</button>
@@ -531,7 +538,7 @@
             <div id="admin-sessions-output" class="admin-feedback"></div>
         </div>
 
-        <!-- ========== TAB 8 NUEVO: WEBHOOKS ========== -->
+        <!-- ========== TAB: WEBHOOKS ========== -->
         <div class="admin-panel" id="panel-webhooks">
             <div class="admin-toolbar">
                 <button onclick="adminAddWebhook()" class="admin-btn-primary">➕ Nuevo webhook</button>
@@ -567,10 +574,11 @@
             </div>
         </div>
 
-        <!-- ========== TAB 9 NUEVO: FEATURE FLAGS ========== -->
+        <!-- ========== TAB: FEATURE FLAGS ========== -->
         <div class="admin-panel" id="panel-flags">
             <div class="admin-toolbar">
-                <button onclick="adminSaveFlags()" class="admin-btn-accent">💾 Guardar flags</button>
+                <button onclick="adminSaveFlags()" class="admin-btn-accent" id="save-flags-btn">💾 Guardar flags</button>
+                <button onclick="adminLoadFlags()" class="admin-btn-primary">🔄 Cargar flags</button>
                 <span class="new-feature-badge">✨ Nuevo</span>
             </div>
             <div class="admin-box">
@@ -579,42 +587,42 @@
                 <div id="feature-flags-list">
                     <div class="flag-row">
                         <div class="flag-info"><h5>🎨 Generación de imágenes</h5><p>Permite a los usuarios generar imágenes con canvas</p></div>
-                        <button class="flag-toggle active" id="flag-imggen" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-imggen" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>🔍 Búsqueda de imágenes</h5><p>Búsqueda en Unsplash integrada en el chat</p></div>
-                        <button class="flag-toggle active" id="flag-imgsearch" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-imgsearch" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>▶️ Búsqueda en YouTube</h5><p>Links de YouTube en resultados de búsqueda</p></div>
-                        <button class="flag-toggle active" id="flag-youtube" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-youtube" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>📎 Adjuntos de archivos</h5><p>PDF, Word e imágenes adjuntas al chat</p></div>
-                        <button class="flag-toggle active" id="flag-attachments" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-attachments" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>🧠 Modelo Pro disponible</h5><p>Los usuarios pueden usar Llama 3.3 70B</p></div>
-                        <button class="flag-toggle active" id="flag-promodel" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-promodel" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>🎮 Easter egg DOOM</h5><p>El comando secreto "doom 1993" abre el juego</p></div>
-                        <button class="flag-toggle active" id="flag-doom" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-doom" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row">
                         <div class="flag-info"><h5>🔔 Notificaciones push</h5><p>Broadcast y mensajes privados del admin</p></div>
-                        <button class="flag-toggle active" id="flag-notifications" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-notifications" onclick="toggleFlag(this)"></button>
                     </div>
                     <div class="flag-row" style="border-bottom:none;">
                         <div class="flag-info"><h5>📷 Cámara / foto directa</h5><p>Botón de cámara en el área de input</p></div>
-                        <button class="flag-toggle active" id="flag-camera" onclick="this.classList.toggle('active')"></button>
+                        <button class="flag-toggle active" id="flag-camera" onclick="toggleFlag(this)"></button>
                     </div>
                 </div>
                 <div id="admin-flags-output" class="admin-feedback" style="margin-top:12px;"></div>
             </div>
         </div>
 
-        <!-- ========== TAB 10 NUEVO: NOTIFICACIONES ========== -->
+        <!-- ========== TAB: NOTIFICACIONES ========== -->
         <div class="admin-panel" id="panel-notifs">
             <div class="admin-toolbar">
                 <button onclick="adminLoadNotifs()" class="admin-btn-primary">🔄 Actualizar</button>
@@ -648,35 +656,57 @@
     </div><!-- /admin-card -->
 </div><!-- /admin-overlay -->
 
-<!-- CHAT -->
-<div id="chat">
-    <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
+<!-- ============================================================ -->
+<!-- SIDEBAR DE CHATS (nuevo)                                    -->
+<!-- ============================================================ -->
+<div id="chat-sidebar" class="chat-sidebar">
+    <div class="sidebar-header">
+        <h3>💬 Mis Chats</h3>
+        <button class="sidebar-new-chat-btn" onclick="crearNuevoChat()" title="Nuevo chat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+    </div>
+    <div class="sidebar-chat-list" id="sidebar-chat-list">
+        <div class="sidebar-loading">Cargando chats<span class="loading-dots"></span></div>
+    </div>
 </div>
+<!-- Overlay para cerrar sidebar en mobile -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
 
-<!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
-<div id="file-preview" class="file-preview-bar" style="display:none;">
-    <span id="file-preview-name">📎 Archivo adjunto</span>
-    <button id="remove-file-btn" onclick="removeAttachment()" title="Quitar archivo">✕</button>
-</div>
+<!-- LAYOUT PRINCIPAL -->
+<div class="main-layout" id="main-layout">
 
-<!-- ÁREA DE ENTRADA -->
-<div class="input-area">
-    <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
-    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
-    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
-    <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
-    <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
-    <button id="send-btn" onclick="sendMessage()">
-        <span>Enviar</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-    </button>
-</div>
+    <!-- CHAT -->
+    <div id="chat">
+        <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
+    </div>
+
+    <!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
+    <div id="file-preview" class="file-preview-bar" style="display:none;">
+        <span id="file-preview-name">📎 Archivo adjunto</span>
+        <button id="remove-file-btn" onclick="removeAttachment()" title="Quitar archivo">✕</button>
+    </div>
+
+    <!-- ÁREA DE ENTRADA -->
+    <div class="input-area">
+        <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
+        <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+        <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
+        <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
+        <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
+        <button id="send-btn" onclick="sendMessage()">
+            <span>Enviar</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+    </div>
+
+</div><!-- /main-layout -->
 
 <!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy, addDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
     authDomain: "cutreal-ai.firebaseapp.com",
@@ -691,7 +721,7 @@
   const provider = new GoogleAuthProvider();
   window.auth = auth; window.db = db; window.provider = provider;
   window.signInWithPopup = signInWithPopup; window.signOut = signOut;
-  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy };
+  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy, addDoc, updateDoc, serverTimestamp };
 </script>
 
 <script src="particles.js"></script>
@@ -700,6 +730,11 @@
 
 <!-- switchTab + lógica de nuevas funciones -->
 <script>
+/* ── helpers ── */
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(ts){ if(!ts) return '—'; const d=new Date(ts); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+function nowTime(){ return new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
 function switchTab(name) {
     document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
     document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
@@ -710,7 +745,6 @@ function switchTab(name) {
     } else {
         if (typeof window.onKeysTabHidden === 'function') window.onKeysTabHidden();
     }
-    // Auto-load nuevos tabs
     if (name === 'activity')  adminLoadActivity();
     if (name === 'errors')    adminLoadErrors();
     if (name === 'prompt')    adminLoadPrompt();
@@ -718,12 +752,84 @@ function switchTab(name) {
     if (name === 'sessions')  adminLoadSessions();
     if (name === 'notifs')    adminLoadNotifs();
     if (name === 'ratelimit') adminLoadRateLimits();
+    if (name === 'flags')     adminLoadFlags();
 }
 
-/* ── helpers ── */
-function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function fmtDate(ts){ if(!ts) return '—'; const d=new Date(ts); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
-function now(){ return new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+/* ── FIX: Backup file input visual ── */
+window.updateRestoreFileName = function(input) {
+    const nameEl = document.getElementById('restore-file-name');
+    if (nameEl) {
+        nameEl.textContent = input.files[0] ? input.files[0].name : 'Ningún archivo seleccionado';
+    }
+};
+
+/* ── FIX: Feature Flags — toggle visual + carga desde Firestore ── */
+window.toggleFlag = function(btn) {
+    btn.classList.toggle('active');
+    // Marcar unsaved visualmente
+    const saveBtn = document.getElementById('save-flags-btn');
+    if (saveBtn) {
+        saveBtn.style.boxShadow = '0 0 0 3px rgba(255,59,59,0.35)';
+        saveBtn.textContent = '💾 Guardar flags *';
+    }
+};
+
+window.adminLoadFlags = async function() {
+    const out = document.getElementById('admin-flags-output');
+    if (out) out.innerHTML = '<div class="admin-loading"><span class="admin-spin">⟳</span> Cargando flags…</div>';
+    try {
+        const {doc, getDoc} = window.firestore;
+        const snap = await getDoc(doc(window.db, 'config', 'feature_flags'));
+        if (snap.exists()) {
+            const d = snap.data();
+            const flagMap = {
+                imggen: 'flag-imggen', imgsearch: 'flag-imgsearch',
+                youtube: 'flag-youtube', attachments: 'flag-attachments',
+                promodel: 'flag-promodel', doom: 'flag-doom',
+                notifications: 'flag-notifications', camera: 'flag-camera'
+            };
+            Object.entries(flagMap).forEach(([key, id]) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (d[key] === true)  el.classList.add('active');
+                    if (d[key] === false) el.classList.remove('active');
+                }
+            });
+        }
+        if (out) out.innerHTML = '<span class="admin-success">✅ Flags cargados.</span>';
+    } catch(e) {
+        if (out) out.innerHTML = `<span class="admin-error">❌ ${escH(e.message)}</span>`;
+    }
+};
+
+window.adminSaveFlags = async function(){
+    const out = document.getElementById('admin-flags-output');
+    const saveBtn = document.getElementById('save-flags-btn');
+    out.innerHTML = '<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
+    const flags = {
+        imggen:        document.getElementById('flag-imggen')?.classList.contains('active') ?? true,
+        imgsearch:     document.getElementById('flag-imgsearch')?.classList.contains('active') ?? true,
+        youtube:       document.getElementById('flag-youtube')?.classList.contains('active') ?? true,
+        attachments:   document.getElementById('flag-attachments')?.classList.contains('active') ?? true,
+        promodel:      document.getElementById('flag-promodel')?.classList.contains('active') ?? true,
+        doom:          document.getElementById('flag-doom')?.classList.contains('active') ?? true,
+        notifications: document.getElementById('flag-notifications')?.classList.contains('active') ?? true,
+        camera:        document.getElementById('flag-camera')?.classList.contains('active') ?? true,
+        savedAt:       Date.now(),
+    };
+    try {
+        const {doc, setDoc} = window.firestore;
+        await setDoc(doc(window.db, 'config', 'feature_flags'), flags);
+        out.innerHTML = '<span class="admin-success">✅ Feature flags guardados correctamente.</span>';
+        if (saveBtn) {
+            saveBtn.style.boxShadow = '';
+            saveBtn.textContent = '💾 Guardar flags';
+        }
+        window.showToast && showToast('Feature flags actualizados', '#4caf50', '🚩');
+    } catch(e) {
+        out.innerHTML = `<span class="admin-error">❌ ${escH(e.message)}</span>`;
+    }
+};
 
 /* ===================================================================
    1. GRÁFICO DE ACTIVIDAD
@@ -747,7 +853,6 @@ window.adminLoadActivity = async function() {
         }
         snap.forEach(d=>{
             const msgs = (d.data().mensajes||[]).filter(m=>m.role==='user');
-            // distribute randomly per last-updated (approximation)
             const upd = d.data().updatedAt||0;
             const daysAgo = Math.floor((now2-upd)/86400000);
             if(daysAgo<7) dayBuckets[6-daysAgo]+=msgs.length;
@@ -769,7 +874,7 @@ window.adminLoadActivity = async function() {
                     <div class="activity-bar-tooltip">${i}:00 — ${v}</div>
                 </div>
             </div>`).join('');
-        out.innerHTML = `<span class="admin-success">✅ Actividad actualizada a las ${now()}</span>`;
+        if(out) out.innerHTML = `<span class="admin-success">✅ Actividad actualizada a las ${nowTime()}</span>`;
     } catch(e) { barsEl.innerHTML='<div style="color:#555;font-size:12px;padding:20px;">Sin datos.</div>'; }
 };
 
@@ -778,7 +883,7 @@ window.adminLoadActivity = async function() {
    =================================================================== */
 const errorLogs = JSON.parse(sessionStorage.getItem('cutreal_error_logs')||'[]');
 function saveErrors(){ sessionStorage.setItem('cutreal_error_logs',JSON.stringify(errorLogs)); }
-function addError(level,msg){ errorLogs.unshift({level,msg,ts:now()}); if(errorLogs.length>100) errorLogs.pop(); saveErrors(); }
+function addError(level,msg){ errorLogs.unshift({level,msg,ts:nowTime()}); if(errorLogs.length>100) errorLogs.pop(); saveErrors(); }
 window.addEventListener('error', e=>{ addError('error',e.message||'Unknown error'); });
 
 window.adminLoadErrors = function() {
@@ -834,7 +939,7 @@ window.adminLoadPrompt = async function(){
                     </div>`).join('')
                 : '<div class="admin-empty">Sin historial.</div>';
         }
-    } catch(e) {}
+    } catch(e) { console.warn('Load prompt error:', e); }
 };
 window.adminSavePrompt = async function(){
     const ta = document.getElementById('system-prompt-textarea');
@@ -874,7 +979,7 @@ window.adminLoadRateLimits = async function(){
         if(d.perHour){ document.getElementById('rl-per-hour').value=d.perHour; document.getElementById('rl-per-hour-val').textContent=d.perHour; }
         if(d.perDay){ document.getElementById('rl-per-day').value=d.perDay; document.getElementById('rl-per-day-val').textContent=d.perDay; }
         if(d.maxTokens){ document.getElementById('rl-max-tokens').value=d.maxTokens; document.getElementById('rl-max-tokens-val').textContent=d.maxTokens; }
-    } catch(e){}
+    } catch(e){ console.warn('Load rate limits:', e); }
 };
 window.adminSaveRateLimits = async function(){
     const out = document.getElementById('admin-ratelimit-output');
@@ -957,7 +1062,6 @@ window.adminLoadAnalytics = async function(){
             if(dt.updatedAt&&(now2-dt.updatedAt)<w7) active7++; else inactive++;
         });
         const total=proC+basicC||1;
-        // SVG donut
         const segments=[
             {val:proC,color:'#ff3b3b',label:'Modelo Pro'},
             {val:basicC,color:'#ff8844',label:'Modelo Básico'},
@@ -972,12 +1076,12 @@ window.adminLoadAnalytics = async function(){
             const pct=s.val/totalVal;
             const dash=pct*circ;
             const gap=circ-dash;
-            const el=`<circle class="donut-ring" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" style="transform:rotate(-90deg);transform-origin:${cx}px ${cy}px;"/>`;
+            const el=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" style="transform:rotate(-90deg);transform-origin:${cx}px ${cy}px;"/>`;
             offset+=dash;
             return el;
         });
         donutWrap.innerHTML=`
-            <svg class="analytics-donut-svg" width="160" height="160" viewBox="0 0 160 160">
+            <svg width="160" height="160" viewBox="0 0 160 160">
                 <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="${stroke}"/>
                 ${paths.join('')}
                 <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="#ccc" font-size="18" font-weight="800" font-family="Inter">${total}</text>
@@ -1002,7 +1106,7 @@ window.adminLoadAnalytics = async function(){
             </div>
             <div class="admin-stat" style="padding:8px 0;">
                 <span>Última actualización</span>
-                <b style="color:#ff8888;">${now()}</b>
+                <b style="color:#ff8888;">${nowTime()}</b>
             </div>`;
     } catch(e){ donutWrap.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
 };
@@ -1050,7 +1154,7 @@ window.adminAddWebhook = function(){
     const list = document.getElementById('webhooks-list');
     if(!list) return;
     const item = document.createElement('div');
-    item.className='webhook-item'; item.style.animation='msgIn 0.2s var(--ease) both';
+    item.className='webhook-item';
     item.innerHTML=`
         <div class="webhook-header">
             <div class="webhook-name"><div class="webhook-status-dot inactive"></div> Nuevo webhook</div>
@@ -1078,7 +1182,7 @@ window.adminTestWebhook = async function(btn){
     try {
         await fetch(url,{method:'POST',body:JSON.stringify({event:'test',source:'cutreal-ai',ts:Date.now()}),headers:{'Content-Type':'application/json'},mode:'no-cors'});
         btn.textContent='✅ OK';
-        if(pingEl) pingEl.innerHTML=`Último ping: <span class="webhook-ping-ok">✓ enviado</span> — ${now()}`;
+        if(pingEl) pingEl.innerHTML=`Último ping: <span class="webhook-ping-ok">✓ enviado</span> — ${nowTime()}`;
     } catch(e) {
         btn.textContent='❌ Fail';
         if(pingEl) pingEl.innerHTML=`Último ping: <span class="webhook-ping-fail">✗ error</span>`;
@@ -1092,36 +1196,10 @@ window.adminSaveWebhooks = function(){
 };
 
 /* ===================================================================
-   9. FEATURE FLAGS
-   =================================================================== */
-window.adminSaveFlags = async function(){
-    const out=document.getElementById('admin-flags-output');
-    out.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
-    const flags={
-        imggen:    document.getElementById('flag-imggen')?.classList.contains('active'),
-        imgsearch: document.getElementById('flag-imgsearch')?.classList.contains('active'),
-        youtube:   document.getElementById('flag-youtube')?.classList.contains('active'),
-        attachments:document.getElementById('flag-attachments')?.classList.contains('active'),
-        promodel:  document.getElementById('flag-promodel')?.classList.contains('active'),
-        doom:      document.getElementById('flag-doom')?.classList.contains('active'),
-        notifications:document.getElementById('flag-notifications')?.classList.contains('active'),
-        camera:    document.getElementById('flag-camera')?.classList.contains('active'),
-        savedAt:   Date.now(),
-    };
-    try {
-        const {doc,setDoc} = window.firestore;
-        await setDoc(doc(window.db,'config','feature_flags'),flags);
-        out.innerHTML='<span class="admin-success">✅ Feature flags guardados.</span>';
-        window.showToast&&showToast('Feature flags actualizados','#4caf50','🚩');
-    } catch(e){ out.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
-};
-
-/* ===================================================================
-   10. NOTIFICACIONES
+   9. NOTIFICACIONES
    =================================================================== */
 const adminNotifs = JSON.parse(localStorage.getItem('cutreal_admin_notifs')||'[]');
 function saveNotifs(){ localStorage.setItem('cutreal_admin_notifs',JSON.stringify(adminNotifs)); }
-// Auto-populate some sample notifications on first load
 if(!adminNotifs.length){
     adminNotifs.push(
         {icon:'🔑',title:'Rotación de API Key',text:'La Key 1 alcanzó el 80% de uso',ts:Date.now()-300000,read:false},
@@ -1150,11 +1228,30 @@ window.adminMarkAllRead = function(){
     saveNotifs(); adminLoadNotifs();
     window.showToast&&showToast('Todas marcadas como leídas','#4caf50','✅');
 };
-// Expose para que main.js agregue notificaciones
 window.pushAdminNotif = function(icon,title,text){
     adminNotifs.unshift({icon,title,text,ts:Date.now(),read:false});
     if(adminNotifs.length>50) adminNotifs.pop();
     saveNotifs();
+};
+
+/* ===================================================================
+   SIDEBAR TOGGLE (mobile)
+   =================================================================== */
+window.toggleSidebar = function() {
+    const sidebar = document.getElementById('chat-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const isOpen = sidebar.classList.contains('sidebar-open');
+    if (isOpen) {
+        sidebar.classList.remove('sidebar-open');
+        overlay.classList.remove('overlay-visible');
+    } else {
+        sidebar.classList.add('sidebar-open');
+        overlay.classList.add('overlay-visible');
+    }
+};
+window.closeSidebar = function() {
+    document.getElementById('chat-sidebar').classList.remove('sidebar-open');
+    document.getElementById('sidebar-overlay').classList.remove('overlay-visible');
 };
 </script>
 
