@@ -8,11 +8,8 @@ const TERMS_KEY  = "cutreal_terms_accepted";
 const MODEL_KEY  = "cutreal_model_preference";
 
 // ===== ESTADO GLOBAL =====
-let attachedFile     = null;
-let selectedModel    = localStorage.getItem(MODEL_KEY) || 'pro';
-// Chat multi-conversación
-let currentChatId    = null;   // ID del chat activo en Firestore
-let allChats         = [];     // lista de chats del usuario
+let attachedFile = null;
+let selectedModel = localStorage.getItem(MODEL_KEY) || 'pro';
 
 document.addEventListener("DOMContentLoaded", function () {
     const chat            = document.getElementById("chat");
@@ -36,10 +33,11 @@ document.addEventListener("DOMContentLoaded", function () {
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
 
+    const systemPrompt = { role: "system", content: "Configurado en el servidor." };
     let currentUser = null;
-    let historial   = [];  // sin system prompt inicial; se maneja en el servidor
+    let historial   = [systemPrompt];
 
-    // ===== FEATURE FLAGS =====
+    // ===== FEATURE FLAGS (cargados desde Firestore) =====
     let featureFlags = {
         imggen: true, imgsearch: true, youtube: true,
         attachments: true, promodel: true, doom: true,
@@ -51,27 +49,39 @@ document.addEventListener("DOMContentLoaded", function () {
             const { doc, getDoc } = window.firestore;
             const snap = await getDoc(doc(window.db, "config", "feature_flags"));
             if (snap.exists()) {
-                featureFlags = { ...featureFlags, ...snap.data() };
+                const data = snap.data();
+                featureFlags = { ...featureFlags, ...data };
                 applyFeatureFlags();
             }
         } catch(e) { console.warn("Feature flags load error:", e); }
     }
 
     function applyFeatureFlags() {
+        // Ocultar botón de cámara si está desactivado
         const camBtn = document.getElementById("camera-btn");
         if (camBtn) camBtn.style.display = featureFlags.camera ? "" : "none";
+
+        // Ocultar selector de modelo Pro si está desactivado
         const proBtn = document.querySelector('.model-btn[onclick="setModel(\'pro\')"]');
         if (proBtn) {
             proBtn.style.display = featureFlags.promodel ? "" : "none";
-            if (!featureFlags.promodel && selectedModel === 'pro') setModel('basic');
+            if (!featureFlags.promodel && selectedModel === 'pro') {
+                setModel('basic');
+            }
         }
+
+        // Ocultar botón de adjuntos si está desactivado
         if (attachBtn) attachBtn.style.display = featureFlags.attachments ? "" : "none";
     }
 
     // ===== RATE LIMIT STATE =====
+    let currentRateLimitInfo = null;
+
     function showRateLimitWarning(rateLimitInfo) {
+        currentRateLimitInfo = rateLimitInfo;
         const existing = document.getElementById("rate-limit-banner");
         if (existing) existing.remove();
+
         const limits = rateLimitInfo.limits || {};
         const banner = document.createElement("div");
         banner.id = "rate-limit-banner";
@@ -90,18 +100,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div style="flex:1;">
                     <b style="color:#ffdd88;">Límite de mensajes</b>
                     <div style="margin-top:4px;display:flex;gap:12px;flex-wrap:wrap;">
-                        <span>📊 ${limits.perMin||'?'}/min</span>
-                        <span>⏰ ${limits.perHour||'?'}/hora</span>
-                        <span>📅 ${limits.perDay||'?'}/día</span>
-                        <span>🧠 Max ${limits.maxTokens||1024} tokens</span>
+                        <span>📊 ${limits.perMin || '?'}/min</span>
+                        <span>⏰ ${limits.perHour || '?'}/hora</span>
+                        <span>📅 ${limits.perDay || '?'}/día</span>
+                        <span>🧠 Max ${limits.maxTokens || 1024} tokens</span>
                     </div>
                 </div>
-                <button onclick="document.getElementById('rate-limit-banner').remove()"
+                <button onclick="document.getElementById('rate-limit-banner').remove()" 
                     style="background:transparent;border:none;color:#ffaa44;cursor:pointer;font-size:14px;">✕</button>
             </div>
         `;
         document.body.appendChild(banner);
-        setTimeout(() => { const b=document.getElementById("rate-limit-banner"); if(b) b.remove(); }, 8000);
+        setTimeout(() => { if (document.getElementById("rate-limit-banner")) document.getElementById("rate-limit-banner").remove(); }, 8000);
     }
 
     // ===== SELECTOR DE MODELO =====
@@ -112,19 +122,18 @@ document.addEventListener("DOMContentLoaded", function () {
         wrap.id = "model-selector-wrap";
         wrap.innerHTML = `
             <div class="model-selector">
-                <button class="model-btn ${selectedModel==='basic'?'active':''}" onclick="setModel('basic')" title="Llama 3.1 8B — Rápido y liviano">
+                <button class="model-btn ${selectedModel === 'basic' ? 'active' : ''}" onclick="setModel('basic')" title="Llama 3.1 8B — Rápido y liviano">
                     <span class="model-icon">⚡</span>
                     <span class="model-label">Básico</span>
                 </button>
-                <button class="model-btn ${selectedModel==='pro'?'active':''}" onclick="setModel('pro')" title="Llama 3.3 70B — Más inteligente y capaz">
+                <button class="model-btn ${selectedModel === 'pro' ? 'active' : ''}" onclick="setModel('pro')" title="Llama 3.3 70B — Más inteligente y capaz">
                     <span class="model-icon">🧠</span>
                     <span class="model-label">Pro</span>
                 </button>
             </div>
         `;
-        const mainLayout = document.getElementById("main-layout");
-        const chatEl = document.getElementById("chat");
-        if (mainLayout && chatEl) mainLayout.insertBefore(wrap, chatEl);
+        const inputArea = document.querySelector(".input-area");
+        if (inputArea) inputArea.parentNode.insertBefore(wrap, inputArea);
         applyFeatureFlags();
     }
 
@@ -140,12 +149,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // ===== FORMATEO MARKDOWN =====
     const escapeHtml = (str) =>
-        str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+        str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const formatearTexto = (texto) => {
         if (!texto) return "";
         texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-            `<pre><code class="lang-${lang||'code'}">${escapeHtml(code.trim())}</code></pre>`
+            `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code></pre>`
         );
         texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
         texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
@@ -189,12 +198,13 @@ document.addEventListener("DOMContentLoaded", function () {
     };
     window.showToast = showToast;
 
-    // ===== TÉRMINOS =====
+    // ===== TÉRMINOS Y CONDICIONES =====
     window.acceptTerms = () => {
         localStorage.setItem(TERMS_KEY, "accepted");
         termsOverlay.style.display = "none";
         loginOverlay.style.display = "flex";
     };
+
     window.declineTerms = () => {
         termsOverlay.style.display = "none";
         document.body.innerHTML = `
@@ -305,258 +315,39 @@ document.addEventListener("DOMContentLoaded", function () {
         resetAttachBtn();
     };
 
-    // ===================================================================
-    // MULTI-CHAT: FIRESTORE HELPERS
-    // ===================================================================
-
-    /**
-     * FIX CRÍTICO: Sanear historial antes de enviar a la API.
-     * Garantiza que todos los mensajes tengan content como string.
-     * Esto soluciona "messages[1].content must be a string".
-     */
-    function sanitizarHistorial(hist) {
-        return hist
-            .filter(msg => msg && msg.role && msg.content !== undefined && msg.content !== null)
-            .map(msg => {
-                let content = msg.content;
-                // Si content es un array (mensaje con imagen), extraer solo el texto
-                if (Array.isArray(content)) {
-                    const textBlock = content.find(c => c && c.type === "text");
-                    const imgBlock  = content.find(c => c && c.type === "image_url");
-                    if (imgBlock) {
-                        // Mantener como array SOLO si la API lo soporta (imagen real)
-                        // Verificar que todos los items tienen la estructura correcta
-                        const valid = content.every(c => c && c.type && (c.type === 'text' ? typeof c.text === 'string' : c.type === 'image_url'));
-                        if (valid) return { role: msg.role, content };
-                    }
-                    // Fallback: convertir a string
-                    content = textBlock ? textBlock.text : "[imagen adjunta]";
-                }
-                // Si content no es string, convertirlo
-                if (typeof content !== 'string') {
-                    content = String(content || '');
-                }
-                // Filtrar mensajes vacíos
-                if (!content.trim()) return null;
-                return { role: msg.role, content };
-            })
-            .filter(Boolean);  // Eliminar nulls
-    }
-
-    /**
-     * Genera un título corto para el chat basado en el primer mensaje del usuario.
-     */
-    function generarTituloChat(primerMensaje) {
-        if (!primerMensaje) return "Nuevo chat";
-        const texto = typeof primerMensaje === 'string'
-            ? primerMensaje
-            : (Array.isArray(primerMensaje)
-                ? (primerMensaje.find(c => c.type === 'text')?.text || "Chat con imagen")
-                : String(primerMensaje));
-        return texto.substring(0, 40) + (texto.length > 40 ? "…" : "");
-    }
-
-    /**
-     * Guardar chat activo en Firestore.
-     * Crea o actualiza según currentChatId.
-     */
+    // ===== FIRESTORE =====
     async function guardarEnNube() {
         if (!currentUser) return;
-        const { doc, setDoc, collection, addDoc } = window.firestore;
-
-        // Serializar historial para Firestore (sin imagen base64 pesada)
+        const { doc, setDoc } = window.firestore;
         const historialParaGuardar = historial.map((msg) => {
             if (Array.isArray(msg.content)) {
                 const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");
                 return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };
             }
-            return { role: msg.role, content: typeof msg.content === 'string' ? msg.content : String(msg.content || '') };
-        }).filter(m => m.content && m.content.trim());
-
-        const titulo = generarTituloChat(historialParaGuardar.find(m => m.role === 'user')?.content);
-
+            return msg;
+        });
         try {
-            if (currentChatId) {
-                // Actualizar chat existente
-                await setDoc(doc(window.db, "chats", currentChatId), {
-                    mensajes:  historialParaGuardar,
-                    updatedAt: Date.now(),
-                    userEmail: currentUser.email       || "",
-                    userName:  currentUser.displayName || "",
-                    model:     selectedModel,
-                    titulo,
-                    uid:       currentUser.uid,
-                });
-            } else {
-                // Crear nuevo chat
-                const ref = await addDoc(collection(window.db, "chats"), {
-                    mensajes:  historialParaGuardar,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                    userEmail: currentUser.email       || "",
-                    userName:  currentUser.displayName || "",
-                    model:     selectedModel,
-                    titulo,
-                    uid:       currentUser.uid,
-                });
-                currentChatId = ref.id;
-            }
-            // Refrescar sidebar sin bloquear
-            cargarSidebarChats();
+            await setDoc(doc(window.db, "chats", currentUser.uid), {
+                mensajes:  historialParaGuardar,
+                updatedAt: Date.now(),
+                userEmail: currentUser.email       || "",
+                userName:  currentUser.displayName || "",
+                model:     selectedModel,
+            });
         } catch (e) { console.error("Error guardando en nube:", e); }
     }
 
-    /**
-     * Cargar un chat específico por su ID.
-     */
-    async function cargarChatPorId(chatId) {
-        currentChatId = chatId;
-        chat.innerHTML = "<div class='ai'>Sincronizando<span class='loading-dots'></span></div>";
+    async function cargarDeNube(uid) {
+        chat.innerHTML = "<div class='ai'>Sincronizando mensajes<span class='loading-dots'></span></div>";
         const { doc, getDoc } = window.firestore;
         try {
-            const docSnap = await getDoc(doc(window.db, "chats", chatId));
-            if (docSnap.exists()) {
-                historial = (docSnap.data().mensajes || []).filter(m => m.role !== 'system');
-                const modeloGuardado = docSnap.data().model;
-                if (modeloGuardado && modeloGuardado !== selectedModel) {
-                    setModel(modeloGuardado);
-                }
-            } else {
-                historial = [];
-            }
+            const docSnap = await getDoc(doc(window.db, "chats", uid));
+            historial = docSnap.exists() ? docSnap.data().mensajes : [systemPrompt];
             renderizarChat();
-            resaltarChatActivoEnSidebar(chatId);
-            // Cerrar sidebar en mobile después de seleccionar
-            if (window.innerWidth <= 768) window.closeSidebar();
         } catch (e) {
             chat.innerHTML = "<div class='ai' style='color:#ff5555;'>⚠️ Error al sincronizar historial.</div>";
         }
     }
-
-    /**
-     * Cargar lista de chats del usuario en el sidebar.
-     */
-    async function cargarSidebarChats() {
-        if (!currentUser) return;
-        const listEl = document.getElementById('sidebar-chat-list');
-        if (!listEl) return;
-
-        try {
-            const { collection, getDocs, query, where, orderBy } = window.firestore;
-            const q = query(
-                collection(window.db, "chats"),
-                where("uid", "==", currentUser.uid),
-                orderBy("updatedAt", "desc")
-            );
-            const snap = await getDocs(q);
-            allChats = [];
-            snap.forEach(d => allChats.push({ id: d.id, ...d.data() }));
-
-            if (!allChats.length) {
-                listEl.innerHTML = `<div class="sidebar-empty">No tenés chats aún.<br>¡Escribí algo para empezar!</div>`;
-                return;
-            }
-
-            listEl.innerHTML = allChats.map(c => {
-                const titulo = c.titulo || generarTituloChat(c.mensajes?.find(m => m.role === 'user')?.content) || "Chat";
-                const fecha = c.updatedAt ? formatSidebarDate(c.updatedAt) : '';
-                const isActive = c.id === currentChatId ? 'sidebar-chat-item-active' : '';
-                const ultimoMsg = c.mensajes?.filter(m => m.role === 'assistant').pop()?.content || '';
-                const preview = ultimoMsg ? ultimoMsg.substring(0, 50).replace(/<[^>]*>/g, '') + (ultimoMsg.length > 50 ? '…' : '') : '';
-                return `
-                <div class="sidebar-chat-item ${isActive}" id="sidebar-item-${c.id}" onclick="cargarChatDesidebar('${c.id}')">
-                    <div class="sidebar-chat-item-header">
-                        <span class="sidebar-chat-title">${escapeHtmlSidebar(titulo)}</span>
-                        <span class="sidebar-chat-date">${fecha}</span>
-                    </div>
-                    ${preview ? `<span class="sidebar-chat-preview">${escapeHtmlSidebar(preview)}</span>` : ''}
-                    <button class="sidebar-chat-delete" onclick="eliminarChatSidebar(event, '${c.id}')" title="Eliminar chat">🗑️</button>
-                </div>`;
-            }).join('');
-        } catch(e) {
-            // Si falla por permisos (índice no creado), cargar sin ordenar
-            try {
-                const { collection, getDocs, query, where } = window.firestore;
-                const q = query(collection(window.db, "chats"), where("uid", "==", currentUser.uid));
-                const snap = await getDocs(q);
-                allChats = [];
-                snap.forEach(d => allChats.push({ id: d.id, ...d.data() }));
-                allChats.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-
-                if (!allChats.length) {
-                    listEl.innerHTML = `<div class="sidebar-empty">No tenés chats aún.<br>¡Escribí algo para empezar!</div>`;
-                    return;
-                }
-                listEl.innerHTML = allChats.map(c => {
-                    const titulo = c.titulo || "Chat";
-                    const fecha = c.updatedAt ? formatSidebarDate(c.updatedAt) : '';
-                    const isActive = c.id === currentChatId ? 'sidebar-chat-item-active' : '';
-                    return `
-                    <div class="sidebar-chat-item ${isActive}" id="sidebar-item-${c.id}" onclick="cargarChatDesidebar('${c.id}')">
-                        <div class="sidebar-chat-item-header">
-                            <span class="sidebar-chat-title">${escapeHtmlSidebar(titulo)}</span>
-                            <span class="sidebar-chat-date">${fecha}</span>
-                        </div>
-                        <button class="sidebar-chat-delete" onclick="eliminarChatSidebar(event, '${c.id}')" title="Eliminar chat">🗑️</button>
-                    </div>`;
-                }).join('');
-            } catch(e2) {
-                listEl.innerHTML = `<div class="sidebar-empty" style="color:#ff6060;">Error al cargar chats.</div>`;
-            }
-        }
-    }
-
-    function escapeHtmlSidebar(str) {
-        return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function formatSidebarDate(ts) {
-        const d = new Date(ts);
-        const now = new Date();
-        const diffMs = now - d;
-        const diffDays = Math.floor(diffMs / 86400000);
-        if (diffDays === 0) return d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'});
-        if (diffDays === 1) return 'Ayer';
-        if (diffDays < 7)  return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()];
-        return d.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit'});
-    }
-
-    function resaltarChatActivoEnSidebar(chatId) {
-        document.querySelectorAll('.sidebar-chat-item').forEach(el => el.classList.remove('sidebar-chat-item-active'));
-        const activeEl = document.getElementById(`sidebar-item-${chatId}`);
-        if (activeEl) activeEl.classList.add('sidebar-chat-item-active');
-    }
-
-    // Exponer funciones necesarias para el HTML
-    window.cargarChatDesidebar = async (chatId) => {
-        if (chatId === currentChatId) { if (window.innerWidth <= 768) window.closeSidebar(); return; }
-        await cargarChatPorId(chatId);
-    };
-
-    window.eliminarChatSidebar = async (event, chatId) => {
-        event.stopPropagation();
-        if (!confirm('¿Eliminar este chat?')) return;
-        try {
-            const { doc, deleteDoc } = window.firestore;
-            await deleteDoc(doc(window.db, "chats", chatId));
-            if (chatId === currentChatId) {
-                currentChatId = null;
-                historial = [];
-                renderizarChat();
-            }
-            cargarSidebarChats();
-            showToast('Chat eliminado', '#4caf50', '🗑️');
-        } catch(e) { showToast('Error al eliminar', '#ff4444', '❌'); }
-    };
-
-    window.crearNuevoChat = () => {
-        currentChatId = null;
-        historial = [];
-        renderizarChat();
-        resaltarChatActivoEnSidebar(null);
-        if (window.innerWidth <= 768) window.closeSidebar();
-        document.getElementById('input')?.focus();
-    };
 
     // ===== FIREBASE AUTH =====
     window.login = async () => {
@@ -577,12 +368,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // ===== RENDERIZAR HISTORIAL =====
     const renderizarChat = () => {
         chat.innerHTML = "";
-        const mensajesVisibles = historial.filter(m => m.role !== 'system');
-        if (!mensajesVisibles.length) {
+        if (historial.length <= 1) {
             const nombre = currentUser ? currentUser.displayName.split(" ")[0] : "";
-            chat.innerHTML = `<div class="ai">Hola <b>${nombre || 'ahí'}</b>, soy <b>Cut-real AI</b>. ¿En qué puedo ayudarte hoy?</div>`;
+            chat.innerHTML = `<div class="ai">Hola <b>${nombre}</b>, soy <b>Cut-real AI</b>. Tus mensajes están sincronizados en la nube. ¿En qué puedo ayudarte hoy?</div>`;
         } else {
-            mensajesVisibles.forEach((msg) => {
+            historial.forEach((msg) => {
+                if (msg.role === "system") return;
                 const div = document.createElement("div");
                 div.className = msg.role === "user" ? "user" : "ai";
                 if (msg.role === "user") {
@@ -592,7 +383,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         div.innerHTML = `<b>Tú:</b> ${formatearTexto(textoBlock?.text || "")}`;
                         if (imgBlock) div.innerHTML += `<br><img src="${imgBlock.image_url.url}" class="attached-image" alt="Imagen adjunta">`;
                     } else {
-                        let visible = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
+                        let visible = msg.content;
                         if (visible.includes("[Documento")) {
                             const partes = visible.split("]\n\nUsuario: ");
                             visible = (partes.length > 1 ? partes[1] : "Analizar documento") + ' <span style="color:#ff8888;font-size:12px;">📎 Archivo adjunto</span>';
@@ -605,8 +396,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     }
                 } else {
-                    const contenido = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
-                    div.innerHTML = formatearTexto(contenido);
+                    div.innerHTML = formatearTexto(msg.content);
                 }
                 chat.appendChild(div);
             });
@@ -628,23 +418,13 @@ document.addEventListener("DOMContentLoaded", function () {
                     const isAdmin = user.uid === ADMIN_UID || await checkAdminRole(user.uid);
                     if (isAdmin && adminBtn) adminBtn.style.display = "block";
 
+                    cargarDeNube(user.uid);
                     buildModelSelector();
                     loadFeatureFlags();
-
-                    // Cargar chats del sidebar y el más reciente
-                    await cargarSidebarChats();
-                    if (allChats.length > 0) {
-                        await cargarChatPorId(allChats[0].id);
-                    } else {
-                        renderizarChat();
-                    }
-
                     setTimeout(() => window._checkBroadcast && window._checkBroadcast(), 3000);
                     setTimeout(() => window._checkPrivateMessage && window._checkPrivateMessage(), 4000);
                 } else {
                     currentUser = null;
-                    currentChatId = null;
-                    historial = [];
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "none";
                     const resetBtn = document.getElementById("resetChat");
@@ -660,7 +440,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     };
 
-    // FIX: checkAdminRole usa la colección "admins" — cualquier admin puede escribir ahí
     async function checkAdminRole(uid) {
         try {
             const { doc, getDoc } = window.firestore;
@@ -687,7 +466,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return 'chat';
     }
 
-    // ===== GENERAR IMAGEN =====
+    // ===== GENERAR IMAGEN CON CANVAS =====
     function generateImageWithCanvas(prompt) {
         return new Promise((resolve) => {
             const canvas = document.createElement("canvas");
@@ -755,7 +534,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
 
-        // Easter egg DOOM
+        // Easter egg DOOM (verificar feature flag)
         if (intent === "doom" && featureFlags.doom) {
             input.value = ""; input.style.height = "auto";
             const userDiv = document.createElement("div"); userDiv.className="user"; userDiv.innerHTML=`<b>Tú:</b> doom 1993`; chat.appendChild(userDiv); scrollAbajo();
@@ -774,12 +553,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 const tipoLabel = attachedFile.type === "pdf" ? "PDF" : "Word (.docx)";
                 const consulta  = rawMsg || `Analiza y haz un resumen completo de este documento ${tipoLabel}.`;
                 const prompt    = `[Documento ${tipoLabel} adjunto - "${attachedFile.name}":\n${attachedFile.content}\n]\n\nUsuario: ${consulta}`;
-                mensajeParaAPI  = { role:"user", content: prompt };
+                mensajeParaAPI  = { role:"user", content:prompt };
                 previewHTML     = `<b>Tú:</b> ${formatearTexto(rawMsg||`Analizar ${tipoLabel}`)} <span style="color:#ff8888;font-size:12px;">📎 ${attachedFile.name}</span>`;
             }
             window.removeAttachment();
         } else {
-            mensajeParaAPI = { role:"user", content: rawMsg };
+            mensajeParaAPI = { role:"user", content:rawMsg };
             previewHTML    = `<b>Tú:</b> ${formatearTexto(rawMsg)}`;
         }
 
@@ -819,17 +598,14 @@ document.addEventListener("DOMContentLoaded", function () {
         // CHAT NORMAL
         const thinking = addThinking();
         try {
-            // FIX CRÍTICO: Sanear historial antes de enviarlo a la API
-            const historialSano = sanitizarHistorial(historial);
-
             const res = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    mensajes:  historialSano,
+                    mensajes:  historial,
                     hasImage,
                     model:     selectedModel,
-                    userId:    currentUser.uid,
+                    userId:    currentUser.uid,  // ← para rate limiting
                 }),
             });
             const data = await res.json();
@@ -839,6 +615,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 thinking.remove();
                 const errDiv = document.createElement("div"); errDiv.className="ai";
                 errDiv.style.borderColor="#ff8800"; errDiv.style.color="#ffaa44";
+
                 if (data.rateLimitInfo) {
                     const rl = data.rateLimitInfo;
                     errDiv.innerHTML = `⚡ <b>Límite de mensajes alcanzado</b><br>
@@ -859,14 +636,12 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
-            // FIX: Garantizar que la respuesta es string
-            const respuestaStr = typeof respuestaIA === 'string' ? respuestaIA : String(respuestaIA || '');
-            historial.push({ role:"assistant", content: respuestaStr });
+            historial.push({ role:"assistant", content:respuestaIA });
             guardarEnNube();
             thinking.remove();
 
             const bot = document.createElement("div"); bot.className="ai"; chat.appendChild(bot); scrollAbajo();
-            const words = respuestaStr.split(" "); let idx=0, acc="";
+            const words = respuestaIA.split(" "); let idx=0, acc="";
             const timer = setInterval(() => {
                 for (let c=0;c<4&&idx<words.length;c++) acc+=(acc?" ":"")+words[idx++];
                 bot.innerHTML = escapeHtml(acc).replace(/\n/g,"<br>")+'<span class="typing-cursor">▌</span>';
@@ -874,15 +649,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (idx >= words.length) {
                     clearInterval(timer);
                     bot.style.transition="opacity 0.15s ease"; bot.style.opacity="0.6";
-                    requestAnimationFrame(() => { bot.innerHTML=formatearTexto(respuestaStr); bot.style.opacity="1"; scrollAbajo(); });
+                    requestAnimationFrame(() => { bot.innerHTML=formatearTexto(respuestaIA); bot.style.opacity="1"; scrollAbajo(); });
                 }
             }, 22);
         } catch(e) {
             thinking.remove();
             const errorDiv = document.createElement("div"); errorDiv.className="ai";
             errorDiv.style.borderColor="#ff4040"; errorDiv.style.color="#ff8080";
-            errorDiv.innerHTML = `⚠️ <b>Error:</b> ${escapeHtml(e.message)}`;
+            errorDiv.innerHTML = `⚠️ <b>Error:</b> ${e.message}`;
             chat.appendChild(errorDiv); scrollAbajo();
+            // Registrar en el log de errores del admin
             window.pushAdminNotif && window.pushAdminNotif("🔴", "Error en chat", e.message.substring(0, 80));
         }
     }
@@ -899,17 +675,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.resetChat = async () => {
         if (!currentUser) return;
-        if (confirm("¿Deseas borrar esta conversación?\nEsta acción no se puede deshacer.")) {
-            if (currentChatId) {
-                try {
-                    const { doc, deleteDoc } = window.firestore;
-                    await deleteDoc(doc(window.db, "chats", currentChatId));
-                } catch(e) { console.warn("Error borrando chat:", e); }
-            }
-            currentChatId = null;
-            historial = [];
-            renderizarChat();
-            cargarSidebarChats();
+        if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
+            historial=[systemPrompt]; renderizarChat(); await guardarEnNube();
         }
     };
 
@@ -937,14 +704,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     }
 
-    // ================================================================
-    // FIX ADMIN PERMISSIONS:
-    // Todos los admins usan la colección "config" para guardar datos.
-    // Las reglas de Firestore deben permitir a la colección "admins" la lectura.
-    // Para el admin que no es el owner (ADMIN_UID), se usan setDoc con merge:true
-    // en la colección "config", que tiene reglas abiertas para admins.
-    // ================================================================
-
     window.adminLoadUsers = async () => {
         const output = document.getElementById("admin-users-list");
         output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Cargando usuarios...</div>';
@@ -953,13 +712,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const snap = await getDocs(collection(window.db,"chats"));
             if (snap.empty) { output.innerHTML='<p class="admin-empty">No hay usuarios registrados.</p>'; return; }
 
-            let adminUids = new Set([ADMIN_UID]);
-            try {
-                const adminSnap = await getDocs(collection(window.db,"admins"));
-                (adminSnap.docs||[]).forEach(d => adminUids.add(d.id));
-            } catch(e) { /* Sin permisos para leer admins, continuar */ }
+            const adminSnap = await getDocs(collection(window.db,"admins")).catch(()=>({docs:[]}));
+            const adminUids = new Set((adminSnap.docs||[]).map(d=>d.id));
+            adminUids.add(ADMIN_UID);
 
-            const escapeHtmlAdmin = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             let html = `<table class="admin-table"><thead><tr><th>UID</th><th>Email</th><th>Nombre</th><th>Msgs</th><th>Modelo</th><th>Última actividad</th><th>Rol</th><th>Acciones</th></tr></thead><tbody>`;
             snap.forEach(d=>{
                 const data=d.data(), msgs=(data.mensajes||[]).filter(m=>m.role!=="system").length;
@@ -967,7 +723,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const modeloBadge=data.model==='pro'?'<span style="color:#ff8888;font-size:10px;">🧠 Pro</span>':'<span style="color:#aaa;font-size:10px;">⚡ Básico</span>';
                 html+=`<tr id="row-${d.id}" class="admin-user-row user-row">
                     <td class="uid-full-cell"><span class="uid-short" title="${d.id}">${d.id.substring(0,10)}…</span><button class="uid-copy-btn" onclick="adminCopyUID('${d.id}')">📋</button></td>
-                    <td>${escapeHtmlAdmin(data.userEmail||"—")}</td><td>${escapeHtmlAdmin(data.userName||"—")}</td>
+                    <td>${escapeHtml(data.userEmail||"—")}</td><td>${escapeHtml(data.userName||"—")}</td>
                     <td style="text-align:center;">${msgs}</td><td style="text-align:center;">${modeloBadge}</td><td>${lastAct}</td>
                     <td><span class="role-badge ${isAdm?'role-admin':'role-user'}">${isAdm?'⚙️ Admin':'👤 User'}</span></td>
                     <td class="action-cell">
@@ -978,7 +734,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             html+="</tbody></table>";
             output.innerHTML=`<div class="admin-table-toolbar"><input type="text" id="admin-user-search" placeholder="🔍 Buscar usuario..." class="admin-search-input" oninput="adminFilterUsers(this.value)"><span class="admin-count-badge">${snap.size} usuarios</span></div><div class="admin-table-scroll">${html}</div>`;
-        } catch(e) { output.innerHTML=`<span class="admin-error">❌ Error: ${e.message}</span>`; }
+        } catch(e) { output.innerHTML=`<span class="admin-error">❌ Error: ${escapeHtml(e.message)}</span>`; }
     };
 
     window.adminFilterUsers = (query) => {
@@ -1009,17 +765,13 @@ document.addEventListener("DOMContentLoaded", function () {
             const snap=await getDoc(doc(window.db,"chats",uid));
             if(!snap.exists()){output.innerHTML='<p class="admin-empty">Usuario no encontrado.</p>';return;}
             const msgs=(snap.data().mensajes||[]).filter(m=>m.role!=="system"), meta=snap.data();
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            let html=`<div class="admin-chat-meta"><span>👤 <b>${escH2(meta.userName||"Sin nombre")}</b></span><span>📧 ${escH2(meta.userEmail||"—")}</span><span>💬 ${msgs.length} mensajes</span><span>🕐 ${fmtDate(meta.updatedAt)}</span><button class="admin-action-btn admin-sm-btn" onclick="adminExportChat('${uid}')">⬇️ Exportar</button></div>`;
+            let html=`<div class="admin-chat-meta"><span>👤 <b>${escapeHtml(meta.userName||"Sin nombre")}</b></span><span>📧 ${escapeHtml(meta.userEmail||"—")}</span><span>💬 ${msgs.length} mensajes</span><span>🕐 ${fmtDate(meta.updatedAt)}</span><button class="admin-action-btn admin-sm-btn" onclick="adminExportChat('${uid}')">⬇️ Exportar</button></div>`;
             msgs.forEach(m=>{
-                const raw = m.content;
-                const content = Array.isArray(raw)
-                    ? raw.map(c=>c.text||"[imagen]").join(" ")
-                    : (String(raw||"")).substring(0,300);
-                html+=`<div class="admin-msg admin-msg-${m.role}"><span class="admin-msg-role">${m.role==="user"?"👤":"🤖"}</span><span>${escH2(content)}${content.length>=300?"…":""}</span></div>`;
+                const content=Array.isArray(m.content)?m.content.map(c=>c.text||"[imagen]").join(" "):(m.content||"").substring(0,300);
+                html+=`<div class="admin-msg admin-msg-${m.role}"><span class="admin-msg-role">${m.role==="user"?"👤":"🤖"}</span><span>${escapeHtml(content)}${content.length>=300?"…":""}</span></div>`;
             });
             output.innerHTML=html||'<p class="admin-empty">Sin mensajes.</p>';
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminExportChat = async (uid) => {
@@ -1034,23 +786,15 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e){showToast("Error al exportar","#ff4444","❌");}
     };
 
-    // FIX: adminPromoteUser — usa merge:true para no fallar con permisos estrictos
     window.adminPromoteUser = async (uid) => {
         if(!confirm(`¿Promover ${uid.substring(0,12)}... a ADMINISTRADOR?`)) return;
-        const promoteOut = document.getElementById('admin-promote-output');
-        if(promoteOut) promoteOut.innerHTML = '<div class="admin-loading"><span class="admin-spin">⟳</span> Promoviendo…</div>';
         try {
             const {doc,setDoc}=window.firestore;
-            // merge:true permite que cualquier admin existente pueda escribir
-            await setDoc(doc(window.db,"admins",uid),{isAdmin:true,promotedAt:Date.now(),promotedBy:currentUser.uid},{merge:true});
-            if(promoteOut) promoteOut.innerHTML = '<span class="admin-success">✅ Usuario promovido a Admin.</span>';
+            await setDoc(doc(window.db,"admins",uid),{isAdmin:true,promotedAt:Date.now(),promotedBy:currentUser.uid});
             showToast("Usuario promovido a Admin","#4caf50","✅");
             adminLoadUsers();
             window.pushAdminNotif&&window.pushAdminNotif("👑","Admin promovido",`UID ${uid.substring(0,12)}... ahora es admin`);
-        } catch(e){
-            if(promoteOut) promoteOut.innerHTML = `<span class="admin-error">❌ ${e.message}</span>`;
-            showToast("Error: "+e.message,"#ff4444","❌");
-        }
+        } catch(e){showToast("Error: "+e.message,"#ff4444","❌");}
     };
 
     window.adminRevokeAdmin = async (uid) => {
@@ -1076,7 +820,24 @@ document.addEventListener("DOMContentLoaded", function () {
             showToast("Chat eliminado","#4caf50","🗑️");
             const row=document.getElementById(`row-${uid}`);
             if(row){row.style.opacity="0.25";row.style.transition="opacity 0.4s";}
-        } catch(e){if(output)output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){if(output)output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
+    };
+
+    // ── KICK MEJORADO ── (borra el chat Y lo registra)
+    window.adminKickUser = async (uid, userName) => {
+        if(!confirm(`¿Kick a ${userName || uid.substring(0,12)}? Esto borrará su historial de chat.`)) return;
+        try {
+            const {doc,deleteDoc,setDoc}=window.firestore;
+            await deleteDoc(doc(window.db,"chats",uid));
+            // Guardar en una colección de "kicked users" para tracking
+            await setDoc(doc(window.db,"kicked_users",uid),{
+                uid, kickedAt:Date.now(), kickedBy:currentUser.uid, reason:"Admin kick"
+            });
+            showToast(`Usuario ${userName||uid.substring(0,8)} kickeado`,"#ffaa00","🚫");
+            window.pushAdminNotif&&window.pushAdminNotif("🚫","Usuario kickeado",`${userName||uid.substring(0,12)} fue removido`);
+            // Refrescar lista de sesiones
+            if(typeof adminLoadSessions==='function') adminLoadSessions();
+        } catch(e){showToast("Error al kickear: "+e.message,"#ff4444","❌");}
     };
 
     window.adminLoadStats = async () => {
@@ -1098,7 +859,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             topUsers.sort((a,b)=>b.msgs-a.msgs);
             const avgMsgs=total?+(totalMsgs/total).toFixed(1):0, pctActive=total?+((active/total)*100).toFixed(1):0;
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             output.innerHTML=`<div class="admin-stats-grid">
                 <div class="admin-stat-card"><div class="stat-icon">👥</div><div class="stat-val">${total}</div><div class="stat-lbl">Usuarios totales</div></div>
                 <div class="admin-stat-card"><div class="stat-icon">🟢</div><div class="stat-val">${active}</div><div class="stat-lbl">Activos (7d)</div></div>
@@ -1110,11 +870,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="admin-stat-card"><div class="stat-icon">⚡</div><div class="stat-val">${basicUsers}</div><div class="stat-lbl">Usan modelo Básico</div></div>
             </div>
             <div class="admin-top-users"><h4 style="color:#ff8888;font-size:12px;margin:18px 0 10px;">🏆 Top usuarios</h4>
-            ${topUsers.slice(0,5).map((u,i)=>`<div class="admin-top-user-row"><span class="top-rank">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span><span class="top-name">${escH2(u.name)}</span><span style="color:#666;font-size:11px;">${escH2(u.email)}</span><span class="top-msgs">${u.msgs} msgs</span><span class="top-date">${fmtDate(u.last)}</span></div>`).join('')}
+            ${topUsers.slice(0,5).map((u,i)=>`<div class="admin-top-user-row"><span class="top-rank">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span><span class="top-name">${escapeHtml(u.name)}</span><span style="color:#666;font-size:11px;">${escapeHtml(u.email)}</span><span class="top-msgs">${u.msgs} msgs</span><span class="top-date">${fmtDate(u.last)}</span></div>`).join('')}
             </div>`;
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
+    // ── Mensaje privado ──
     window.adminSendPrivateMessage = async () => {
         const uid=document.getElementById("admin-pm-uid")?.value.trim();
         const msg=document.getElementById("admin-pm-msg")?.value.trim();
@@ -1127,9 +888,10 @@ document.addEventListener("DOMContentLoaded", function () {
             output.innerHTML='<span class="admin-success">✅ Mensaje enviado.</span>';
             showToast("Mensaje privado enviado","#4caf50","✉️");
             window.pushAdminNotif&&window.pushAdminNotif("✉️","Mensaje privado enviado",`A UID ${uid.substring(0,12)}…`);
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
+    // ── Broadcast ──
     window.adminSendBroadcast = async () => {
         const msg=document.getElementById("admin-broadcast-msg").value.trim();
         const output=document.getElementById("admin-broadcast-output");
@@ -1141,7 +903,7 @@ document.addEventListener("DOMContentLoaded", function () {
             output.innerHTML='<span class="admin-success">✅ Broadcast activo.</span>';
             showToast("Broadcast enviado a todos","#4caf50","📢");
             window.pushAdminNotif&&window.pushAdminNotif("📢","Broadcast enviado",msg.substring(0,60));
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminClearBroadcast = async () => {
@@ -1165,8 +927,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if(sessionStorage.getItem(key)) return;
             sessionStorage.setItem(key,"1");
             const banner=document.createElement("div");banner.className="broadcast-banner";
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            banner.innerHTML=`<span>📢 ${escH2(data.message)}</span><button onclick="this.parentElement.remove()">✕</button>`;
+            banner.innerHTML=`<span>📢 ${escapeHtml(data.message)}</span><button onclick="this.parentElement.remove()">✕</button>`;
             document.body.insertBefore(banner,document.body.firstChild);
         } catch(e){}
     };
@@ -1180,10 +941,9 @@ document.addEventListener("DOMContentLoaded", function () {
             const data=snap.data();
             if(!data.message||data.read) return;
             await setDoc(doc(window.db,"private_messages",currentUser.uid),{...data,read:true});
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             showToast(`📩 Mensaje del admin: ${data.message.substring(0,50)}${data.message.length>50?'…':''}`, "#ff8888", "");
             const bot=document.createElement("div");bot.className="ai";
-            bot.innerHTML=`📩 <b>Mensaje del administrador:</b><br>${escH2(data.message)}`;
+            bot.innerHTML=`📩 <b>Mensaje del administrador:</b><br>${escapeHtml(data.message)}`;
             bot.style.borderColor="rgba(255,200,50,0.4)";
             chat.appendChild(bot);scrollAbajo();
         } catch(e){}
@@ -1199,23 +959,22 @@ document.addEventListener("DOMContentLoaded", function () {
             let html='<ul style="padding:0;margin:0;list-style:none;">';
             snap.forEach(d=>{html+=`<li style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.1);display:flex;align-items:center;gap:10px;justify-content:space-between;"><span style="color:#ff8888;font-family:monospace;font-size:11px;">${d.id}</span><button onclick="adminRevokeAdmin('${d.id}')" class="admin-btn-danger" style="padding:4px 12px;font-size:11px;">Revocar</button></li>`;});
             out.innerHTML=html+'</ul>';
-        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminSearchByEmail = async () => {
         const emailInput=document.getElementById("admin-email-search");
         const output=document.getElementById("admin-email-result");
-        const q=(emailInput?.value||"").trim().toLowerCase();
-        if(!q){output.innerHTML='<p class="admin-empty">Ingresá un email o nombre.</p>';return;}
+        const query=(emailInput?.value||"").trim().toLowerCase();
+        if(!query){output.innerHTML='<p class="admin-empty">Ingresá un email o nombre.</p>';return;}
         output.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Buscando...</div>';
         try {
             const {collection,getDocs}=window.firestore;
             const snap=await getDocs(collection(window.db,"chats")), results=[];
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            snap.forEach(d=>{const data=d.data(); if((data.userEmail||"").toLowerCase().includes(q)||(data.userName||"").toLowerCase().includes(q)) results.push({uid:d.id,...data});});
+            snap.forEach(d=>{const data=d.data(); if((data.userEmail||"").toLowerCase().includes(query)||(data.userName||"").toLowerCase().includes(query)) results.push({uid:d.id,...data});});
             if(!results.length){output.innerHTML='<p class="admin-empty">No se encontraron resultados.</p>';return;}
-            output.innerHTML=results.map(r=>`<div class="admin-search-result"><div><b>${escH2(r.userName||"Sin nombre")}</b> <span style="color:#888;font-size:11px;">${escH2(r.userEmail||"—")}</span></div><div style="font-size:11px;color:#666;margin-top:3px;">UID: ${r.uid.substring(0,16)}… · ${(r.mensajes||[]).filter(m=>m.role!=="system").length} mensajes · ${fmtDate(r.updatedAt)}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="admin-action-btn admin-sm-btn" onclick="adminViewUserChat('${r.uid}')">💬 Ver chat</button><button class="admin-action-btn admin-sm-btn" onclick="adminCopyUID('${r.uid}')">📋 UID</button><button class="admin-action-btn admin-sm-btn" style="color:#ff6060;" onclick="adminDeleteChat('${r.uid}')">🗑️ Borrar</button></div></div>`).join('');
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+            output.innerHTML=results.map(r=>`<div class="admin-search-result"><div><b>${escapeHtml(r.userName||"Sin nombre")}</b> <span style="color:#888;font-size:11px;">${escapeHtml(r.userEmail||"—")}</span></div><div style="font-size:11px;color:#666;margin-top:3px;">UID: ${r.uid.substring(0,16)}… · ${(r.mensajes||[]).filter(m=>m.role!=="system").length} mensajes · ${fmtDate(r.updatedAt)}</div><div style="margin-top:6px;display:flex;gap:6px;"><button class="admin-action-btn admin-sm-btn" onclick="adminViewUserChat('${r.uid}')">💬 Ver chat</button><button class="admin-action-btn admin-sm-btn" onclick="adminCopyUID('${r.uid}')">📋 UID</button><button class="admin-action-btn admin-sm-btn" style="color:#ff6060;" onclick="adminDeleteChat('${r.uid}')">🗑️ Borrar</button></div></div>`).join('');
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminToggleMaintenance = async () => {
@@ -1228,7 +987,7 @@ document.addEventListener("DOMContentLoaded", function () {
             output.innerHTML=`<span class="admin-success">✅ Mantenimiento ${!current?"activado":"desactivado"}.</span>`;
             showToast(`Mantenimiento ${!current?"ON":"OFF"}`,!current?"#ffaa00":"#4caf50","🔧");
             window.pushAdminNotif&&window.pushAdminNotif("🔧","Mantenimiento",`Modo mantenimiento ${!current?"activado":"desactivado"}`);
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminCleanupInactive = async () => {
@@ -1242,7 +1001,7 @@ document.addEventListener("DOMContentLoaded", function () {
             await Promise.all(snap.docs.filter(d=>{const data=d.data();return !data.updatedAt||(now-data.updatedAt)>limit90;}).map(d=>{count++;return deleteDoc(doc(window.db,"chats",d.id));}));
             output.innerHTML=`<span class="admin-success">✅ ${count} chats eliminados.</span>`;
             showToast(`${count} chats limpiados`,"#4caf50","🧹");
-        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminExportData = async () => {
@@ -1255,7 +1014,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const url=URL.createObjectURL(blob);
             const a=document.createElement("a");a.href=url;a.download="cutreal-export-"+Date.now()+".json";a.click();URL.revokeObjectURL(url);
             out.innerHTML=`<span class="admin-success">✅ Exportado (${data.length} usuarios).</span>`;
-        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminPurgeOldChats = async () => {
@@ -1267,7 +1026,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const limit=Date.now()-30*24*60*60*1000; let count=0;
             for(const d of snap.docs){const data=d.data();if(!data.updatedAt||data.updatedAt<limit){await deleteDoc(doc(window.db,"chats",d.id));count++;}}
             out.innerHTML=`<span class="admin-success">✅ Purgados ${count} chats.</span>`;
-        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     window.adminLoadModelStats = async () => {
@@ -1284,7 +1043,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="admin-stat-card" style="flex:1;min-width:130px;"><div class="stat-icon">⚡</div><div class="stat-val">${basicCount}</div><div class="stat-lbl">Básico (${total?Math.round(basicCount/total*100):0}%)</div></div>
                 <div class="admin-stat-card" style="flex:1;min-width:130px;"><div class="stat-icon">💬</div><div class="stat-val">${totalMsgs}</div><div class="stat-lbl">Total mensajes</div></div>
             </div>`;
-        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${e.message}</span>`;}
+        } catch(e){out.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
     // ── API KEYS PANEL ──
@@ -1296,18 +1055,17 @@ document.addEventListener("DOMContentLoaded", function () {
             if(!res.ok) throw new Error(`HTTP ${res.status}: No se pudo obtener el estado.`);
             const data=await res.json();
             renderApiKeysPanel(data,out);
+            // Notificar si alguna key está al 80%+
             if(data.keys) data.keys.forEach(k=>{
                 if(k.active&&k.pct>=80) window.pushAdminNotif&&window.pushAdminNotif("🔑",`Key ${k.index+1} al ${k.pct}%`,`${k.used.toLocaleString()}/${k.limit.toLocaleString()} tokens usados`);
             });
         } catch(e) {
-            const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            out.innerHTML=`<div class="keys-error-box"><span class="keys-error-icon">⚠️</span><div><b>No se pudo conectar con el servidor.</b><br><span style="font-size:12px;color:#888;">${escH2(e.message)}</span><br><span style="font-size:11px;color:#666;margin-top:4px;display:block;">Asegurate de que <code>/api/keys-status.js</code> esté desplegado en Vercel.</span></div></div>`;
+            out.innerHTML=`<div class="keys-error-box"><span class="keys-error-icon">⚠️</span><div><b>No se pudo conectar con el servidor.</b><br><span style="font-size:12px;color:#888;">${escapeHtml(e.message)}</span><br><span style="font-size:11px;color:#666;margin-top:4px;display:block;">Asegurate de que <code>/api/keys-status.js</code> esté desplegado en Vercel.</span></div></div>`;
         }
     };
 
     function renderApiKeysPanel(data,container) {
         const {keys,summary}=data;
-        const escH2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const totalColor=summary.totalPct>=90?'#ff4444':summary.totalPct>=60?'#ffaa00':'#4caf50';
         let html=`<div class="apikeys-summary-card">
             <div class="apikeys-summary-header">
@@ -1323,7 +1081,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const statusLabel=!k.active?'Sin configurar':k.blocked?'Bloqueada (429)':k.isCurrent?'Activa':'En espera';
             const statusClass=!k.active?'key-status-off':k.blocked?'key-status-blocked':k.isCurrent?'key-status-active':'key-status-waiting';
             html+=`<div class="apikey-card ${k.isCurrent?'apikey-card-active':''} ${!k.active?'apikey-card-inactive':''}" style="animation-delay:${i*80}ms;">
-                <div class="apikey-card-header"><div class="apikey-num-badge ${k.isCurrent?'apikey-num-current':''}">${k.index+1}</div><div class="apikey-title-wrap"><span class="apikey-title">${escH2(k.label)}</span><span class="apikey-env-name">GROQ_API_KEY${k.index===0?'':'_'+(k.index+1)}</span></div><div class="apikey-status-badge ${statusClass}">${statusIcon} ${statusLabel}</div></div>
+                <div class="apikey-card-header"><div class="apikey-num-badge ${k.isCurrent?'apikey-num-current':''}">${k.index+1}</div><div class="apikey-title-wrap"><span class="apikey-title">${k.label}</span><span class="apikey-env-name">GROQ_API_KEY${k.index===0?'':'_'+(k.index+1)}</span></div><div class="apikey-status-badge ${statusClass}">${statusIcon} ${statusLabel}</div></div>
                 ${k.active?`<div class="apikey-progress-wrap"><div class="apikey-progress-track"><div class="apikey-progress-fill" style="width:${k.pct}%;background:linear-gradient(90deg,${pctColor}88,${pctColor});" data-pct="${k.pct}"></div>${k.isCurrent?'<div class="apikey-progress-pulse"></div>':''}</div><span class="apikey-pct-label" style="color:${pctColor};">${k.pct}%</span></div>
                 <div class="apikey-stats-row"><div class="apikey-stat"><span class="apikey-stat-icon">📤</span><div><div class="apikey-stat-val">${k.used.toLocaleString()}</div><div class="apikey-stat-lbl">Usados</div></div></div><div class="apikey-stat"><span class="apikey-stat-icon">♻️</span><div><div class="apikey-stat-val" style="color:${pctColor};">${k.remaining.toLocaleString()}</div><div class="apikey-stat-lbl">Restantes</div></div></div><div class="apikey-stat"><span class="apikey-stat-icon">🔢</span><div><div class="apikey-stat-val">${k.calls}</div><div class="apikey-stat-lbl">Llamadas</div></div></div><div class="apikey-stat"><span class="apikey-stat-icon">📊</span><div><div class="apikey-stat-val">${k.limit.toLocaleString()}</div><div class="apikey-stat-lbl">Límite</div></div></div></div>`:
                 `<div class="apikey-inactive-msg"><span>🔧</span><span>Configurá <code>GROQ_API_KEY${k.index===0?'':'_'+(k.index+1)}</code> en Vercel</span></div>`}
