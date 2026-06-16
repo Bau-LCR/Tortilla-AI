@@ -3094,59 +3094,55 @@ kbd {
 .terms-accept-btn:hover { transform:translateY(-1px); box-shadow:0 6px 22px rgba(255,59,59,0.55); }
 
 /* ================================================================
-   ORB — ESFERA 3D ANIMADA (estilo Xbox)
+   ORB — LAYOUT LATERAL IZQUIERDO
    ================================================================ */
 
-/* Contenedor principal — se inserta entre el chat y el input */
+/* Wrapper que posiciona el orb a la izquierda del chat */
 #orb-wrap {
-    position: relative; z-index: 1;
-    width: 88%; max-width: 860px;
-    display: flex; justify-content: center; align-items: center;
-    padding: 12px 0 4px;
-    /* Oculto por defecto, se muestra via JS al iniciar sesión */
+    position: fixed;
+    left: calc((100vw - 860px) / 2 - 180px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     opacity: 0;
-    max-height: 0;
-    overflow: hidden;
     pointer-events: none;
-    transition: opacity 0.5s var(--ease), max-height 0.5s var(--ease);
+    transition: opacity 0.6s var(--ease);
 }
 
-/* Estado visible — activado por orb.js con .orb-visible */
 #orb-wrap.orb-visible {
     opacity: 1;
-    max-height: 320px;
     pointer-events: auto;
 }
 
-/* Contenedor del canvas + anillos */
 #orb-container {
     position: relative;
-    width: 260px;
-    height: 260px;
+    width: 140px;
+    height: 140px;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Perspectiva para los anillos CSS 3D */
-    perspective: 600px;
+    perspective: 500px;
 }
 
-/* Canvas de la esfera */
 #orb-canvas {
     position: relative;
     z-index: 2;
     border-radius: 50%;
-    /* Sombra base de la esfera */
-    filter: drop-shadow(0 0 18px rgba(50,200,160,0.25));
+    width: 140px;
+    height: 140px;
+    filter: drop-shadow(0 0 14px rgba(255,59,59,0.3));
     transition: filter 0.3s ease;
 }
 
-/* Cuando la IA habla, la sombra se intensifica */
 #orb-container.orb-speaking #orb-canvas {
-    filter: drop-shadow(0 0 32px rgba(80,220,180,0.55))
-            drop-shadow(0 0 60px rgba(50,180,255,0.25));
+    filter: drop-shadow(0 0 28px rgba(255,59,59,0.7))
+            drop-shadow(0 0 50px rgba(200,0,0,0.3));
 }
 
-/* Glow de fondo del contenedor */
 #orb-glow {
     position: absolute;
     inset: 0;
@@ -3156,7 +3152,6 @@ kbd {
     transition: box-shadow 0.15s ease;
 }
 
-/* ── ANILLOS ORBITALES ── */
 #orb-rings {
     position: absolute;
     inset: 0;
@@ -3168,74 +3163,71 @@ kbd {
 .orb-ring {
     position: absolute;
     border-radius: 50%;
-    border: 1.5px solid rgba(80,220,180,0.4);
-    top: 50%; left: 50%;
+    top: 50%;
+    left: 50%;
     transform-origin: center center;
-    /* Las dimensiones se definen por cada anillo */
     transition: opacity 0.2s ease;
-    box-shadow: 0 0 8px rgba(80,220,180,0.2), inset 0 0 8px rgba(50,180,255,0.1);
 }
 
 .orb-ring-1 {
-    width: 200px; height: 200px;
-    margin-left: -100px; margin-top: -100px;
-    border-color: rgba(80,220,180,0.35);
+    width: 110px; height: 110px;
+    margin-left: -55px; margin-top: -55px;
+    border: 1.5px solid rgba(255,59,59,0.45);
+    box-shadow: 0 0 8px rgba(255,59,59,0.2);
     animation: orbRingRotate1 6s linear infinite;
 }
 
 .orb-ring-2 {
-    width: 240px; height: 240px;
-    margin-left: -120px; margin-top: -120px;
-    border-color: rgba(50,180,255,0.25);
+    width: 132px; height: 132px;
+    margin-left: -66px; margin-top: -66px;
+    border: 1px solid rgba(200,0,0,0.25);
+    box-shadow: 0 0 6px rgba(200,0,0,0.15);
     animation: orbRingRotate2 9s linear infinite reverse;
 }
 
 .orb-ring-3 {
-    width: 280px; height: 280px;
-    margin-left: -140px; margin-top: -140px;
-    border-color: rgba(150,100,255,0.15);
+    width: 155px; height: 155px;
+    margin-left: -77px; margin-top: -77px;
+    border: 1px solid rgba(255,255,255,0.10);
     animation: orbRingRotate3 14s linear infinite;
 }
 
 @keyframes orbRingRotate1 {
-    from { transform: rotateX(72deg) rotateZ(0deg); }
-    to   { transform: rotateX(72deg) rotateZ(360deg); }
+    from { transform: rotateX(70deg) rotateZ(0deg); }
+    to   { transform: rotateX(70deg) rotateZ(360deg); }
 }
 @keyframes orbRingRotate2 {
-    from { transform: rotateX(60deg) rotateZ(120deg); }
-    to   { transform: rotateX(60deg) rotateZ(480deg); }
+    from { transform: rotateX(58deg) rotateZ(120deg); }
+    to   { transform: rotateX(58deg) rotateZ(480deg); }
 }
 @keyframes orbRingRotate3 {
-    from { transform: rotateX(50deg) rotateZ(240deg); }
-    to   { transform: rotateX(50deg) rotateZ(600deg); }
+    from { transform: rotateX(48deg) rotateZ(240deg); }
+    to   { transform: rotateX(48deg) rotateZ(600deg); }
 }
 
-/* Cuando habla, los anillos brillan más */
 #orb-container.orb-speaking .orb-ring-1 {
-    border-color: rgba(80,220,180,0.7);
-    box-shadow: 0 0 14px rgba(80,220,180,0.5), inset 0 0 10px rgba(50,200,160,0.2);
+    border-color: rgba(255,59,59,0.85);
+    box-shadow: 0 0 16px rgba(255,59,59,0.6);
     animation-duration: 3s;
 }
 #orb-container.orb-speaking .orb-ring-2 {
-    border-color: rgba(50,180,255,0.5);
-    box-shadow: 0 0 14px rgba(50,180,255,0.4);
+    border-color: rgba(220,20,20,0.55);
+    box-shadow: 0 0 12px rgba(220,20,20,0.4);
     animation-duration: 4.5s;
 }
 #orb-container.orb-speaking .orb-ring-3 {
-    border-color: rgba(150,100,255,0.4);
-    box-shadow: 0 0 14px rgba(150,100,255,0.3);
+    border-color: rgba(255,255,255,0.2);
     animation-duration: 7s;
 }
 
-/* ── Partículas flotantes alrededor del orb cuando habla ── */
 #orb-container.orb-speaking::after {
     content: '';
     position: absolute;
-    inset: -20px;
+    inset: -16px;
     border-radius: 50%;
     background: radial-gradient(ellipse at center,
-        rgba(80,220,180,0.06) 0%,
-        rgba(50,180,255,0.04) 40%,
+        rgba(255,59,59,0.08) 0%,
+        rgba(180,0,0,0.05) 40%,
         transparent 70%);
     animation: orbAuraPulse 1.2s ease-in-out infinite alternate;
     pointer-events: none;
@@ -3246,24 +3238,149 @@ kbd {
     to   { transform: scale(1.08); opacity: 1; }
 }
 
-/* ── Etiqueta de estado del orb (opcional, se muestra al hablar) ── */
-.orb-status-label {
-    position: absolute;
-    bottom: -28px;
-    left: 50%;
-    transform: translateX(-50%);
+/* Etiqueta debajo del orb */
+#orb-label {
     font-size: 10px;
-    font-weight: 600;
-    color: rgba(80,220,180,0.7);
+    font-weight: 700;
+    color: rgba(255,59,59,0.55);
     letter-spacing: 2px;
     text-transform: uppercase;
+    text-align: center;
     white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
+    transition: color 0.3s, opacity 0.3s;
+    opacity: 0.7;
+    font-family: 'Inter', sans-serif;
 }
-#orb-container.orb-speaking .orb-status-label { opacity: 1; }
 
+#orb-container.orb-speaking ~ #orb-label,
+.orb-speaking-label {
+    color: rgba(255,100,100,0.9);
+    opacity: 1;
+}
+
+/* ================================================================
+   RESPONSIVE — ORB
+   ================================================================ */
+
+/* En pantallas donde el orb no cabe al lado, lo ponemos arriba del chat */
+@media (max-width: 1200px) {
+    #orb-wrap {
+        position: relative;
+        left: auto;
+        top: auto;
+        transform: none;
+        width: 88%;
+        max-width: 860px;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 10px 0 0;
+        margin-top: 94px;
+        margin-bottom: -8px;
+        gap: 16px;
+    }
+
+    #orb-container {
+        width: 90px;
+        height: 90px;
+        flex-shrink: 0;
+    }
+
+    #orb-canvas {
+        width: 90px;
+        height: 90px;
+    }
+
+    .orb-ring-1 {
+        width: 70px; height: 70px;
+        margin-left: -35px; margin-top: -35px;
+    }
+    .orb-ring-2 {
+        width: 84px; height: 84px;
+        margin-left: -42px; margin-top: -42px;
+    }
+    .orb-ring-3 {
+        width: 98px; height: 98px;
+        margin-left: -49px; margin-top: -49px;
+    }
+
+    #orb-label {
+        font-size: 9px;
+        letter-spacing: 1.5px;
+    }
+
+    /* El chat vuelve a su margin normal pero sin el margin-top extra */
+    #chat {
+        margin-top: 0;
+    }
+}
+
+/* En mobile, el orb queda bien encima del chat */
+@media (max-width: 768px) {
+    #orb-wrap {
+        width: 96%;
+        margin-top: 76px;
+        padding: 8px 0 0;
+        gap: 12px;
+    }
+
+    #orb-container {
+        width: 72px;
+        height: 72px;
+    }
+
+    #orb-canvas {
+        width: 72px;
+        height: 72px;
+    }
+
+    .orb-ring-1 {
+        width: 56px; height: 56px;
+        margin-left: -28px; margin-top: -28px;
+    }
+    .orb-ring-2 {
+        width: 68px; height: 68px;
+        margin-left: -34px; margin-top: -34px;
+    }
+    .orb-ring-3 {
+        width: 80px; height: 80px;
+        margin-left: -40px; margin-top: -40px;
+    }
+
+    #chat {
+        margin-top: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    #orb-wrap {
+        width: 98%;
+        margin-top: 70px;
+    }
+
+    #orb-container {
+        width: 60px;
+        height: 60px;
+    }
+
+    #orb-canvas {
+        width: 60px;
+        height: 60px;
+    }
+
+    .orb-ring-1 {
+        width: 46px; height: 46px;
+        margin-left: -23px; margin-top: -23px;
+    }
+    .orb-ring-2 {
+        width: 56px; height: 56px;
+        margin-left: -28px; margin-top: -28px;
+    }
+    .orb-ring-3 {
+        width: 66px; height: 66px;
+        margin-left: -33px; margin-top: -33px;
+    }
+}
 /* ================================================================
    PANEL ADMIN
    ================================================================ */
@@ -3743,27 +3860,4 @@ kbd {
     .rate-limit-grid { grid-template-columns: 1fr; }
     .analytics-donut-wrap { justify-content: center; }
 
-    /* ORB en móvil — más pequeño */
-    #orb-wrap { width: 96%; }
-    #orb-container { width: 180px; height: 180px; }
-    #orb-canvas { width: 180px; height: 180px; }
-    .orb-ring-1 { width: 140px; height: 140px; margin-left: -70px; margin-top: -70px; }
-    .orb-ring-2 { width: 170px; height: 170px; margin-left: -85px; margin-top: -85px; }
-    .orb-ring-3 { width: 200px; height: 200px; margin-left: -100px; margin-top: -100px; }
-}
-
-@media (max-width: 480px) {
-    #chat { width: 98%; height: 52vh; }
-    .input-area, .file-preview-bar, #model-selector-wrap { width: 98%; }
-    .nav-logo-small { height: 30px; width: 30px; }
-    .nav-title { font-size: 17px; }
-    .admin-stats-grid { grid-template-columns: 1fr; }
-
-    /* ORB en pantallas muy pequeñas */
-    #orb-wrap { width: 98%; }
-    #orb-container { width: 150px; height: 150px; }
-    #orb-canvas { width: 150px; height: 150px; }
-    .orb-ring-1 { width: 110px; height: 110px; margin-left: -55px; margin-top: -55px; }
-    .orb-ring-2 { width: 135px; height: 135px; margin-left: -67px; margin-top: -67px; }
-    .orb-ring-3 { width: 160px; height: 160px; margin-left: -80px; margin-top: -80px; }
-}
+  
