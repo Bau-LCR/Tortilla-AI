@@ -57,11 +57,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function applyFeatureFlags() {
-        // Ocultar botón de cámara si está desactivado
         const camBtn = document.getElementById("camera-btn");
         if (camBtn) camBtn.style.display = featureFlags.camera ? "" : "none";
 
-        // Ocultar selector de modelo Pro si está desactivado
         const proBtn = document.querySelector('.model-btn[onclick="setModel(\'pro\')"]');
         if (proBtn) {
             proBtn.style.display = featureFlags.promodel ? "" : "none";
@@ -70,7 +68,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Ocultar botón de adjuntos si está desactivado
         if (attachBtn) attachBtn.style.display = featureFlags.attachments ? "" : "none";
     }
 
@@ -423,6 +420,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     loadFeatureFlags();
                     setTimeout(() => window._checkBroadcast && window._checkBroadcast(), 3000);
                     setTimeout(() => window._checkPrivateMessage && window._checkPrivateMessage(), 4000);
+
+                    // Mostrar el ORB al iniciar sesión
+                    setTimeout(() => {
+                        if (window.CutRealOrb) window.CutRealOrb.show();
+                    }, 2200);
                 } else {
                     currentUser = null;
                     loginOverlay.style.display = "none";
@@ -526,11 +528,36 @@ document.addEventListener("DOMContentLoaded", function () {
         return `<div class="yt-search-container"><p style="color:#ff8888;font-size:13px;margin:0 0 8px;">▶️ Videos de: <b>${escapeHtml(query)}</b></p><div class="yt-cards-row"><a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank"><div class="yt-thumb"><span class="yt-play-icon">▶</span></div><div class="yt-card-info"><span class="yt-card-title">${escapeHtml(query)}</span><span class="yt-card-sub">Ver en YouTube →</span></div></a></div></div>`;
     }
 
+    // ===================================================================
+    //  HABLAR RESPUESTA CON LOQUENDO + SINCRONIZAR ORB
+    // ===================================================================
+    /**
+     * Hace que la IA hable el texto con voz Loquendo y sincroniza el orb.
+     * Se llama tras mostrar la respuesta completa en el chat.
+     * @param {string} text  Texto completo de la respuesta de la IA
+     */
+    function speakResponse(text) {
+        if (!window.LoquendoSpeak) return;
+
+        // Mostrar orb si no está visible
+        if (window.CutRealOrb && !window.CutRealOrb.isVisible()) {
+            window.CutRealOrb.show();
+        }
+
+        // Hablar con Loquendo — el sync de amplitud está en loquendo.js
+        window.LoquendoSpeak(text, () => {
+            // Al terminar, el orb vuelve a idle (ya lo hace loquendo.js)
+        });
+    }
+
     // ===== ENVIAR MENSAJE =====
     async function sendMessage() {
         const rawMsg = input.value.trim();
         if (!rawMsg && !attachedFile) return;
         if (!currentUser) return;
+
+        // Detener cualquier habla anterior
+        if (window.LoquendoStop) window.LoquendoStop();
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
 
@@ -577,6 +604,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 bot.innerHTML = `🎨 <b>Imagen generada</b> para: <em>${escapeHtml(imgPrompt)}</em><br><br><img src="${dataUrl}" class="attached-image generated-image" alt="Imagen generada" style="max-height:320px;cursor:zoom-in;" onclick="window.open(this.src,'_blank')"><br><span style="font-size:11px;color:#888;">Click para ver en grande · <a href="${dataUrl}" download="cutreal-imagen.png" style="color:#ff8888;">Descargar</a></span>`;
                 chat.appendChild(bot); scrollAbajo();
                 historial.push({ role:"assistant", content:`[Imagen generada para: "${imgPrompt}"]` });
+                // Hablar la confirmación
+                speakResponse(`Listo, imagen generada para ${imgPrompt}`);
                 guardarEnNube(); return;
             } catch(e) { thinking.remove(); }
         }
@@ -585,14 +614,28 @@ document.addEventListener("DOMContentLoaded", function () {
         if (intent === 'search_image' && featureFlags.imgsearch && !attachedFile) {
             const thinking = addThinking();
             const searchTerm = rawMsg.replace(/busca(r|me)?|muéstrame|mostrame|muestra|encontrá|encontrar|quiero ver/gi,'').replace(/imagen(es)?|foto(s)?|fotografías?/gi,'').replace(/\b(de|del|un|una|el|la|los|las)\b/gi,' ').replace(/\s+/g,' ').trim() || rawMsg;
-            setTimeout(() => { thinking.remove(); const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildImageSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();historial.push({role:"assistant",content:`[Búsqueda: "${searchTerm}"]`});guardarEnNube(); }, 600); return;
+            setTimeout(() => {
+                thinking.remove();
+                const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildImageSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();
+                historial.push({role:"assistant",content:`[Búsqueda: "${searchTerm}"]`});
+                speakResponse(`Acá tenés imágenes de ${searchTerm}`);
+                guardarEnNube();
+            }, 600);
+            return;
         }
 
         // YouTube
         if (intent === 'youtube' && featureFlags.youtube && !attachedFile) {
             const thinking = addThinking();
             const searchTerm = rawMsg.replace(/busca(r|me)?|muéstrame|mostrame|mira(r)?|ver|encuentra/gi,'').replace(/video(s)?|youtube|tutorial(es)?/gi,'').replace(/\b(de|del|un|una|el|la|los|las|en)\b/gi,' ').replace(/\s+/g,' ').trim() || rawMsg;
-            setTimeout(() => { thinking.remove(); const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildYouTubeSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();historial.push({role:"assistant",content:`[YouTube: "${searchTerm}"]`});guardarEnNube(); }, 500); return;
+            setTimeout(() => {
+                thinking.remove();
+                const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildYouTubeSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();
+                historial.push({role:"assistant",content:`[YouTube: "${searchTerm}"]`});
+                speakResponse(`Acá tenés videos de ${searchTerm} en YouTube`);
+                guardarEnNube();
+            }, 500);
+            return;
         }
 
         // CHAT NORMAL
@@ -605,7 +648,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     mensajes:  historial,
                     hasImage,
                     model:     selectedModel,
-                    userId:    currentUser.uid,  // ← para rate limiting
+                    userId:    currentUser.uid,
                 }),
             });
             const data = await res.json();
@@ -630,7 +673,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 } else {
                     errDiv.innerHTML = `⚠️ <b>Límite alcanzado.</b><br>Todas las API Keys están en uso. Esperá unos minutos.`;
                 }
-                chat.appendChild(errDiv); scrollAbajo(); return;
+                chat.appendChild(errDiv); scrollAbajo();
+                speakResponse("Límite de mensajes alcanzado. Esperá unos minutos.");
+                return;
             }
 
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
@@ -642,6 +687,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const bot = document.createElement("div"); bot.className="ai"; chat.appendChild(bot); scrollAbajo();
             const words = respuestaIA.split(" "); let idx=0, acc="";
+
+            // ── ANIMACIÓN DE TIPEO + HABLA AL TERMINAR ──────────
             const timer = setInterval(() => {
                 for (let c=0;c<4&&idx<words.length;c++) acc+=(acc?" ":"")+words[idx++];
                 bot.innerHTML = escapeHtml(acc).replace(/\n/g,"<br>")+'<span class="typing-cursor">▌</span>';
@@ -649,16 +696,22 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (idx >= words.length) {
                     clearInterval(timer);
                     bot.style.transition="opacity 0.15s ease"; bot.style.opacity="0.6";
-                    requestAnimationFrame(() => { bot.innerHTML=formatearTexto(respuestaIA); bot.style.opacity="1"; scrollAbajo(); });
+                    requestAnimationFrame(() => {
+                        bot.innerHTML=formatearTexto(respuestaIA);
+                        bot.style.opacity="1";
+                        scrollAbajo();
+                        // ── HABLAR RESPUESTA COMPLETA CON LOQUENDO ──
+                        speakResponse(respuestaIA);
+                    });
                 }
             }, 22);
+
         } catch(e) {
             thinking.remove();
             const errorDiv = document.createElement("div"); errorDiv.className="ai";
             errorDiv.style.borderColor="#ff4040"; errorDiv.style.color="#ff8080";
             errorDiv.innerHTML = `⚠️ <b>Error:</b> ${e.message}`;
             chat.appendChild(errorDiv); scrollAbajo();
-            // Registrar en el log de errores del admin
             window.pushAdminNotif && window.pushAdminNotif("🔴", "Error en chat", e.message.substring(0, 80));
         }
     }
@@ -676,6 +729,8 @@ document.addEventListener("DOMContentLoaded", function () {
     window.resetChat = async () => {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
+            // Detener habla al borrar chat
+            if (window.LoquendoStop) window.LoquendoStop();
             historial=[systemPrompt]; renderizarChat(); await guardarEnNube();
         }
     };
@@ -823,19 +878,16 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e){if(output)output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
-    // ── KICK MEJORADO ── (borra el chat Y lo registra)
     window.adminKickUser = async (uid, userName) => {
         if(!confirm(`¿Kick a ${userName || uid.substring(0,12)}? Esto borrará su historial de chat.`)) return;
         try {
             const {doc,deleteDoc,setDoc}=window.firestore;
             await deleteDoc(doc(window.db,"chats",uid));
-            // Guardar en una colección de "kicked users" para tracking
             await setDoc(doc(window.db,"kicked_users",uid),{
                 uid, kickedAt:Date.now(), kickedBy:currentUser.uid, reason:"Admin kick"
             });
             showToast(`Usuario ${userName||uid.substring(0,8)} kickeado`,"#ffaa00","🚫");
             window.pushAdminNotif&&window.pushAdminNotif("🚫","Usuario kickeado",`${userName||uid.substring(0,12)} fue removido`);
-            // Refrescar lista de sesiones
             if(typeof adminLoadSessions==='function') adminLoadSessions();
         } catch(e){showToast("Error al kickear: "+e.message,"#ff4444","❌");}
     };
@@ -875,7 +927,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
-    // ── Mensaje privado ──
     window.adminSendPrivateMessage = async () => {
         const uid=document.getElementById("admin-pm-uid")?.value.trim();
         const msg=document.getElementById("admin-pm-msg")?.value.trim();
@@ -891,7 +942,6 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
 
-    // ── Broadcast ──
     window.adminSendBroadcast = async () => {
         const msg=document.getElementById("admin-broadcast-msg").value.trim();
         const output=document.getElementById("admin-broadcast-output");
@@ -946,6 +996,8 @@ document.addEventListener("DOMContentLoaded", function () {
             bot.innerHTML=`📩 <b>Mensaje del administrador:</b><br>${escapeHtml(data.message)}`;
             bot.style.borderColor="rgba(255,200,50,0.4)";
             chat.appendChild(bot);scrollAbajo();
+            // Leer el mensaje privado con voz
+            speakResponse(`Mensaje del administrador: ${data.message}`);
         } catch(e){}
     };
 
@@ -1055,7 +1107,6 @@ document.addEventListener("DOMContentLoaded", function () {
             if(!res.ok) throw new Error(`HTTP ${res.status}: No se pudo obtener el estado.`);
             const data=await res.json();
             renderApiKeysPanel(data,out);
-            // Notificar si alguna key está al 80%+
             if(data.keys) data.keys.forEach(k=>{
                 if(k.active&&k.pct>=80) window.pushAdminNotif&&window.pushAdminNotif("🔑",`Key ${k.index+1} al ${k.pct}%`,`${k.used.toLocaleString()}/${k.limit.toLocaleString()} tokens usados`);
             });
