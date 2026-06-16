@@ -653,6 +653,23 @@
     <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
 </div>
 
+<!-- ============================================================ -->
+<!-- ORB — Esfera 3D animada (estilo Xbox)                       -->
+<!-- Se inserta aquí entre el chat y el input.                   -->
+<!-- orb.js lo gestiona y lo muestra/oculta dinámicamente.       -->
+<!-- ============================================================ -->
+<div id="orb-wrap">
+    <div id="orb-container">
+        <canvas id="orb-canvas" width="260" height="260"></canvas>
+        <div id="orb-rings">
+            <div class="orb-ring orb-ring-1"></div>
+            <div class="orb-ring orb-ring-2"></div>
+            <div class="orb-ring orb-ring-3"></div>
+        </div>
+        <div id="orb-glow"></div>
+    </div>
+</div>
+
 <!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
 <div id="file-preview" class="file-preview-bar" style="display:none;">
     <span id="file-preview-name">📎 Archivo adjunto</span>
@@ -670,6 +687,47 @@
         <span>Enviar</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
     </button>
+</div>
+
+<!-- IMAGE ZOOM MODAL -->
+<div id="image-zoom-modal">
+    <div class="zoom-inner">
+        <img id="zoom-img" src="" alt="Imagen ampliada">
+        <button class="zoom-close-btn" onclick="document.getElementById('image-zoom-modal').style.display='none';document.getElementById('image-zoom-modal').classList.remove('zoom-visible')">✕</button>
+        <a id="zoom-download" class="zoom-download-btn" href="#" download="imagen.png">⬇️ Descargar</a>
+    </div>
+</div>
+
+<!-- SHORTCUTS MODAL -->
+<div id="shortcuts-modal">
+    <div class="shortcuts-card">
+        <div class="shortcuts-header">
+            <h3>⌨️ Atajos de teclado</h3>
+            <button onclick="document.getElementById('shortcuts-modal').style.display='none'">✕</button>
+        </div>
+        <div class="shortcuts-body">
+            <div class="shortcut-sep">Chat</div>
+            <div class="shortcut-row"><span>Enviar mensaje</span><kbd>Enter</kbd></div>
+            <div class="shortcut-row"><span>Nueva línea</span><kbd>Shift + Enter</kbd></div>
+            <div class="shortcut-row"><span>Pegar imagen</span><kbd>Ctrl + V</kbd></div>
+            <div class="shortcut-sep">Navegación</div>
+            <div class="shortcut-row"><span>Buscar en chat</span><kbd>Ctrl + F</kbd></div>
+            <div class="shortcut-row"><span>Ver atajos</span><kbd>Ctrl + /</kbd></div>
+            <div class="shortcut-sep">Voz</div>
+            <div class="shortcut-row"><span>Activar/desactivar voz</span><span style="color:#ff8888;">Botón 🔊</span></div>
+            <div class="shortcut-row"><span>Detener voz</span><span style="color:#ff8888;">Botón ⏹</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- CHAT SEARCH OVERLAY -->
+<div id="chat-search-overlay">
+    <div class="chat-search-box">
+        <input type="text" id="chat-search-input" placeholder="Buscar en el chat…">
+        <button onclick="performChatSearch()">🔍</button>
+        <button onclick="closeChatSearch()">✕</button>
+    </div>
+    <div id="chat-search-results"></div>
 </div>
 
 <!-- FIREBASE -->
@@ -694,11 +752,20 @@
   window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy };
 </script>
 
+<!-- SCRIPTS PRINCIPALES -->
 <script src="particles.js"></script>
+<!-- ORB: esfera animada — debe cargarse ANTES de loquendo.js y main.js -->
+<script src="orb.js"></script>
+<!-- LOQUENDO: síntesis de voz con sincronización al orb -->
+<script src="loquendo.js"></script>
+<!-- MAIN: lógica principal del chat -->
 <script src="main.js"></script>
+<!-- DOOM: easter egg -->
 <script src="doom.js"></script>
+<!-- BUSCAMINAS: easter egg opcional -->
+<script src="buscaminas.js" onerror="console.log('buscaminas.js opcional no encontrado')"></script>
 
-<!-- switchTab + lógica de nuevas funciones -->
+<!-- switchTab + lógica de nuevas funciones del admin -->
 <script>
 function switchTab(name) {
     document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
@@ -747,7 +814,6 @@ window.adminLoadActivity = async function() {
         }
         snap.forEach(d=>{
             const msgs = (d.data().mensajes||[]).filter(m=>m.role==='user');
-            // distribute randomly per last-updated (approximation)
             const upd = d.data().updatedAt||0;
             const daysAgo = Math.floor((now2-upd)/86400000);
             if(daysAgo<7) dayBuckets[6-daysAgo]+=msgs.length;
@@ -957,7 +1023,6 @@ window.adminLoadAnalytics = async function(){
             if(dt.updatedAt&&(now2-dt.updatedAt)<w7) active7++; else inactive++;
         });
         const total=proC+basicC||1;
-        // SVG donut
         const segments=[
             {val:proC,color:'#ff3b3b',label:'Modelo Pro'},
             {val:basicC,color:'#ff8844',label:'Modelo Básico'},
@@ -1121,7 +1186,6 @@ window.adminSaveFlags = async function(){
    =================================================================== */
 const adminNotifs = JSON.parse(localStorage.getItem('cutreal_admin_notifs')||'[]');
 function saveNotifs(){ localStorage.setItem('cutreal_admin_notifs',JSON.stringify(adminNotifs)); }
-// Auto-populate some sample notifications on first load
 if(!adminNotifs.length){
     adminNotifs.push(
         {icon:'🔑',title:'Rotación de API Key',text:'La Key 1 alcanzó el 80% de uso',ts:Date.now()-300000,read:false},
@@ -1150,12 +1214,101 @@ window.adminMarkAllRead = function(){
     saveNotifs(); adminLoadNotifs();
     window.showToast&&showToast('Todas marcadas como leídas','#4caf50','✅');
 };
-// Expose para que main.js agregue notificaciones
 window.pushAdminNotif = function(icon,title,text){
     adminNotifs.unshift({icon,title,text,ts:Date.now(),read:false});
     if(adminNotifs.length>50) adminNotifs.pop();
     saveNotifs();
 };
+
+/* ===================================================================
+   CHAT SEARCH
+   =================================================================== */
+function performChatSearch() {
+    const q = document.getElementById('chat-search-input')?.value.trim().toLowerCase();
+    const resultsEl = document.getElementById('chat-search-results');
+    if (!q || !resultsEl) return;
+    const messages = document.querySelectorAll('#chat .user, #chat .ai');
+    const results = [];
+    messages.forEach((el, idx) => {
+        const text = el.textContent || '';
+        if (text.toLowerCase().includes(q)) {
+            results.push({ el, text: text.substring(0, 120), idx });
+        }
+    });
+    if (!results.length) {
+        resultsEl.innerHTML = '<div class="search-no-results">No se encontraron resultados.</div>';
+        return;
+    }
+    resultsEl.innerHTML = results.map((r, i) => {
+        const highlighted = r.text.replace(new RegExp(q, 'gi'), m => `<mark>${m}</mark>`);
+        const isUser = r.el.classList.contains('user');
+        return `<div class="search-result-item" onclick="scrollToMessage(${r.idx})">
+            <span class="search-result-badge ${isUser ? 'badge-user' : 'badge-ai'}">${isUser ? 'Tú' : 'IA'}</span>
+            <span class="search-result-text">${highlighted}</span>
+        </div>`;
+    }).join('');
+}
+
+window.scrollToMessage = function(idx) {
+    const messages = document.querySelectorAll('#chat .user, #chat .ai');
+    if (messages[idx]) {
+        messages[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messages[idx].classList.add('msg-highlight');
+        setTimeout(() => messages[idx].classList.remove('msg-highlight'), 2000);
+        closeChatSearch();
+    }
+};
+
+function closeChatSearch() {
+    const overlay = document.getElementById('chat-search-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+// Atajos de teclado globales
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const overlay = document.getElementById('chat-search-overlay');
+        if (overlay) {
+            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+            if (overlay.style.display === 'flex') {
+                document.getElementById('chat-search-input')?.focus();
+            }
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        const modal = document.getElementById('shortcuts-modal');
+        if (modal) modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+    }
+    if (e.key === 'Escape') {
+        closeChatSearch();
+        document.getElementById('shortcuts-modal').style.display = 'none';
+        document.getElementById('image-zoom-modal').style.display = 'none';
+        document.getElementById('image-zoom-modal').classList.remove('zoom-visible');
+    }
+});
+
+// Zoom de imágenes del chat
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('attached-image')) {
+        const modal = document.getElementById('image-zoom-modal');
+        const zoomImg = document.getElementById('zoom-img');
+        const zoomDl = document.getElementById('zoom-download');
+        if (modal && zoomImg) {
+            zoomImg.src = e.target.src;
+            if (zoomDl) zoomDl.href = e.target.src;
+            modal.style.display = 'flex';
+            requestAnimationFrame(() => modal.classList.add('zoom-visible'));
+        }
+    }
+});
+document.getElementById('image-zoom-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('zoom-visible');
+        setTimeout(() => { this.style.display = 'none'; }, 250);
+    }
+});
 </script>
 
 <footer class="copyright">
