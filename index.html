@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Cut-real AI - Inteligencia Artificial desarrollada por Bautista">
-    <meta name="theme-color" content="#080808">
+    <meta name="theme-color" content="#f8faff">
     <title>Cut-real AI</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -296,7 +296,7 @@
                 <div class="admin-box">
                     <h4>ℹ️ Info de la plataforma</h4>
                     <div class="admin-feedback">
-                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Versión</span><b style="color:#ff8888;">2.1.0</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Versión</span><b style="color:#5599ff;">2.1.0</b></div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Backend</span><b style="color:#ff8888;">Groq API (x5 keys)</b></div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b></div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b></div>
@@ -714,8 +714,8 @@
             <div class="shortcut-row"><span>Buscar en chat</span><kbd>Ctrl + F</kbd></div>
             <div class="shortcut-row"><span>Ver atajos</span><kbd>Ctrl + /</kbd></div>
             <div class="shortcut-sep">Voz</div>
-            <div class="shortcut-row"><span>Activar/desactivar voz</span><span style="color:#ff8888;">Botón 🔊</span></div>
-            <div class="shortcut-row"><span>Detener voz</span><span style="color:#ff8888;">Botón ⏹</span></div>
+            <div class="shortcut-row"><span>Activar/desactivar voz</span><span style="color:#5599ff;">Botón 🔊</span></div>
+            <div class="shortcut-row"><span>Detener voz</span><span style="color:#5599ff;">Botón ⏹</span></div>
         </div>
     </div>
 </div>
@@ -1024,10 +1024,10 @@ window.adminLoadAnalytics = async function(){
         });
         const total=proC+basicC||1;
         const segments=[
-            {val:proC,color:'#ff3b3b',label:'Modelo Pro'},
-            {val:basicC,color:'#ff8844',label:'Modelo Básico'},
+            {val:proC,color:'#4488ff',label:'Modelo Pro'},
+            {val:basicC,color:'#7ba7ff',label:'Modelo Básico'},
             {val:active7,color:'#4caf50',label:'Activos 7d'},
-            {val:inactive,color:'#333',label:'Inactivos'},
+            {val:inactive,color:'#99aacc',label:'Inactivos'},
         ];
         const r=60,cx=80,cy=80,stroke=22;
         const circ=2*Math.PI*r;
