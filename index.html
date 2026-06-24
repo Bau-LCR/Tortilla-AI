@@ -297,9 +297,9 @@
                     <h4>ℹ️ Info de la plataforma</h4>
                     <div class="admin-feedback">
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Versión</span><b style="color:#5599ff;">2.1.0</b></div>
-                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Backend</span><b style="color:#ff8888;">Groq API (x5 keys)</b></div>
-                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b></div>
-                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Backend</span><b style="color:#5599ff">Groq API (x5 keys)</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Pro</span><b style="color:#5599ff">Llama 3.3 70B</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Básico</span><b style="color:#5599ff">Llama 3.1 8B</b></div>
                         <div class="admin-stat" style="padding:8px 0;"><span>Tokens totales</span><b style="color:#ffcc55;">50.000 (5 × 10K)</b></div>
                     </div>
                 </div>
@@ -1059,15 +1059,15 @@ window.adminLoadAnalytics = async function(){
         metricsEl.innerHTML=`
             <div class="admin-stat" style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.08);">
                 <span>Tasa de retención (7d)</span>
-                <b style="color:#ff8888;">${total?Math.round(active7/total*100):0}%</b>
+                <b style="color:#5599ff">${total?Math.round(active7/total*100):0}%</b>
             </div>
             <div class="admin-stat" style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.08);">
                 <span>Preferencia Pro</span>
-                <b style="color:#ff8888;">${total?Math.round(proC/total*100):0}%</b>
+                <b style="color:#5599ff">${total?Math.round(proC/total*100):0}%</b>
             </div>
             <div class="admin-stat" style="padding:8px 0;">
                 <span>Última actualización</span>
-                <b style="color:#ff8888;">${now()}</b>
+                <b style="color:#5599ff">${now()}</b>
             </div>`;
     } catch(e){ donutWrap.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
 };
