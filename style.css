@@ -3104,7 +3104,7 @@ kbd {
 
 #orb-wrap {
     position: fixed;
-    right: calc((100vw - 860px) / 2 - 400px);
+    right: calc((100vw - 860px) / 2 - 375px);
     top: 50%;
     transform: translateY(-50%);
     z-index: 10;
