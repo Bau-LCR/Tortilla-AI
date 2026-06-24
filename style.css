@@ -356,7 +356,7 @@ kbd {
 
 /* ===== LOGIN ===== */
 #login-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); display:flex; justify-content:center; align-items:center; z-index:9000; backdrop-filter:blur(12px); }
-.auth-card { background:#ffffff; padding:42px 38px; border-radius:24px; text-align:center; border:1px solid rgba(255,59,59,0.14); box-shadow:0 0 0 1px var(--border-light), 0 32px 80px rgba(0,0,0,0.7); max-width:360px; width:90%; animation: modalIn 0.3s var(--ease); }
+.auth-card { background:#000000; padding:42px 38px; border-radius:24px; text-align:center; border:1px solid rgba(255,59,59,0.14); box-shadow:0 0 0 1px var(--border-light), 0 32px 80px rgba(0,0,0,0.7); max-width:360px; width:90%; animation: modalIn 0.3s var(--ease); }
 .auth-logo-small { width:68px; height:68px; object-fit:contain; margin-bottom:14px; filter:drop-shadow(0 0 14px rgba(255,59,59,0.5)); }
 .auth-card h2 { margin:0 0 8px; font-size:22px; font-weight:700; }
 .auth-card p  { color:var(--text-2); font-size:14px; margin:0 0 26px; line-height:1.55; }
@@ -1664,7 +1664,7 @@ h1 { display: none; }
     display: none; align-items: center; justify-content: center; z-index: 12000; backdrop-filter: blur(12px);
 }
 .shortcuts-card {
-    background: #ffffff; border: 1px solid rgba(255,59,59,0.22); border-radius: var(--r-lg);
+    background: #000000; border: 1px solid rgba(255,59,59,0.22); border-radius: var(--r-lg);
     width: 90%; max-width: 400px; box-shadow: 0 32px 80px rgba(0,0,0,0.8); overflow: hidden;
     animation: modalIn 0.2s var(--ease);
 }
