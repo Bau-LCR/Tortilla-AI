@@ -14,7 +14,7 @@
     --text-2: #888888;
     --text-3: #4a4a4a;
     --user-bg: #1c1c1c;
-    --ai-bg: #0c0000;
+    --ai-bg: #0d111f;
     --shadow-red: rgba(68,136,255,0.12);
     --r-sm: 10px;
     --r-md: 16px;
@@ -156,7 +156,7 @@ h1 { display: none; }
 .ai   { background: var(--ai-bg); border: 1px solid var(--border-red); border-bottom-left-radius: 5px; color: #e5e5e5; box-shadow: 0 2px 14px rgba(0,0,0,0.3); transition: opacity 0.15s ease; }
 .ai b, .ai strong { color: #5577ee; }
 .ai em { color: #e0a0a0; font-style: italic; }
-.ai h1, .ai h2, .ai h3 { color: #ff6b6b; margin: 10px 0 5px; font-weight: 600; }
+.ai h1, .ai h2, .ai h3 { color: #4488ff; margin: 10px 0 5px; font-weight: 600; }
 .ai h1{font-size:18px} .ai h2{font-size:16px} .ai h3{font-size:14.5px}
 .ai ul,.ai ol{padding-left:18px;margin:6px 0} .ai li{margin:4px 0}
 .ai a{color:#5577ee;text-underline-offset:3px} .ai a:hover{color:white}
@@ -1280,7 +1280,7 @@ cat > /mnt/user-data/outputs/style.css << 'CSSEOF'
     --text-2: #888888;
     --text-3: #4a4a4a;
     --user-bg: #1c1c1c;
-    --ai-bg: #0c0000;
+    --ai-bg: #0d111f;
     --r-sm: 10px;
     --r-md: 16px;
     --r-lg: 22px;
@@ -1448,7 +1448,7 @@ h1 { display: none; }
 }
 .ai b, .ai strong { color: #5577ee; }
 .ai em { color: #e0a0a0; font-style: italic; }
-.ai h1,.ai h2,.ai h3 { color: #ff6b6b; margin: 10px 0 5px; font-weight: 600; }
+.ai h1,.ai h2,.ai h3 { color: #4488ff; margin: 10px 0 5px; font-weight: 600; }
 .ai h1{font-size:18px} .ai h2{font-size:16px} .ai h3{font-size:14.5px}
 .ai ul,.ai ol { padding-left: 18px; margin: 6px 0; } .ai li { margin: 4px 0; }
 .ai a { color: #5577ee; text-underline-offset: 3px; } .ai a:hover { color: white; }
@@ -2704,7 +2704,7 @@ echo "style.css written: $(wc -l < /mnt/user-data/outputs/style.css) lines"
     --text-2: #888888;
     --text-3: #4a4a4a;
     --user-bg: #1c1c1c;
-    --ai-bg: #0c0000;
+    --ai-bg: #0d111f;
     --shadow-red: rgba(68,136,255,0.12);
     --r-sm: 10px;
     --r-md: 16px;
@@ -2805,7 +2805,7 @@ h1 { display: none; }
 /* ── Botón stop voz ── */
 #loquendo-stop {
     font-size: 14px; padding: 7px 10px;
-    border-color: rgba(255,170,0,0.3); color: #ffcc44;
+    border-color: rgba(255,170,0,0.3); color: #2e5abf;
     background: rgba(255,170,0,0.06);
     animation: stopBtnPulse 1.5s ease-in-out infinite;
 }
@@ -2836,8 +2836,8 @@ h1 { display: none; }
 }
 .model-selector {
     display: flex; gap: 4px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(68,136,255,0.12);
+    border: 1px solid rgba(68,136,255,0.25);
     border-radius: var(--r-pill); padding: 3px;
 }
 .model-btn {
@@ -2884,7 +2884,7 @@ h1 { display: none; }
 .ai   { background: var(--ai-bg); border: 1px solid var(--border-red); border-bottom-left-radius: 5px; color: #e5e5e5; box-shadow: 0 2px 14px rgba(0,0,0,0.3); transition: opacity 0.15s ease; }
 .ai b, .ai strong { color: #5577ee; }
 .ai em { color: #e0a0a0; font-style: italic; }
-.ai h1, .ai h2, .ai h3 { color: #ff6b6b; margin: 10px 0 5px; font-weight: 600; }
+.ai h1, .ai h2, .ai h3 { color: #4488ff; margin: 10px 0 5px; font-weight: 600; }
 .ai h1{font-size:18px} .ai h2{font-size:16px} .ai h3{font-size:14.5px}
 .ai ul,.ai ol{padding-left:18px;margin:6px 0} .ai li{margin:4px 0}
 .ai a{color:#5577ee;text-underline-offset:3px} .ai a:hover{color:white}
