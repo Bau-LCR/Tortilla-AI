@@ -100,8 +100,8 @@
         const glowA = ORB.isSpeaking ? (0.30 + vol * 0.45) : (0.14 + Math.sin(t * 0.5) * 0.05);
 
         if (ORB.isSpeaking) {
-            glow.addColorStop(0,   `rgba(120, 255, 200, ${glowA})`);
-            glow.addColorStop(0.4, `rgba(60,  200, 255, ${glowA * 0.6})`);
+            glow.addColorStop(0, `rgba(120,180,255,${glowA})`);
+            glow.addColorStop(0.4, `rgba(68,136,255,${glowA * 0.6})`);
             glow.addColorStop(1,   'rgba(0,0,0,0)');
         } else {
             glow.addColorStop(0,   `rgba(60, 180, 200, ${glowA})`);
