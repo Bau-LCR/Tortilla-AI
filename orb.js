@@ -104,8 +104,8 @@
             glow.addColorStop(0.4, `rgba(68,136,255,${glowA * 0.6})`);
             glow.addColorStop(1,   'rgba(0,0,0,0)');
         } else {
-            glow.addColorStop(0,   `rgba(60, 180, 200, ${glowA})`);
-            glow.addColorStop(0.4, `rgba(30, 120, 180, ${glowA * 0.5})`);
+            glow.addColorStop(0, `rgba(90,150,255,${glowA})`);
+            glow.addColorStop(0.4, `rgba(40,100,220,${glowA * 0.5})`);
             glow.addColorStop(1,   'rgba(0,0,0,0)');
         }
         ctx.fillStyle = glow;
@@ -180,7 +180,7 @@
             cx - baseR * 0.15, cy - baseR * 0.20, 0,
             cx, cy, baseR * 0.9
         );
-        inner.addColorStop(0, ORB.isSpeaking ? '#80ffcc' : '#40c8b0');
+        inner.addColorStop(0, ORB.isSpeaking ? '#8ab4ff' : '#4488ff');
         inner.addColorStop(1, 'transparent');
         ctx.fillStyle = inner;
         ctx.beginPath();
@@ -223,7 +223,7 @@
             cx + baseR * 0.3, cy + baseR * 0.3, 0,
             cx + baseR * 0.3, cy + baseR * 0.3, baseR * 0.28
         );
-        spec2.addColorStop(0, 'rgba(80, 220, 200, 1)');
+        spec2.addColorStop(0, 'rgba(68,136,255,1)');
         spec2.addColorStop(1, 'transparent');
         ctx.fillStyle = spec2;
         ctx.beginPath();
@@ -246,7 +246,7 @@
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = ORB.isSpeaking
-                ? `rgba(100, 255, 200, 1)`
+                ? `rgba(120,180,255,1)`
                 : `rgba(60, 200, 180, 1)`;
             ctx.lineWidth = 1.5 * (1 - phase);
             ctx.beginPath();
