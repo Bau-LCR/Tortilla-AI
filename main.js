@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const scrollAbajo = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
 
     // ===== TOAST NOTIFICATION =====
-    const showToast = (msg, color = "#ff3b3b", icon = "") => {
+    const showToast = (msg, color = "#4488ff", icon = "") => {
         const existing = document.querySelector(".toast-notif");
         if (existing) existing.remove();
         const toast = document.createElement("div");
@@ -207,9 +207,9 @@ document.addEventListener("DOMContentLoaded", function () {
         document.body.innerHTML = `
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#080808;color:#888;font-family:Inter,sans-serif;text-align:center;padding:40px;gap:20px;">
                 <div style="font-size:48px;">🚫</div>
-                <h2 style="color:#ff3b3b;margin:0;">Acceso denegado</h2>
+                <h2 style="color:#4488ff;margin:0;">Acceso denegado</h2>
                 <p style="max-width:400px;line-height:1.7;">Para usar Cut-real AI debés aceptar los Términos y Condiciones.<br>Si cambiás de opinión, recargá la página.</p>
-                <button onclick="location.reload()" style="background:linear-gradient(140deg,#ff3b3b,#cc0000);color:white;border:none;padding:12px 28px;border-radius:999px;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">Volver a intentar</button>
+                <button onclick="location.reload()" style="background:linear-gradient(140deg,#4488ff,#cc0000);color:white;border:none;padding:12px 28px;border-radius:999px;font-size:14px;cursor:pointer;font-family:Inter,sans-serif;font-weight:600;">Volver a intentar</button>
             </div>`;
     };
 
@@ -217,7 +217,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const processImageFile = async (file) => {
         if (!file || !file.type.startsWith("image/")) return false;
         attachBtn.textContent = "⏳";
-        attachBtn.style.color = "#ff3b3b";
+        attachBtn.style.color = "#4488ff";
         try {
             const base64 = await fileToBase64(file);
             attachedFile = { type: "image", content: base64, name: file.name || "imagen.png", mediaType: file.type };
@@ -236,7 +236,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const fileName = file.name;
         const fileType = file.type;
         attachBtn.textContent = "⏳";
-        attachBtn.style.color = "#ff3b3b";
+        attachBtn.style.color = "#4488ff";
         try {
             if (fileType === "application/pdf") {
                 const arrayBuffer = await file.arrayBuffer();
@@ -475,7 +475,7 @@ document.addEventListener("DOMContentLoaded", function () {
             canvas.width = 512; canvas.height = 512;
             const ctx = canvas.getContext("2d");
             const p = prompt.toLowerCase();
-            let palette = { bg: ['#1a0a2e','#0d0022'], accent: ['#ff3b3b','#cc0000'], shapes: 'abstract' };
+            let palette = { bg: ['#1a0a2e','#0d0022'], accent: ['#4488ff','#cc0000'], shapes: 'abstract' };
             if (/naturaleza|árbol|bosque|campo|planta|flor|verde/.test(p))
                 palette = { bg: ['#0a1a0a','#001a00'], accent: ['#22cc44','#88ff44','#55dd22'], shapes: 'organic' };
             else if (/mar|oceano|agua|playa|azul|lago/.test(p))
