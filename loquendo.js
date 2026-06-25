@@ -1,8 +1,7 @@
 // ============================================================
-//  loquendo.js  —  Cut-real AI  |  Voz Loquendo clásica
-//  Web Speech API configurada para sonar lo más robótica
-//  y masculina posible (estilo Loquendo/Carlos).
-//  Sincroniza amplitud con CutRealOrb.setVolume()
+//  loquendo.js  —  Cut-real AI  |  Voz Loquendo clásica optimizada
+//  Web Speech API configurada para forzar un tono grave y
+//  robótico, intentando capturar voces de Microsoft si existen.
 // ============================================================
 
 (function () {
@@ -10,14 +9,15 @@
 
     // ── CONFIGURACIÓN ───────────────────────────────────────
     const CFG = {
-        rate:   0.78,   // Más lento = más Loquendo
-        pitch:  0.40,   // Muy bajo = robótico masculino
+        rate:   0.85,   // Un poco más lento, pero sin sonar arrastrado
+        pitch:  0.20,   // Tono muy bajo (0 a 2) para forzar voz grave y robótica
         volume: 1.0,
-        // Preferencias de voz, de mejor a peor
+        // Preferencias de voz, buscando primero las más parecidas a Loquendo
         voicePrefs: [
+            { name: 'Microsoft Jorge',   lang: null }, // La voz clásica si está en Windows
             { name: 'Microsoft Pablo',   lang: null },
-            { name: 'Microsoft Jorge',   lang: null },
-            { name: 'Google español',    lang: null },
+            { name: 'Microsoft Raul',    lang: null },
+            { name: 'Google español',    lang: null }, // Fallback Android/Chrome
             { name: 'español',           lang: null },
             { name: null,                lang: 'es-AR' },
             { name: null,                lang: 'es-ES' },
@@ -57,11 +57,12 @@
             }
             if (match) return match;
         }
-        // Último recurso: primera voz disponible
-        return voices[0] || null;
+        // Último recurso: primera voz en español disponible, o la primera de la lista
+        return voices.find(v => v.lang.startsWith('es')) || voices[0] || null;
     }
 
     if (S.synth) {
+        // Los navegadores cargan las voces de forma asíncrona
         S.synth.addEventListener('voiceschanged', loadVoices);
         loadVoices();
     }
@@ -86,10 +87,9 @@
     }
 
     // ── SIMULACIÓN DE AMPLITUD ──────────────────────────────
-    // Web Speech API no expone audio real, simulamos con onda
     function estimateDurationMs(text) {
         const words = text.split(/\s+/).length;
-        const wpm   = 130 * CFG.rate; // palabras por minuto ajustadas
+        const wpm   = 130 * CFG.rate; 
         return (words / wpm) * 60 * 1000;
     }
 
@@ -129,11 +129,6 @@
     }
 
     // ── API PÚBLICA ─────────────────────────────────────────
-    /**
-     * Sintetiza texto con voz Loquendo robótica.
-     * @param {string}   text
-     * @param {function} [onEnd]
-     */
     window.LoquendoSpeak = function (text, onEnd) {
         if (!S.synth || !S.enabled) { if (onEnd) onEnd(); return; }
 
@@ -143,18 +138,18 @@
         const cleanText = clean(text);
         if (!cleanText || cleanText.length < 2) { if (onEnd) onEnd(); return; }
 
-        // Mostrar orb
-        if (window.CutRealOrb && !window.CutRealOrb.isVisible()) {
+        // Mostrar orb si existe
+        if (window.CutRealOrb && window.CutRealOrb.isVisible && !window.CutRealOrb.isVisible()) {
             window.CutRealOrb.show();
         }
 
         const utter = new SpeechSynthesisUtterance(cleanText);
 
-        // Recargar voces si aún no están
+        // Forzar recarga de voces por si acaso
         if (!S.voice) loadVoices();
         if (S.voice) utter.voice = S.voice;
 
-        utter.lang   = 'es-AR';
+        utter.lang   = S.voice ? S.voice.lang : 'es-AR';
         utter.rate   = CFG.rate;
         utter.pitch  = CFG.pitch;
         utter.volume = CFG.volume;
@@ -167,7 +162,6 @@
         utter.onstart = () => {
             S.isSpeaking = true;
             startVolSim(cleanText, estMs);
-            // Mostrar botón stop
             const stopBtn = document.getElementById('loquendo-stop');
             if (stopBtn) stopBtn.style.display = 'inline-flex';
         };
@@ -196,7 +190,6 @@
         };
 
         utter.onboundary = (e) => {
-            // Pulso extra en cada palabra para mayor vivacidad
             if (e.name === 'word' && window.CutRealOrb) {
                 const cur = window.CutRealOrb.volume || 0.3;
                 window.CutRealOrb.setVolume(Math.min(1, cur + 0.18));
@@ -230,7 +223,6 @@
 
     // ── BOTONES ─────────────────────────────────────────────
     function createButtons() {
-        // Botón toggle (mute/unmute)
         if (!document.getElementById('loquendo-toggle')) {
             const btn = document.createElement('button');
             btn.id        = 'loquendo-toggle';
@@ -254,7 +246,6 @@
             if (sc) sc.insertBefore(btn, sc.firstChild);
         }
 
-        // Botón stop
         if (!document.getElementById('loquendo-stop')) {
             const btn = document.createElement('button');
             btn.id        = 'loquendo-stop';
