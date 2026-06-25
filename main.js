@@ -10,6 +10,8 @@ const MODEL_KEY  = "cutreal_model_preference";
 // ===== ESTADO GLOBAL =====
 let attachedFile = null;
 let selectedModel = localStorage.getItem(MODEL_KEY) || 'pro';
+let currentSessionId = null;
+let sessionsCache    = [];
 
 document.addEventListener("DOMContentLoaded", function () {
     const chat            = document.getElementById("chat");
@@ -313,7 +315,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     // ===== FIRESTORE =====
-    async function guardarEnNube() {
+    async function // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } } {
         if (!currentUser) return;
         const { doc, setDoc } = window.firestore;
         const historialParaGuardar = historial.map((msg) => {
@@ -401,6 +403,201 @@ document.addEventListener("DOMContentLoaded", function () {
         scrollAbajo();
     };
 
+// ================================================================
+//  SIDEBAR & SESIONES MÚLTIPLES
+// ================================================================
+
+function generateSessionId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function fmtRelativeDate(ts) {
+    if (!ts) return '';
+    const days = Math.floor((Date.now() - ts) / 86400000);
+    if (days === 0) return 'Hoy';
+    if (days === 1) return 'Ayer';
+    if (days < 7)  return `Hace ${days} días`;
+    return new Date(ts).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+}
+
+function renderSessionsList(sessions) {
+    const listEl = document.getElementById('sidebar-chats-list');
+    if (!listEl) return;
+    if (!sessions || !sessions.length) {
+        listEl.innerHTML = '<div class="sidebar-empty-msg">Sin chats guardados</div>';
+        return;
+    }
+    const sorted = [...sessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const groups = {};
+    sorted.forEach(s => {
+        const label = fmtRelativeDate(s.updatedAt);
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(s);
+    });
+    let html = '';
+    Object.entries(groups).forEach(([label, items]) => {
+        html += `<div class="sidebar-group-label">${label}</div>`;
+        items.forEach(s => {
+            const isActive = s.id === currentSessionId;
+            const title = (s.title && s.title !== 'Nuevo chat') ? s.title : 'Chat sin título';
+            html += `
+                <div class="sidebar-chat-item${isActive ? ' active' : ''}"
+                     onclick="switchSession('${s.id}')">
+                    <span class="sidebar-chat-icon">💬</span>
+                    <div class="sidebar-chat-info">
+                        <span class="sidebar-chat-title">${escapeHtml(title)}</span>
+                    </div>
+                    <button class="sidebar-delete-btn"
+                            onclick="event.stopPropagation();deleteSession('${s.id}')"
+                            title="Eliminar chat">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14H6L5 6"/>
+                            <path d="M10 11v6M14 11v6"/>
+                            <path d="M9 6V4h6v2"/>
+                        </svg>
+                    </button>
+                </div>`;
+        });
+    });
+    listEl.innerHTML = html;
+}
+
+async function loadSessionsList() {
+    if (!currentUser) return;
+    const listEl = document.getElementById('sidebar-chats-list');
+    if (!listEl) return;
+    listEl.innerHTML = [1, 2, 3].map(() => '<div class="sidebar-skeleton"></div>').join('');
+    try {
+        const { collection, getDocs, query, orderBy } = window.firestore;
+        const q = query(
+            collection(window.db, 'chats', currentUser.uid, 'sessions'),
+            orderBy('updatedAt', 'desc')
+        );
+        const snap = await getDocs(q);
+        sessionsCache = [];
+        snap.forEach(d => sessionsCache.push({ id: d.id, ...d.data(), mensajes: undefined }));
+        renderSessionsList(sessionsCache);
+    } catch (e) {
+        console.error('loadSessionsList error:', e);
+        if (listEl) listEl.innerHTML = '<div class="sidebar-empty-msg">Error al cargar</div>';
+    }
+}
+
+window.toggleSidebar = function () {
+    const sidebar  = document.getElementById('chat-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.contains('sidebar-open');
+    if (isOpen) {
+        sidebar.classList.remove('sidebar-open');
+        backdrop.classList.remove('visible');
+    } else {
+        sidebar.classList.add('sidebar-open');
+        backdrop.classList.add('visible');
+        loadSessionsList();
+    }
+};
+
+window.createNewSession = async function () {
+    if (!currentUser) return;
+    const newId = generateSessionId();
+    currentSessionId = newId;
+    historial = [systemPrompt];
+
+    document.getElementById('chat-sidebar')?.classList.remove('sidebar-open');
+    document.getElementById('sidebar-backdrop')?.classList.remove('visible');
+    renderizarChat();
+
+    try {
+        const { doc, setDoc } = window.firestore;
+        const now = Date.now();
+        await setDoc(doc(window.db, 'chats', currentUser.uid, 'sessions', newId), {
+            title:     'Nuevo chat',
+            mensajes:  [systemPrompt],
+            createdAt: now,
+            updatedAt: now,
+            model:     selectedModel,
+        });
+        await setDoc(doc(window.db, 'chats', currentUser.uid), {
+            mensajes:      [systemPrompt],
+            updatedAt:     now,
+            userEmail:     currentUser.email       || '',
+            userName:      currentUser.displayName || '',
+            model:         selectedModel,
+            activeSession: newId,
+        });
+        sessionsCache.unshift({ id: newId, title: 'Nuevo chat', updatedAt: now });
+        renderSessionsList(sessionsCache);
+    } catch (e) { console.error('createNewSession error:', e); }
+
+    input?.focus();
+};
+
+window.switchSession = async function (sessionId) {
+    if (!currentUser) return;
+    document.getElementById('chat-sidebar')?.classList.remove('sidebar-open');
+    document.getElementById('sidebar-backdrop')?.classList.remove('visible');
+    if (sessionId === currentSessionId) return;
+
+    currentSessionId = sessionId;
+    chat.innerHTML = "<div class='ai'>Cargando<span class='loading-dots'></span></div>";
+    try {
+        const { doc, getDoc } = window.firestore;
+        const snap = await getDoc(doc(window.db, 'chats', currentUser.uid, 'sessions', sessionId));
+        historial = snap.exists() ? (snap.data().mensajes || [systemPrompt]) : [systemPrompt];
+        renderizarChat();
+        renderSessionsList(sessionsCache);
+    } catch (e) {
+        chat.innerHTML = "<div class='ai' style='color:#ff5555;'>⚠️ Error al cargar el chat.</div>";
+    }
+};
+
+window.deleteSession = async function (sessionId) {
+    if (!currentUser) return;
+    if (!confirm('¿Eliminar este chat?')) return;
+    try {
+        const { doc, deleteDoc } = window.firestore;
+        await deleteDoc(doc(window.db, 'chats', currentUser.uid, 'sessions', sessionId));
+        sessionsCache = sessionsCache.filter(s => s.id !== sessionId);
+        renderSessionsList(sessionsCache);
+        if (sessionId === currentSessionId) {
+            if (sessionsCache.length > 0) {
+                await switchSession(sessionsCache[0].id);
+            } else {
+                await createNewSession();
+            }
+        }
+        showToast('Chat eliminado', '#4caf50', '🗑️');
+    } catch (e) {
+        showToast('Error al eliminar', '#ff4444', '❌');
+    }
+};
+
+async function generateSessionTitle(firstUserMessage) {
+    if (!firstUserMessage || firstUserMessage.length < 3) return null;
+    try {
+        const res = await fetch('/api/chat', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mensajes: [{
+                    role:    'user',
+                    content: `Generá un título muy corto (máximo 5 palabras, sin signos de puntuación al final) para una conversación que empieza con: "${firstUserMessage.substring(0, 200)}". Respondé SOLO con el título.`
+                }],
+                model:  'basic',
+                userId: currentUser?.uid || 'anon',
+            }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const raw = data.choices?.[0]?.message?.content?.trim() || '';
+        return raw.replace(/^["']|["']$/g, '').replace(/[.!?]$/, '').trim().substring(0, 60) || null;
+    } catch { return null; }
+}
+    
     // ===== INICIALIZACIÓN DE USUARIO =====
     const checkUser = () => {
         if (window.auth) {
@@ -409,7 +606,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     currentUser = user;
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "block";
-                    const resetBtn = document.getElementById("resetChat");
+                    const resetBtn = document.getElementById("// REEMPLAZA resetChat() CON: window.resetChat = async () => {     if (!currentUser) return;     if (confirm("¿Eliminar este chat y empezar uno nuevo?")) {         if (window.LoquendoStop) window.LoquendoStop();         if (currentSessionId) await deleteSession(currentSessionId);         else await createNewSession();     } };");
                     if (resetBtn) resetBtn.style.display = "block";
 
                     const isAdmin = user.uid === ADMIN_UID || await checkAdminRole(user.uid);
@@ -427,9 +624,13 @@ document.addEventListener("DOMContentLoaded", function () {
                     }, 2200);
                 } else {
                     currentUser = null;
+                    sessionsCache    = [];
+                    currentSessionId = null;
+                    const sidebarToggle = document.getElementById('sidebar-toggle-btn');
+                    if (sidebarToggle) sidebarToggle.style.display = 'none';
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "none";
-                    const resetBtn = document.getElementById("resetChat");
+                    const resetBtn = document.getElementById("// REEMPLAZA resetChat() CON: window.resetChat = async () => {     if (!currentUser) return;     if (confirm("¿Eliminar este chat y empezar uno nuevo?")) {         if (window.LoquendoStop) window.LoquendoStop();         if (currentSessionId) await deleteSession(currentSessionId);         else await createNewSession();     } };");
                     if (resetBtn) resetBtn.style.display = "none";
                     if (adminBtn) adminBtn.style.display = "none";
                     const accepted = localStorage.getItem(TERMS_KEY);
@@ -450,7 +651,7 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch(e) { return false; }
     }
 
-    checkUser();
+    loginOverlay.style.display = "none";;
 
     // ===================================================================
     //  DETECCIÓN DE INTENCIÓN
@@ -606,7 +807,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 historial.push({ role:"assistant", content:`[Imagen generada para: "${imgPrompt}"]` });
                 // Hablar la confirmación
                 speakResponse(`Listo, imagen generada para ${imgPrompt}`);
-                guardarEnNube(); return;
+                // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } }; return;
             } catch(e) { thinking.remove(); }
         }
 
@@ -619,7 +820,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildImageSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();
                 historial.push({role:"assistant",content:`[Búsqueda: "${searchTerm}"]`});
                 speakResponse(`Acá tenés imágenes de ${searchTerm}`);
-                guardarEnNube();
+                // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } };
             }, 600);
             return;
         }
@@ -633,7 +834,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const bot=document.createElement("div");bot.className="ai";bot.innerHTML=buildYouTubeSearchHTML(searchTerm);chat.appendChild(bot);scrollAbajo();
                 historial.push({role:"assistant",content:`[YouTube: "${searchTerm}"]`});
                 speakResponse(`Acá tenés videos de ${searchTerm} en YouTube`);
-                guardarEnNube();
+                // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } };
             }, 500);
             return;
         }
@@ -681,8 +882,34 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
+historial.push({ role:"assistant", content:respuestaIA });
+
+const isFirstExchange = historial.filter(m => m.role === 'user').length === 1;
+guardarEnNube();
+thinking.remove();
+
+if (isFirstExchange && currentSessionId) {
+    const firstMsg = historial.find(m => m.role === 'user');
+    const msgText  = typeof firstMsg?.content === 'string'
+        ? firstMsg.content
+        : (Array.isArray(firstMsg?.content)
+            ? (firstMsg.content.find(c => c.type === 'text')?.text || '')
+            : '');
+    generateSessionTitle(msgText).then(async title => {
+        if (!title || !currentSessionId) return;
+        const { doc, setDoc } = window.firestore;
+        const cached = sessionsCache.find(s => s.id === currentSessionId);
+        if (cached) cached.title = title;
+        renderSessionsList(sessionsCache);
+        await setDoc(
+            doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),
+            { title },
+            { merge: true }
+        );
+    });
+}
             historial.push({ role:"assistant", content:respuestaIA });
-            guardarEnNube();
+            // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } };
             thinking.remove();
 
             const bot = document.createElement("div"); bot.className="ai"; chat.appendChild(bot); scrollAbajo();
@@ -726,12 +953,12 @@ document.addEventListener("DOMContentLoaded", function () {
     input.addEventListener("keydown", (e) => { if (e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} });
     window.sendMessage = sendMessage;
 
-    window.resetChat = async () => {
+    window.// REEMPLAZA resetChat() CON: window.resetChat = async () => {     if (!currentUser) return;     if (confirm("¿Eliminar este chat y empezar uno nuevo?")) {         if (window.LoquendoStop) window.LoquendoStop();         if (currentSessionId) await deleteSession(currentSessionId);         else await createNewSession();     } }; = async () => {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
             // Detener habla al borrar chat
             if (window.LoquendoStop) window.LoquendoStop();
-            historial=[systemPrompt]; renderizarChat(); await guardarEnNube();
+            historial=[systemPrompt]; renderizarChat(); await // REEMPLAZA guardarEnNube() COMPLETA CON: async function guardarEnNube() {     if (!currentUser || !currentSessionId) return;     const { doc, setDoc } = window.firestore;     const historialParaGuardar = historial.map((msg) => {         if (Array.isArray(msg.content)) {             const textos = msg.content.filter((c) => c.type === "text").map((c) => c.text).join(" ");             return { role: msg.role, content: (textos || "Imagen") + " [📷 imagen adjunta]" };         }         return msg;     });     const now = Date.now();     try {         // Guardar en subcollection de la sesión activa         await setDoc(             doc(window.db, 'chats', currentUser.uid, 'sessions', currentSessionId),             { mensajes: historialParaGuardar, updatedAt: now, model: selectedModel },             { merge: true }         );         // Mantener doc raíz actualizado (compatibilidad panel admin)         await setDoc(doc(window.db, 'chats', currentUser.uid), {             mensajes:      historialParaGuardar,             updatedAt:     now,             userEmail:     currentUser.email       || '',             userName:      currentUser.displayName || '',             model:         selectedModel,             activeSession: currentSessionId,         });         // Actualizar cache local         const cached = sessionsCache.find(s => s.id === currentSessionId);         if (cached) cached.updatedAt = now;     } catch (e) { console.error('Error guardando en nube:', e); } };
         }
     };
 
