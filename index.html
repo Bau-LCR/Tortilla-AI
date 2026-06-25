@@ -36,17 +36,6 @@
 
 <!-- HEADER -->
 <header class="main-header">
-    <a href="#" class="header-logo">
-        <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
-        <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
-    </a>
-
-    <!-- ENCUENTRA: -->
-<header class="main-header">
-    <a href="#" class="header-logo">
-
-<!-- REEMPLAZA CON: -->
-<header class="main-header">
     <button id="sidebar-toggle-btn" onclick="toggleSidebar()"
             class="sidebar-toggle-btn" style="display:none;" title="Chats anteriores">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -58,7 +47,30 @@
         </svg>
     </button>
     <a href="#" class="header-logo">
+        <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
+        <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
+    </a>
 </header>
+    <!-- SIDEBAR DE CHATS -->
+<div id="chat-sidebar" class="chat-sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-title">Chats</span>
+        <button onclick="toggleSidebar()" class="sidebar-close-btn">✕</button>
+    </div>
+    <button onclick="createNewSession()" class="new-chat-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+             stroke-linejoin="round">
+            <line x1="12" y1="5"  x2="12" y2="19"/>
+            <line x1="5"  y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo chat
+    </button>
+    <div class="sidebar-list" id="sidebar-chats-list">
+        <div class="sidebar-empty-msg">Sin chats guardados</div>
+    </div>
+</div>
+<div id="sidebar-backdrop" class="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
 <!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
 <div id="terms-overlay" style="display:none;">
