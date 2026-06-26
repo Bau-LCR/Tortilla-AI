@@ -550,6 +550,11 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // ── DETECCIÓN DE BÚSQUEDA WEB (frontend) ─────────────────
+function needsWebSearchFrontend(msg) {
+    if (!msg) return false;
+    return /hoy|ahora|actualidad|últim[ao]s?|noticias?|precio|cotización|dólar|bitcoin|cripto|clima|temperatura|trending|viral|resultado|ganó|partido|estreno|2024|2025|2026/.test(msg.toLowerCase());
+}
     // ===== ENVIAR MENSAJE =====
     async function sendMessage() {
         const rawMsg = input.value.trim();
@@ -640,6 +645,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // CHAT NORMAL
         const thinking = addThinking();
+
+        // Indicador visual si la consulta requiere búsqueda web
+        if (needsWebSearchFrontend(rawMsg)) {
+            thinking.innerHTML = `
+                <span style="color:#4488ff;font-size:12px;display:flex;align-items:center;gap:6px;">
+                    🔍 <em>Buscando en internet...</em>
+                    <span style="display:inline-flex;gap:3px;margin-left:4px;">
+                        <div class="thinking-dot"></div>
+                        <div class="thinking-dot"></div>
+                        <div class="thinking-dot"></div>
+                    </span>
+                </span>`;
+        }
+
         try {
             const res = await fetch("/api/chat", {
                 method: "POST",
@@ -681,6 +700,10 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
+            if (data._searchUsed) {
+    showToast("Respuesta con datos de internet en tiempo real", "#4488ff", "🔍");
+}
+            
             historial.push({ role:"assistant", content:respuestaIA });
             guardarEnNube();
             thinking.remove();
