@@ -65,6 +65,72 @@ function resetBlockedKeys() {
     });
 }
 
+
+// ── BÚSQUEDA WEB EN TIEMPO REAL (Tavily) ─────────────────
+const SEARCH_KEYWORDS = [
+    "hoy","ahora","actualmente","actualidad",
+    "últimas","últimos","última","último",
+    "reciente","recientes","recientemente",
+    "esta semana","este mes","este año",
+    "noticias","noticia","novedad","novedades",
+    "precio","cotización","dólar","euro","bitcoin","cripto",
+    "clima","temperatura","tiempo en","pronóstico",
+    "resultado","resultados","quién ganó","ganó","fixture",
+    "partido","score","marcador","tabla de posiciones",
+    "presidente","gobierno","elecciones","política",
+    "lanzó","lanzamiento","estreno","salió","nuevo","nueva",
+    "trending","viral","murió","murieron","accidente",
+    "2024","2025","2026",
+    "enero","febrero","marzo","abril","mayo","junio",
+    "julio","agosto","septiembre","octubre","noviembre","diciembre"
+];
+
+function needsWebSearch(mensajes) {
+    const lastUser = [...mensajes].reverse().find(m => m.role === "user");
+    if (!lastUser) return false;
+    const text = (
+        typeof lastUser.content === "string"
+            ? lastUser.content
+            : Array.isArray(lastUser.content)
+                ? (lastUser.content.find(c => c.type === "text")?.text || "")
+                : ""
+    ).toLowerCase();
+    return SEARCH_KEYWORDS.some(kw => text.includes(kw));
+}
+
+function extractSearchQuery(mensajes) {
+    const lastUser = [...mensajes].reverse().find(m => m.role === "user");
+    if (!lastUser) return "";
+    if (typeof lastUser.content === "string") return lastUser.content;
+    if (Array.isArray(lastUser.content))
+        return lastUser.content.find(c => c.type === "text")?.text || "";
+    return "";
+}
+
+async function searchWeb(query) {
+    const tavilyKey = process.env.TAVILY_API_KEY;
+    if (!tavilyKey) return null;
+    try {
+        const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                api_key:        tavilyKey,
+                query,
+                search_depth:   "basic",
+                include_answer: true,
+                max_results:    5,
+            }),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
+
+
 // ── HANDLER PRINCIPAL ──────────────────────────────────────
 export default async function handler(req, res) {
     if (req.method !== "POST")
@@ -128,12 +194,36 @@ FORMATO DE RESPUESTA:
 
 © 2026 Cut-real AI. Todos los derechos reservados.`;
 
-    if (mensajes.length > 0 && mensajes[0].role === "system")
-        mensajes[0].content = systemContent;
-    else
-        mensajes.unshift({ role: "system", content: systemContent });
+    // ── BÚSQUEDA WEB (si la consulta lo requiere) ─────────────
+let searchContext = "";
+if (!hasImage && needsWebSearch(mensajes)) {
+    const query      = extractSearchQuery(mensajes);
+    const searchData = await searchWeb(query);
+    if (searchData) {
+        const today = new Date().toLocaleDateString("es-AR", {
+            weekday: "long", year: "numeric", month: "long", day: "numeric",
+        });
+        const answer  = searchData.answer
+            ? `Respuesta directa de la búsqueda: ${searchData.answer}\n\n`
+            : "";
+        const sources = (searchData.results || [])
+            .slice(0, 5)
+            .map((r, i) =>
+                `[${i + 1}] ${r.title}\nURL: ${r.url}\n${(r.content || "").substring(0, 400)}`
+            )
+            .join("\n\n");
+        searchContext = `\n\n---\n🔍 RESULTADOS DE BÚSQUEDA WEB EN TIEMPO REAL (${today})\n\n${answer}${sources}\n---\nUsá estos resultados para dar información actualizada. Citá las fuentes con sus URLs cuando sea relevante.`;
+    }
+}
 
-    const temperature = modelPref === "basic" ? 0.5 : 0.65;
+const finalSystemContent = systemContent + searchContext;
+
+if (mensajes.length > 0 && mensajes[0].role === "system")
+    mensajes[0].content = finalSystemContent;
+else
+    mensajes.unshift({ role: "system", content: finalSystemContent });
+
+const temperature = modelPref === "basic" ? 0.5 : 0.65;
     const max_tokens  = hasImage ? 1024 : 2048;
 
     // ── ROTACIÓN DE KEYS ─────────────────────────────────
@@ -179,6 +269,7 @@ FORMATO DE RESPUESTA:
                     remaining:  Math.max(0, TOKEN_LIMIT_PER_KEY - keyStore[keyIndex].used),
                     calls:      keyStore[keyIndex].calls,
                 };
+                data._searchUsed = !!searchContext;
 
                 return res.status(200).json(data);
             }
