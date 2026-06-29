@@ -162,8 +162,8 @@ if (ultraBtn) {
         texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
     `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
 );
-        );
-        // ── COPIAR CÓDIGO DE BLOQUE ──────────────────────────────
+    };
+    // ✅ FUERA de formatearTexto, al nivel raíz del archivo
 window.copyCode = function(btn) {
     const code = btn.previousElementSibling.textContent;
     navigator.clipboard.writeText(code).then(() => {
@@ -179,7 +179,6 @@ window.copyCode = function(btn) {
     });
 };
 
-// ── COPIAR RESPUESTA COMPLETA DE LA IA ──────────────────
 window.copyAiResponse = function(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
         btn.innerHTML = '✅ Copiado';
@@ -193,22 +192,6 @@ window.copyAiResponse = function(text, btn) {
         setTimeout(() => { btn.innerHTML = '📋 Copiar'; }, 2500);
     });
 };
-        texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-        texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-        texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
-        texto = texto.replace(/^# (.+)$/gm,   "<h1>$1</h1>");
-        texto = texto.replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>");
-        texto = texto.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-        texto = texto.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-        texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-        texto = texto.replace(/(^|[^"=>])(https?:\/\/[^\s<>"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
-        texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
-        texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, (m) => `<ul>${m}</ul>`);
-        texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
-        texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(255,59,59,0.18);margin:12px 0;">');
-        texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
-        return texto;
-    };
 
     const scrollAbajo = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
 
