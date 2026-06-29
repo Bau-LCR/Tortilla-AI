@@ -389,13 +389,33 @@ const formatearTexto = (texto) => {
 
     // ===== FIREBASE AUTH =====
     window.login = async () => {
-        if (!window.auth) return;
-        try { await window.signInWithPopup(window.auth, window.provider); }
-        catch (error) {
-            if (error.code === "auth/cancelled-popup-request" || error.code === "auth/popup-closed-by-user") return;
+    if (!window.auth) return;
+
+    const isNative = window.Capacitor?.isNativePlatform?.() === true;
+
+    if (isNative) {
+        try {
+            const { FirebaseAuthentication } = window.Capacitor.Plugins;
+            const result = await FirebaseAuthentication.signInWithGoogle();
+            const idToken = result.credential?.idToken;
+            if (!idToken) throw new Error("No se obtuvo token de Google");
+            const credential = window.GoogleAuthProvider.credential(idToken);
+            await window.signInWithCredential(window.auth, credential);
+        } catch (error) {
+            if (error.code !== "auth/cancelled-popup-request") {
+                alert("Error al iniciar sesión: " + error.message);
+            }
+        }
+    } else {
+        try {
+            await window.signInWithPopup(window.auth, window.provider);
+        } catch (error) {
+            if (error.code === "auth/cancelled-popup-request" ||
+                error.code === "auth/popup-closed-by-user") return;
             alert("Error al iniciar sesión: " + error.message);
         }
-    };
+    }
+};
 
     window.logout = () => {
         if (!window.auth) return;
