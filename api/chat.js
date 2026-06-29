@@ -143,18 +143,20 @@ export default async function handler(req, res) {
 
     // ── SELECCIÓN DE MODELO ──────────────────────────────
     let model;
-    if (hasImage)                    model = "meta-llama/llama-4-scout-17b-16e-instruct";
-    else if (modelPref === "basic")  model = "llama-3.1-8b-instant";
+    // ✅ DESPUÉS (modelos actuales)
+    if (hasImage)                    model = "llama-3.2-90b-vision-preview";
+    else if (modelPref === "basic")  model = "openai/gpt-oss-20b";
     else if (modelPref === "ultra")  model = "deepseek-r1-distill-llama-70b";
-    else                             model = "llama-3.3-70b-versatile";
+    else                             model = "openai/gpt-oss-120b";
 
-    const modelName = hasImage
-    ? "Llama 4 Scout 17B (visión)"
+    // ✅ Actualizar modelName
+const modelName = hasImage
+    ? "Llama 3.2 90B Vision"
     : modelPref === "basic"
-        ? "Llama 3.1 8B Instant"
+        ? "GPT-OSS 20B"
         : modelPref === "ultra"
             ? "DeepSeek R1 70B (Razonamiento Avanzado)"
-            : "Llama 3.3 70B Versatile";
+            : "GPT-OSS 120B";
 
     // ── SYSTEM PROMPT ────────────────────────────────────
     const systemContent = `Eres Cut-real AI, una Inteligencia Artificial desarrollada por Bautista utilizando servicios y proveedores gratuitos. Eres impulsada por el modelo ${modelName} a través de los servicios de Groq.
