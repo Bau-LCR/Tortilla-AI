@@ -144,19 +144,18 @@ export default async function handler(req, res) {
     // ── SELECCIÓN DE MODELO ──────────────────────────────
     let model;
     // ✅ DESPUÉS (modelos actuales)
-    if (hasImage)                    model = "llama-3.2-90b-vision-preview";
-    else if (modelPref === "basic")  model = "openai/gpt-oss-20b";
-    else if (modelPref === "ultra")  model = "deepseek-r1-distill-llama-70b";
-    else                             model = "openai/gpt-oss-120b";
+    if (hasImage)                    model = "meta-llama/llama-4-scout-17b-16e-instruct";
+else if (modelPref === "basic")  model = "llama-3.1-8b-instant";
+else if (modelPref === "ultra")  model = "openai/gpt-oss-120b";   // ← cambiado
+else                             model = "llama-3.3-70b-versatile";
 
-    // ✅ Actualizar modelName
 const modelName = hasImage
-    ? "Llama 3.2 90B Vision"
+    ? "Llama 4 Scout 17B (visión)"
     : modelPref === "basic"
-        ? "GPT-OSS 20B"
+        ? "Llama 3.1 8B Instant"
         : modelPref === "ultra"
-            ? "DeepSeek R1 70B (Razonamiento Avanzado)"
-            : "GPT-OSS 120B";
+            ? "GPT-OSS 120B (Razonamiento Avanzado)"   // ← cambiado
+            : "Llama 3.3 70B Versatile";
 
     // ── SYSTEM PROMPT ────────────────────────────────────
     const systemContent = `Eres Cut-real AI, una Inteligencia Artificial desarrollada por Bautista utilizando servicios y proveedores gratuitos. Eres impulsada por el modelo ${modelName} a través de los servicios de Groq.
@@ -265,7 +264,7 @@ const max_tokens  = hasImage ? 1024 : modelPref === "ultra" ? 4096 : 2048;
                 keyStore[keyIndex].calls += 1;
                 usedKeyIndex = keyIndex;
                 // Eliminar etiquetas de razonamiento interno de DeepSeek R1
-if (data.choices?.[0]?.message?.content && model.includes('deepseek')) {
+if (data.choices?.[0]?.message?.content && (model.includes('gpt-oss') || model.includes('deepseek'))) {
     data.choices[0].message.content = data.choices[0].message.content
         .replace(/<think>[\s\S]*?<\/think>/gi, '')
         .trim();
