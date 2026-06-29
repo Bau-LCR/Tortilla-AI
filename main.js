@@ -157,13 +157,7 @@ if (ultraBtn) {
     const escapeHtml = (str) =>
         str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const formatearTexto = (texto) => {
-        if (!texto) return "";
-        texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-    `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
-);
-    };
-    // ✅ FUERA de formatearTexto, al nivel raíz del archivo
+    // ── COPIAR CÓDIGO DE BLOQUE (FUERA de formatearTexto) ──────
 window.copyCode = function(btn) {
     const code = btn.previousElementSibling.textContent;
     navigator.clipboard.writeText(code).then(() => {
@@ -179,6 +173,7 @@ window.copyCode = function(btn) {
     });
 };
 
+// ── COPIAR RESPUESTA COMPLETA (FUERA de formatearTexto) ────
 window.copyAiResponse = function(text, btn) {
     navigator.clipboard.writeText(text).then(() => {
         btn.innerHTML = '✅ Copiado';
@@ -191,6 +186,29 @@ window.copyAiResponse = function(text, btn) {
         btn.innerHTML = '✅ Copiado';
         setTimeout(() => { btn.innerHTML = '📋 Copiar'; }, 2500);
     });
+};
+
+// ── FORMATEAR TEXTO (función completa y correcta) ──────────
+const formatearTexto = (texto) => {
+    if (!texto) return "";
+    texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+        `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
+    );
+    texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+    texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
+    texto = texto.replace(/^# (.+)$/gm,   "<h1>$1</h1>");
+    texto = texto.replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>");
+    texto = texto.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    texto = texto.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+    texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    texto = texto.replace(/(^|[^"=>])(https?:\/\/[^\s<>"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+    texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
+    texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, (m) => `<ul>${m}</ul>`);
+    texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
+    texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(255,59,59,0.18);margin:12px 0;">');
+    texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
+    return texto;  // ← esta línea DEBE estar dentro de la función
 };
 
     const scrollAbajo = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
@@ -403,8 +421,9 @@ window.copyAiResponse = function(text, btn) {
                         div.innerHTML = `<b>Tú:</b> ${formatearTexto(textoBlock?.text || "")}`;
                         if (imgBlock) div.innerHTML += `<br><img src="${imgBlock.image_url.url}" class="attached-image" alt="Imagen adjunta">`;
                     } else {
-                        let visible = msg.content;
-                        if (visible.includes("[Documento")) {
+                        // DESPUÉS (con guard):
+                        let visible = msg.content || '';
+                        if (visible && visible.includes("[Documento")) {
                             const partes = visible.split("]\n\nUsuario: ");
                             visible = (partes.length > 1 ? partes[1] : "Analizar documento") + ' <span style="color:#ff8888;font-size:12px;">📎 Archivo adjunto</span>';
                         }
@@ -874,6 +893,9 @@ function needsWebSearchFrontend(msg) {
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
+            if (respuestaIA === undefined || respuestaIA === null) {
+                throw new Error("La IA no devolvió respuesta. Intentá de nuevo.");
+}
             if (data._searchUsed) {
     showToast("Respuesta con datos de internet en tiempo real", "#4488ff", "🔍");
 }
