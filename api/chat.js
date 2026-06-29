@@ -143,14 +143,17 @@ export default async function handler(req, res) {
 
     // ── SELECCIÓN DE MODELO ──────────────────────────────
     let model;
-    if (hasImage)                   model = "meta-llama/llama-4-scout-17b-16e-instruct";
-    else if (modelPref === "basic") model = "llama-3.1-8b-instant";
-    else                            model = "llama-3.3-70b-versatile";
+    if (hasImage)                    model = "meta-llama/llama-4-scout-17b-16e-instruct";
+    else if (modelPref === "basic")  model = "llama-3.1-8b-instant";
+    else if (modelPref === "ultra")  model = "deepseek-r1-distill-llama-70b";
+    else                             model = "llama-3.3-70b-versatile";
 
     const modelName = hasImage
-        ? "Llama 4 Scout 17B (visión)"
-        : modelPref === "basic"
-            ? "Llama 3.1 8B Instant"
+    ? "Llama 4 Scout 17B (visión)"
+    : modelPref === "basic"
+        ? "Llama 3.1 8B Instant"
+        : modelPref === "ultra"
+            ? "DeepSeek R1 70B (Razonamiento Avanzado)"
             : "Llama 3.3 70B Versatile";
 
     // ── SYSTEM PROMPT ────────────────────────────────────
@@ -223,8 +226,8 @@ if (mensajes.length > 0 && mensajes[0].role === "system")
 else
     mensajes.unshift({ role: "system", content: finalSystemContent });
 
-const temperature = modelPref === "basic" ? 0.5 : 0.65;
-    const max_tokens  = hasImage ? 1024 : 2048;
+const temperature = modelPref === "basic" ? 0.5 : modelPref === "ultra" ? 0.6 : 0.65;
+const max_tokens  = hasImage ? 1024 : modelPref === "ultra" ? 4096 : 2048;
 
     // ── ROTACIÓN DE KEYS ─────────────────────────────────
     resetBlockedKeys();
@@ -259,7 +262,12 @@ const temperature = modelPref === "basic" ? 0.5 : 0.65;
                 keyStore[keyIndex].used  += tokensUsed;
                 keyStore[keyIndex].calls += 1;
                 usedKeyIndex = keyIndex;
-
+                // Eliminar etiquetas de razonamiento interno de DeepSeek R1
+if (data.choices?.[0]?.message?.content && model.includes('deepseek')) {
+    data.choices[0].message.content = data.choices[0].message.content
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .trim();
+}
                 // Adjuntamos info de la key usada en la respuesta (solo para el admin)
                 data._keyInfo = {
                     keyIndex,
