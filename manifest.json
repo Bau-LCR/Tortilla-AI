@@ -1,7 +1,7 @@
 {
   "name": "Cut-real AI",
   "short_name": "Cut-real",
-  "description": "Tu IA personal con modelos Básico y Pro",
+  "description": "Tu IA personal con modelos de alto nivel.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0f",
