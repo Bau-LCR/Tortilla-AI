@@ -388,7 +388,7 @@ const formatearTexto = (texto) => {
     }
 
     // ===== FIREBASE AUTH =====
-    window.login = async () => {
+   window.login = async () => {
     if (!window.auth) return;
 
     const isNative = window.Capacitor?.isNativePlatform?.() === true;
@@ -396,16 +396,32 @@ const formatearTexto = (texto) => {
     if (isNative) {
         try {
             const { FirebaseAuthentication } = window.Capacitor.Plugins;
-            const result = await FirebaseAuthentication.signInWithGoogle();
-            const idToken = result.credential?.idToken;
-            if (!idToken) throw new Error("No se obtuvo token de Google");
-            const credential = window.GoogleAuthProvider.credential(idToken);
-            await window.signInWithCredential(window.auth, credential);
-        } catch (error) {
-            if (error.code !== "auth/cancelled-popup-request") {
-                alert("Error al iniciar sesión: " + error.message);
+
+            if (!FirebaseAuthentication) {
+                alert("Plugin no disponible. Reinstalá la app.");
+                return;
             }
+
+            const result = await FirebaseAuthentication.signInWithGoogle();
+
+            // Si el usuario canceló o no hay resultado
+            if (!result || !result.credential || !result.credential.idToken) {
+                return;
+            }
+
+            const credential = window.GoogleAuthProvider.credential(
+                result.credential.idToken
+            );
+            await window.signInWithCredential(window.auth, credential);
+
+        } catch (error) {
+            // Ignorar cancelaciones silenciosamente
+            const msg = error?.message || "";
+            if (msg.includes("cancel") || msg.includes("closed") || msg.includes("dismissed")) return;
+            console.error("Login error:", error);
+            alert("Error al iniciar sesión: " + msg);
         }
+
     } else {
         try {
             await window.signInWithPopup(window.auth, window.provider);
