@@ -149,7 +149,7 @@ if (ultraBtn) {
         document.querySelectorAll(".model-btn").forEach(b => b.classList.remove("active"));
         const btn = document.querySelector(`.model-btn[onclick="setModel('${model}')"]`);
         if (btn) btn.classList.add("active");
-        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)", ultra: "🚀 Ultra (razonamiento)" };
+        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)", ultra: "🚀 Ultra (Fase Beta, PUEDE FALLAR)" };
         showToast(`Modelo: ${names[model]}`, "#4caf50", "🔄");
     };
 
