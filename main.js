@@ -65,6 +65,11 @@ document.addEventListener("DOMContentLoaded", function () {
             proBtn.style.display = featureFlags.promodel ? "" : "none";
             if (!featureFlags.promodel && selectedModel === 'pro') {
                 setModel('basic');
+                const ultraBtn = document.querySelector('.model-btn.ultra-btn');
+if (ultraBtn) {
+    ultraBtn.style.display = featureFlags.promodel ? "" : "none";
+    if (!featureFlags.promodel && selectedModel === 'ultra') setModel('basic');
+}
             }
         }
 
@@ -118,17 +123,21 @@ document.addEventListener("DOMContentLoaded", function () {
         const wrap = document.createElement("div");
         wrap.id = "model-selector-wrap";
         wrap.innerHTML = `
-            <div class="model-selector">
-                <button class="model-btn ${selectedModel === 'basic' ? 'active' : ''}" onclick="setModel('basic')" title="Llama 3.1 8B — Rápido y liviano">
-                    <span class="model-icon">⚡</span>
-                    <span class="model-label">Básico</span>
-                </button>
-                <button class="model-btn ${selectedModel === 'pro' ? 'active' : ''}" onclick="setModel('pro')" title="Llama 3.3 70B — Más inteligente y capaz">
-                    <span class="model-icon">🧠</span>
-                    <span class="model-label">Pro</span>
-                </button>
-            </div>
-        `;
+    <div class="model-selector">
+        <button class="model-btn ${selectedModel === 'basic' ? 'active' : ''}" onclick="setModel('basic')" title="Llama 3.1 8B — Rápido y liviano">
+            <span class="model-icon">⚡</span>
+            <span class="model-label">Básico</span>
+        </button>
+        <button class="model-btn ${selectedModel === 'pro' ? 'active' : ''}" onclick="setModel('pro')" title="Llama 3.3 70B — Más inteligente y capaz">
+            <span class="model-icon">🧠</span>
+            <span class="model-label">Pro</span>
+        </button>
+        <button class="model-btn ultra-btn ${selectedModel === 'ultra' ? 'active' : ''}" onclick="setModel('ultra')" title="DeepSeek R1 70B — Razonamiento avanzado">
+            <span class="model-icon">🚀</span>
+            <span class="model-label">Ultra</span>
+        </button>
+    </div>
+`;
         const inputArea = document.querySelector(".input-area");
         if (inputArea) inputArea.parentNode.insertBefore(wrap, inputArea);
         applyFeatureFlags();
@@ -140,7 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".model-btn").forEach(b => b.classList.remove("active"));
         const btn = document.querySelector(`.model-btn[onclick="setModel('${model}')"]`);
         if (btn) btn.classList.add("active");
-        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)" };
+        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)", ultra: "🚀 Ultra (razonamiento)" };
         showToast(`Modelo: ${names[model]}`, "#4caf50", "🔄");
     };
 
@@ -151,8 +160,39 @@ document.addEventListener("DOMContentLoaded", function () {
     const formatearTexto = (texto) => {
         if (!texto) return "";
         texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-            `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code></pre>`
+    `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
+);
         );
+        // ── COPIAR CÓDIGO DE BLOQUE ──────────────────────────────
+window.copyCode = function(btn) {
+    const code = btn.previousElementSibling.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = '✅ Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copiar'; btn.classList.remove('copied'); }, 2000);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = code; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        btn.textContent = '✅ Copiado';
+        setTimeout(() => { btn.textContent = '📋 Copiar'; }, 2000);
+    });
+};
+
+// ── COPIAR RESPUESTA COMPLETA DE LA IA ──────────────────
+window.copyAiResponse = function(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = '✅ Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.innerHTML = '📋 Copiar'; btn.classList.remove('copied'); }, 2500);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        btn.innerHTML = '✅ Copiado';
+        setTimeout(() => { btn.innerHTML = '📋 Copiar'; }, 2500);
+    });
+};
         texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
         texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
         texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
@@ -393,8 +433,20 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     }
                 } else {
-                    div.innerHTML = formatearTexto(msg.content);
-                }
+    div.innerHTML = formatearTexto(msg.content);
+    // Agregar botón copiar a mensajes históricos de la IA
+    const msgContent = msg.content || '';
+    if (msgContent && !msgContent.startsWith('[IMAGEN_GENERADA')) {
+        const actionGroup = document.createElement("div");
+        actionGroup.className = "ai-action-btns";
+        const copyHistBtn = document.createElement("button");
+        copyHistBtn.className = "ai-copy-btn";
+        copyHistBtn.innerHTML = "📋 Copiar";
+        copyHistBtn.onclick = () => copyAiResponse(msgContent, copyHistBtn);
+        actionGroup.appendChild(copyHistBtn);
+        div.appendChild(actionGroup);
+    }
+}
                 chat.appendChild(div);
             });
         }
@@ -458,6 +510,13 @@ document.addEventListener("DOMContentLoaded", function () {
     function detectIntent(msg) {
         const lower = msg.toLowerCase().trim();
         if (lower.replace(/\s+/g, " ") === "doom 1993") return "doom";
+        // Detección de generación de Word
+const wordPattern = /\b(crea|creá|crear|genera|generá|generar|haz|hace|hacer|escribí|redactá|redactar|armá|armar|preparame)\b.{0,60}\b(word|docx|documento word|archivo word|\.docx|en word)\b/i;
+if (wordPattern.test(lower)) return 'generate_word';
+
+// Detección de generación de PDF
+const pdfPattern = /\b(crea|creá|crear|genera|generá|generar|haz|hace|hacer|exportá|exportar|armá|armar|preparame)\b.{0,60}\b(pdf|\.pdf|archivo pdf|documento pdf|en pdf|como pdf|formato pdf)\b/i;
+if (pdfPattern.test(lower)) return 'generate_pdf';
         const imgGenerateVerbs = /\b(genera|generá|generar|crea|creá|crear|dibuja|dibujá|dibujar|diseña|diseñá|diseñar|haz|hace|hacer|producí|producir)\b/;
         const imgGenerateNouns = /\b(imagen|imágen|foto|fotografía|ilustración|dibujo|arte|logo|banner|poster|póster|icono|portada|thumbnail)\b/;
         if (imgGenerateVerbs.test(lower) && imgGenerateNouns.test(lower)) return 'generate_image';
@@ -527,6 +586,138 @@ document.addEventListener("DOMContentLoaded", function () {
         const q = encodeURIComponent(query);
         return `<div class="yt-search-container"><p style="color:#ff8888;font-size:13px;margin:0 0 8px;">▶️ Videos de: <b>${escapeHtml(query)}</b></p><div class="yt-cards-row"><a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank"><div class="yt-thumb"><span class="yt-play-icon">▶</span></div><div class="yt-card-info"><span class="yt-card-title">${escapeHtml(query)}</span><span class="yt-card-sub">Ver en YouTube →</span></div></a></div></div>`;
     }
+    // ── GENERAR ARCHIVO WORD (.docx) ────────────────────────────
+async function generateDocxFromText(content, filename = 'documento') {
+    if (!window.docx) { showToast('Biblioteca Word no disponible', '#ff4444', '❌'); return; }
+    const { Document, Paragraph, TextRun, HeadingLevel, Packer } = window.docx;
+    const lines = content.split('\n');
+    const children = [];
+
+    lines.forEach(line => {
+        const t = line.trim();
+        if (!t) { children.push(new Paragraph({ children: [new TextRun('')] })); return; }
+        if (t.startsWith('# ')) {
+            children.push(new Paragraph({ text: t.substring(2), heading: HeadingLevel.HEADING_1 }));
+        } else if (t.startsWith('## ')) {
+            children.push(new Paragraph({ text: t.substring(3), heading: HeadingLevel.HEADING_2 }));
+        } else if (t.startsWith('### ')) {
+            children.push(new Paragraph({ text: t.substring(4), heading: HeadingLevel.HEADING_3 }));
+        } else if (t.startsWith('- ') || t.startsWith('* ')) {
+            children.push(new Paragraph({ text: t.substring(2).replace(/\*\*/g,'').replace(/\*/g,''), bullet: { level: 0 } }));
+        } else {
+            const runs = [];
+            t.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).forEach(part => {
+                if (part.startsWith('**') && part.endsWith('**'))
+                    runs.push(new TextRun({ text: part.slice(2,-2), bold: true }));
+                else if (part.startsWith('*') && part.endsWith('*'))
+                    runs.push(new TextRun({ text: part.slice(1,-1), italics: true }));
+                else if (part) runs.push(new TextRun({ text: part }));
+            });
+            children.push(new Paragraph({ children: runs }));
+        }
+    });
+
+    const doc = new Document({ sections: [{ properties: {}, children }] });
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${filename}.docx`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    showToast('Archivo Word descargado', '#4caf50', '📝');
+}
+
+// ── GENERAR ARCHIVO PDF ──────────────────────────────────────
+function generatePdfFromText(content, filename = 'documento') {
+    if (!window.jspdf) { showToast('Biblioteca PDF no disponible', '#ff4444', '❌'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const margin = 18, maxW = 210 - margin * 2;
+    let y = 22;
+
+    const addPage = () => { doc.addPage(); y = 22; };
+
+    content.split('\n').forEach(line => {
+        if (y > 270) addPage();
+        const t = line.trim();
+        if (!t) { y += 4; return; }
+
+        if (t.startsWith('# ')) {
+            doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.setTextColor(68,136,255);
+            const split = doc.splitTextToSize(t.substring(2), maxW);
+            if (y + split.length * 8 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 9 + 3;
+        } else if (t.startsWith('## ')) {
+            doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(68,136,255);
+            const split = doc.splitTextToSize(t.substring(3), maxW);
+            if (y + split.length * 7 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 7 + 3;
+        } else if (t.startsWith('### ')) {
+            doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(50,50,50);
+            const split = doc.splitTextToSize(t.substring(4), maxW);
+            if (y + split.length * 6 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 6 + 2;
+        } else if (t.startsWith('- ') || t.startsWith('* ')) {
+            doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(50,50,50);
+            const clean = '• ' + t.substring(2).replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1');
+            const split = doc.splitTextToSize(clean, maxW - 4);
+            if (y + split.length * 6 > 270) addPage();
+            doc.text(split, margin + 4, y); y += split.length * 6 + 1;
+        } else {
+            doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(50,50,50);
+            const clean = t.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
+            const split = doc.splitTextToSize(clean, maxW);
+            if (y + split.length * 6 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 6 + 2;
+        }
+    });
+
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+        doc.setPage(i); doc.setFontSize(8); doc.setFont('helvetica','normal');
+        doc.setTextColor(160,160,160);
+        doc.text(`Generado por Cut-real AI  •  Página ${i} de ${total}`, margin, 292);
+    }
+    doc.save(`${filename}.pdf`);
+    showToast('Archivo PDF descargado', '#4caf50', '📄');
+}
+
+// ── HELPER: crear grupo de botones de acción para respuestas IA ──
+function createAiActionBtns(respuestaIA, intent) {
+    const group = document.createElement("div");
+    group.className = "ai-action-btns";
+
+    // Botón copiar (siempre)
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "ai-copy-btn";
+    copyBtn.innerHTML = "📋 Copiar";
+    copyBtn.onclick = () => copyAiResponse(respuestaIA, copyBtn);
+    group.appendChild(copyBtn);
+
+    // Botones de descarga (si se pidió un archivo)
+    if (intent === 'generate_word' || intent === 'generate_pdf') {
+        const wordBtn = document.createElement("button");
+        wordBtn.className = "ai-file-btn";
+        wordBtn.innerHTML = "📝 Word";
+        wordBtn.onclick = async () => {
+            wordBtn.disabled = true; wordBtn.innerHTML = "⏳...";
+            try { await generateDocxFromText(respuestaIA, 'cut-real-doc'); wordBtn.innerHTML = "✅ Word"; wordBtn.disabled = false; }
+            catch(e) { wordBtn.innerHTML = "❌ Error"; wordBtn.disabled = false; }
+        };
+        group.appendChild(wordBtn);
+
+        const pdfBtn = document.createElement("button");
+        pdfBtn.className = "ai-file-btn";
+        pdfBtn.innerHTML = "📄 PDF";
+        pdfBtn.onclick = () => {
+            pdfBtn.disabled = true; pdfBtn.innerHTML = "⏳...";
+            try { generatePdfFromText(respuestaIA, 'cut-real-doc'); setTimeout(() => { pdfBtn.innerHTML = "✅ PDF"; pdfBtn.disabled = false; }, 800); }
+            catch(e) { pdfBtn.innerHTML = "❌ Error"; pdfBtn.disabled = false; }
+        };
+        group.appendChild(pdfBtn);
+    }
+    return group;
+}
 
     // ===================================================================
     //  HABLAR RESPUESTA CON LOQUENDO + SINCRONIZAR ORB
@@ -720,12 +911,13 @@ function needsWebSearchFrontend(msg) {
                     clearInterval(timer);
                     bot.style.transition="opacity 0.15s ease"; bot.style.opacity="0.6";
                     requestAnimationFrame(() => {
-                        bot.innerHTML=formatearTexto(respuestaIA);
-                        bot.style.opacity="1";
-                        scrollAbajo();
-                        // ── HABLAR RESPUESTA COMPLETA CON LOQUENDO ──
-                        speakResponse(respuestaIA);
-                    });
+    bot.innerHTML = formatearTexto(respuestaIA);
+    // Agregar botones de acción (copiar + descarga si corresponde)
+    bot.appendChild(createAiActionBtns(respuestaIA, intent));
+    bot.style.opacity = "1";
+    scrollAbajo();
+    speakResponse(respuestaIA);
+});
                 }
             }, 22);
 
