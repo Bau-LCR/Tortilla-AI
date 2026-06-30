@@ -396,16 +396,16 @@ const formatearTexto = (texto) => {
     if (isNative) {
         try {
             const { FirebaseAuthentication } = window.Capacitor.Plugins;
-
             if (!FirebaseAuthentication) {
                 alert("Plugin no disponible. Reinstalá la app.");
                 return;
             }
 
+            // skipNativeAuth: true → siempre devuelve el credential
             const result = await FirebaseAuthentication.signInWithGoogle();
 
-            // Si el usuario canceló o no hay resultado
-            if (!result || !result.credential || !result.credential.idToken) {
+            if (!result?.credential?.idToken) {
+                // Usuario canceló la selección de cuenta
                 return;
             }
 
@@ -415,10 +415,13 @@ const formatearTexto = (texto) => {
             await window.signInWithCredential(window.auth, credential);
 
         } catch (error) {
-            // Ignorar cancelaciones silenciosamente
             const msg = error?.message || "";
-            if (msg.includes("cancel") || msg.includes("closed") || msg.includes("dismissed")) return;
-            console.error("Login error:", error);
+            if (
+                msg.includes("cancel") ||
+                msg.includes("closed") ||
+                msg.includes("dismissed") ||
+                msg.includes("12501")  // código de cancelación de Google
+            ) return;
             alert("Error al iniciar sesión: " + msg);
         }
 
@@ -426,8 +429,10 @@ const formatearTexto = (texto) => {
         try {
             await window.signInWithPopup(window.auth, window.provider);
         } catch (error) {
-            if (error.code === "auth/cancelled-popup-request" ||
-                error.code === "auth/popup-closed-by-user") return;
+            if (
+                error.code === "auth/cancelled-popup-request" ||
+                error.code === "auth/popup-closed-by-user"
+            ) return;
             alert("Error al iniciar sesión: " + error.message);
         }
     }
