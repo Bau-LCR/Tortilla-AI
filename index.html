@@ -1349,6 +1349,7 @@ document.addEventListener('keydown', function(e) {
     }
     if (e.key === 'Escape') {
         closeChatSearch();
+        closeSidebar();
         document.getElementById('shortcuts-modal').style.display = 'none';
         document.getElementById('image-zoom-modal').style.display = 'none';
         document.getElementById('image-zoom-modal').classList.remove('zoom-visible');
