@@ -513,6 +513,8 @@ const formatearTexto = (texto) => {
                     cargarDeNube(user.uid);
                     buildModelSelector();
                     loadFeatureFlags();
+                    loadSidebarChats();                                              // ← AGREGAR
+                    document.getElementById('sidebar-toggle-btn').style.display='';  // ← AGREGAR
                     setTimeout(() => window._checkBroadcast && window._checkBroadcast(), 3000);
                     setTimeout(() => window._checkPrivateMessage && window._checkPrivateMessage(), 4000);
 
@@ -527,6 +529,7 @@ const formatearTexto = (texto) => {
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "none";
                     if (adminBtn) adminBtn.style.display = "none";
+                    document.getElementById('sidebar-toggle-btn').style.display='none'; // ← AGREGAR
                     const accepted = localStorage.getItem(TERMS_KEY);
                     if (!accepted) termsOverlay.style.display = "flex";
                     else loginOverlay.style.display = "flex";
@@ -545,6 +548,159 @@ const formatearTexto = (texto) => {
         } catch(e) { return false; }
     }
 
+// ================================================================
+//  SIDEBAR DE CHATS — Historial multi-conversación
+// ================================================================
+let sidebarChatsCache = [];
+
+window.openSidebar = () => {
+    document.getElementById("chat-sidebar")?.classList.add("sidebar-open");
+    document.getElementById("sidebar-backdrop")?.classList.add("visible");
+    if (currentUser) loadSidebarChats();
+};
+window.closeSidebar = () => {
+    document.getElementById("chat-sidebar")?.classList.remove("sidebar-open");
+    document.getElementById("sidebar-backdrop")?.classList.remove("visible");
+};
+
+function fmtSidebarDate(ts) {
+    if (!ts) return "";
+    const d = new Date(ts), today = new Date();
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return "Hoy";
+    if (d.toDateString() === yesterday.toDateString()) return "Ayer";
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+}
+
+function deriveTitle(mensajes) {
+    const firstUser = (mensajes || []).find(m => m.role === "user");
+    if (!firstUser) return "Nueva conversación";
+    let text = Array.isArray(firstUser.content)
+        ? (firstUser.content.find(c => c.type === "text")?.text || "Imagen adjunta")
+        : (firstUser.content || "");
+    text = text.replace(/\[Documento[\s\S]*?\]\n\nUsuario: /, '').trim();
+    return text.length > 42 ? text.substring(0, 42) + "…" : (text || "Nueva conversación");
+}
+
+async function archiveCurrentChatIfNeeded() {
+    if (!currentUser) return;
+    const realMsgs = historial.filter(m => m.role !== "system");
+    if (realMsgs.length === 0) return;
+    try {
+        const { doc, setDoc } = window.firestore;
+        const convId = "conv_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        await setDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId), {
+            mensajes: historial, title: deriveTitle(historial),
+            model: selectedModel, archivedAt: Date.now(),
+        });
+    } catch (e) { console.warn("No se pudo archivar el chat:", e); }
+}
+
+window.startNewChat = async () => {
+    if (!currentUser) return;
+    const btn = document.querySelector(".new-chat-btn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.6"; }
+    await archiveCurrentChatIfNeeded();
+    historial = [systemPrompt];
+    renderizarChat();
+    await guardarEnNube();
+    if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+    showToast("Nuevo chat iniciado", "#4caf50", "➕");
+    loadSidebarChats();
+    if (window.innerWidth <= 900) closeSidebar();
+};
+
+window.loadSidebarChats = async () => {
+    if (!currentUser) return;
+    const listEl = document.getElementById("sidebar-chat-list");
+    const statsEl = document.getElementById("sidebar-stats-text");
+    if (!listEl) return;
+    try {
+        const { collection, getDocs, query, orderBy } = window.firestore;
+        const q = query(collection(window.db, "chats", currentUser.uid, "conversations"), orderBy("archivedAt", "desc"));
+        const snap = await getDocs(q);
+        sidebarChatsCache = [];
+        snap.forEach(d => sidebarChatsCache.push({ id: d.id, ...d.data() }));
+        renderSidebarList(sidebarChatsCache);
+        if (statsEl) {
+            const activos = historial.filter(m => m.role !== "system").length;
+            const nombreModelo = selectedModel === 'pro' ? 'Pro' : selectedModel === 'ultra' ? 'Ultra' : 'Básico';
+            statsEl.innerHTML = `💬 <b>${sidebarChatsCache.length}</b> guardados · 🧠 <b>${nombreModelo}</b> · ✍️ ${activos} msgs activos`;
+        }
+    } catch (e) {
+        listEl.innerHTML = '<div class="sidebar-empty-msg">No se pudieron cargar tus chats.</div>';
+    }
+};
+
+function renderSidebarList(chats) {
+    const listEl = document.getElementById("sidebar-chat-list");
+    if (!listEl) return;
+    if (!chats.length) {
+        listEl.innerHTML = '<div class="sidebar-empty-msg">Todavía no tenés chats guardados.<br>Iniciá una conversación y tocá<br>"➕ Nuevo chat" para guardar ésta.</div>';
+        return;
+    }
+    let lastLabel = null, html = "";
+    chats.forEach(c => {
+        const label = fmtSidebarDate(c.archivedAt);
+        if (label !== lastLabel) { html += `<div class="sidebar-group-label">${label}</div>`; lastLabel = label; }
+        html += `
+            <div class="sidebar-chat-item" data-title="${escapeHtml((c.title||'').toLowerCase())}" onclick="openSidebarChat('${c.id}')">
+                <span class="sidebar-chat-icon">💬</span>
+                <div class="sidebar-chat-info"><span class="sidebar-chat-title">${escapeHtml(c.title || "Conversación")}</span></div>
+                <button class="sidebar-delete-btn" onclick="event.stopPropagation();deleteSidebarChat('${c.id}')" title="Eliminar">🗑️</button>
+            </div>`;
+    });
+    listEl.innerHTML = html;
+}
+
+window.filterSidebarChats = (q) => {
+    const query = q.trim().toLowerCase();
+    document.querySelectorAll('.sidebar-chat-item').forEach(item => {
+        const title = item.getAttribute('data-title') || '';
+        item.style.display = title.includes(query) ? '' : 'none';
+    });
+};
+
+window.openSidebarChat = async (convId) => {
+    if (!currentUser) return;
+    try {
+        const { doc, getDoc, deleteDoc } = window.firestore;
+        const snap = await getDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
+        if (!snap.exists()) { showToast("Ese chat ya no existe", "#ff4444", "⚠️"); loadSidebarChats(); return; }
+        await archiveCurrentChatIfNeeded();
+        historial = snap.data().mensajes || [systemPrompt];
+        if (snap.data().model) window.setModel(snap.data().model);
+        await deleteDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
+        renderizarChat();
+        await guardarEnNube();
+        showToast("Chat cargado", "#4caf50", "💬");
+        loadSidebarChats();
+        if (window.innerWidth <= 900) closeSidebar();
+    } catch (e) { showToast("Error al abrir el chat", "#ff4444", "❌"); }
+};
+
+window.deleteSidebarChat = async (convId) => {
+    if (!currentUser) return;
+    if (!confirm("¿Eliminar esta conversación guardada? No se puede deshacer.")) return;
+    try {
+        const { doc, deleteDoc } = window.firestore;
+        await deleteDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
+        showToast("Chat eliminado", "#4caf50", "🗑️");
+        loadSidebarChats();
+    } catch (e) { showToast("Error al eliminar", "#ff4444", "❌"); }
+};
+
+window.useQuickPrompt = (text) => {
+    const inputEl = document.getElementById("input");
+    if (!inputEl) return;
+    inputEl.value = text;
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + "px";
+    inputEl.focus();
+    inputEl.setSelectionRange(text.length, text.length);
+    if (window.innerWidth <= 900) closeSidebar();
+};
+    
     checkUser();
 
     // ===================================================================
