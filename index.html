@@ -36,7 +36,42 @@
   }
 </script>
 <body>
+<!-- SIDEBAR DE CHATS -->
+<div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()"></div>
+<aside id="chat-sidebar" class="chat-sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-title">💬 Tus chats</span>
+        <button class="sidebar-close-btn" onclick="closeSidebar()" title="Cerrar">✕</button>
+    </div>
 
+    <button class="new-chat-btn" onclick="startNewChat()">
+        <span>➕</span> Nuevo chat
+    </button>
+
+    <div style="padding:0 12px 8px;">
+        <input type="text" id="sidebar-search-input" class="admin-input" style="width:100%;font-size:12px;"
+               placeholder="🔍 Buscar en tus chats…" oninput="filterSidebarChats(this.value)">
+    </div>
+
+    <div class="sidebar-list" id="sidebar-chat-list">
+        <div class="sidebar-skeleton"></div>
+        <div class="sidebar-skeleton"></div>
+        <div class="sidebar-skeleton"></div>
+    </div>
+
+    <div class="sidebar-quick-prompts">
+        <div class="sidebar-group-label">⚡ Accesos rápidos</div>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Resumime este texto de forma clara y concisa:\n\n')">📝 Resumir texto</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Traducí el siguiente texto al inglés:\n\n')">🌐 Traducir a inglés</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Corregí la ortografía y gramática de este texto:\n\n')">✅ Corregir texto</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Explicame paso a paso cómo funciona esto: ')">💡 Explicar algo</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Generá código en ')">💻 Generar código</button>
+    </div>
+
+    <div class="sidebar-stats-footer" id="sidebar-stats-footer">
+        <span id="sidebar-stats-text">Cargando estadísticas…</span>
+    </div>
+</aside>
 <!-- SPLASH SCREEN -->
 <div id="splash-screen">
     <img src="Logo1.png" alt="Cut-real AI" class="splash-logo">
@@ -60,6 +95,11 @@
 
 <!-- HEADER -->
 <header class="main-header">
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="openSidebar()" title="Ver tus chats">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+</button>
     <a href="#" class="header-logo">
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
