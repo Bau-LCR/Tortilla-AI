@@ -3935,7 +3935,7 @@ kbd {
 /* Botones de acción responsive */
 .ai-action-btns { gap: 5px; padding-top: 6px; margin-top: 8px; }
 .ai-copy-btn, .ai-file-btn { padding: 4px 10px; font-size: 10px; }
-
+}
   /* ================================================================
    SIDEBAR DE CHATS
    ================================================================ */
