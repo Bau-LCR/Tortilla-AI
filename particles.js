@@ -2,6 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const container = document.getElementById("particles");
     if (!container) return;
 
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (isMobile) {
+        container.style.display = "none";
+        return;
+    }
     // ===== PARTÍCULAS CSS (div flotantes) =====
     const PARTICLE_COUNT = 130;
     const particles = [];
