@@ -4181,3 +4181,38 @@ kbd {
 @media (max-width: 480px) {
     #sidebar-toggle-btn svg { width: 17px; height: 17px; }
 }
+/* ============================================================
+   FIXES — sliver del sidebar en mobile, superposición de botones,
+   y orbe roto en mobile
+   ============================================================ */
+
+/* 1) El sidebar debe ocultarse completo sin importar su ancho
+      calculado (260px en desktop, min(82vw,280px) en mobile).
+      translateX(-260px) fijo dejaba un sliver visible cuando el
+      ancho real era distinto a 260px. */
+.chat-sidebar {
+    transform: translateX(-100%) !important;
+}
+.chat-sidebar.sidebar-open {
+    transform: translateX(0) !important;
+}
+
+/* 2) El sidebar y su backdrop deben quedar POR ENCIMA de los
+      botones superiores (Admin, Cerrar Sesión, Borrar Chat, 🔊)
+      para que al abrirse los tape y no se puedan clickear
+      "a través" del panel. */
+.sidebar-backdrop {
+    z-index: 1500 !important;
+}
+.chat-sidebar {
+    z-index: 1501 !important;
+}
+
+/* 3) El Orbe se saca por completo en mobile: en esos anchos
+      la reestructuración del layout (por el botón de sidebar
+      nuevo en el header) lo descolocaba y rompía la estructura. */
+@media (max-width: 768px) {
+    #orb-wrap {
+        display: none !important;
+    }
+}
