@@ -625,13 +625,15 @@ window.loadSidebarChats = async () => {
         sidebarChatsCache = [];
         snap.forEach(d => sidebarChatsCache.push({ id: d.id, ...d.data() }));
         renderSidebarList(sidebarChatsCache);
-        if (statsEl) {
-            const activos = historial.filter(m => m.role !== "system").length;
-            const nombreModelo = selectedModel === 'pro' ? 'Pro' : selectedModel === 'ultra' ? 'Ultra' : 'Básico';
-            statsEl.innerHTML = `💬 <b>${sidebarChatsCache.length}</b> guardados · 🧠 <b>${nombreModelo}</b> · ✍️ ${activos} msgs activos`;
-        }
     } catch (e) {
+        console.warn("No se pudieron cargar los chats guardados:", e);
         listEl.innerHTML = '<div class="sidebar-empty-msg">No se pudieron cargar tus chats.</div>';
+    }
+    // ↓ Esto ahora corre SIEMPRE, no solo si la carga de arriba tuvo éxito
+    if (statsEl) {
+        const activos = historial.filter(m => m.role !== "system").length;
+        const nombreModelo = selectedModel === 'pro' ? 'Pro' : selectedModel === 'ultra' ? 'Ultra' : 'Básico';
+        statsEl.innerHTML = `💬 <b>${sidebarChatsCache.length}</b> guardados · 🧠 <b>${nombreModelo}</b> · ✍️ ${activos} msgs activos`;
     }
 };
 
