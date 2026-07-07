@@ -593,7 +593,10 @@ async function archiveCurrentChatIfNeeded() {
             mensajes: historial, title: deriveTitle(historial),
             model: selectedModel, archivedAt: Date.now(),
         });
-    } catch (e) { console.warn("No se pudo archivar el chat:", e); }
+    } catch (e) {
+        console.warn("No se pudo archivar el chat:", e); 
+        showToast("No se pudo guardar el chat anterior", "#ff4444", "⚠️");
+    }
 }
 
 window.startNewChat = async () => {
