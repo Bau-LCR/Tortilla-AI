@@ -9,7 +9,7 @@
 
 'use strict';
 
-const VIVO_VIDEO_ID = '1BBMxOnq-bs';
+const VIVO_VIDEO_ID = 'zcWXboTnous';
 
 window.openVivo = function () {
     const overlay = document.getElementById('vivo-overlay');
