@@ -714,6 +714,7 @@ window.useQuickPrompt = (text) => {
     function detectIntent(msg) {
         const lower = msg.toLowerCase().trim();
         if (lower.replace(/\s+/g, " ") === "doom 1993") return "doom";
+        if (lower.replace(/\s+/g, " ") === "vivo") return "vivo";
         // Detección de generación de Word
 const wordPattern = /\b(crea|creá|crear|genera|generá|generar|haz|hace|hacer|escribí|redactá|redactar|armá|armar|preparame)\b.{0,60}\b(word|docx|documento word|archivo word|\.docx|en word)\b/i;
 if (wordPattern.test(lower)) return 'generate_word';
@@ -966,6 +967,13 @@ function needsWebSearchFrontend(msg) {
             input.value = ""; input.style.height = "auto";
             const userDiv = document.createElement("div"); userDiv.className="user"; userDiv.innerHTML=`<b>Tú:</b> doom 1993`; chat.appendChild(userDiv); scrollAbajo();
             setTimeout(() => openDoom(), 400); return;
+        }
+
+        // Easter egg VIVO (embed de YouTube)
+        if (intent === "vivo") {
+            input.value = ""; input.style.height = "auto";
+            const userDiv = document.createElement("div"); userDiv.className="user"; userDiv.innerHTML=`<b>Tú:</b> VIVO`; chat.appendChild(userDiv); scrollAbajo();
+            setTimeout(() => openVivo(), 300); return;
         }
 
         let mensajeParaAPI, previewHTML, hasImage = false;
