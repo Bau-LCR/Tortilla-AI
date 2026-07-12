@@ -93,6 +93,20 @@
     </div>
 </div>
 
+
+<!-- VIVO OVERLAY -->
+<div id="vivo-overlay" style="display:none;">
+    <button id="vivo-close-btn" onclick="closeVivo()">✕ Cerrar</button>
+    <div id="vivo-video-wrap">
+        <iframe id="vivo-iframe"
+            src=""
+            title="Cut-real AI — Vivo"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+</div>
 <!-- HEADER -->
 <header class="main-header">
         <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="openSidebar()" title="Ver tus chats">
@@ -828,6 +842,8 @@
 <script src="main.js"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
+<!-- VIVO: easter egg de video -->
+<script src="vivo.js"></script>
 <!-- BUSCAMINAS: easter egg opcional -->
 <script src="buscaminas.js" onerror="console.log('buscaminas.js opcional no encontrado')"></script>
 
