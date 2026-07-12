@@ -11,6 +11,11 @@ const MODEL_KEY  = "cutreal_model_preference";
 let attachedFile = null;
 let selectedModel = localStorage.getItem(MODEL_KEY) || 'pro';
 
+// ===== GUARDA ANTI-RECURSIÓN =====
+// true si esta página está corriendo DENTRO de un iframe (por ejemplo,
+// fue embebida por el propio easter egg INCEPTION). Se usa para
+// bloquear el trigger y evitar iframes-dentro-de-iframes infinitos.
+window.IS_EMBEDDED_INSTANCE = (window.top !== window.self);
 document.addEventListener("DOMContentLoaded", function () {
     const chat            = document.getElementById("chat");
     const input           = document.getElementById("input");
@@ -715,6 +720,7 @@ window.useQuickPrompt = (text) => {
         const lower = msg.toLowerCase().trim();
         if (lower.replace(/\s+/g, " ") === "doom 1993") return "doom";
         if (lower.replace(/\s+/g, " ") === "vivo") return "vivo";
+        if (lower.replace(/\s+/g, " ") === "inception") return "inception";
         // Detección de generación de Word
 const wordPattern = /\b(crea|creá|crear|genera|generá|generar|haz|hace|hacer|escribí|redactá|redactar|armá|armar|preparame)\b.{0,60}\b(word|docx|documento word|archivo word|\.docx|en word)\b/i;
 if (wordPattern.test(lower)) return 'generate_word';
@@ -976,6 +982,29 @@ function needsWebSearchFrontend(msg) {
             setTimeout(() => openVivo(), 300); return;
         }
 
+
+        // Easter egg INCEPTION (la web dentro de sí misma)
+        if (intent === "inception") {
+            input.value = ""; input.style.height = "auto";
+            const userDiv = document.createElement("div"); userDiv.className="user"; userDiv.innerHTML=`<b>Tú:</b> INCEPTION`; chat.appendChild(userDiv); scrollAbajo();
+            if (window.IS_EMBEDDED_INSTANCE) {
+                const bot = document.createElement("div"); bot.className="ai";
+                bot.innerHTML = "🌀 Ya estás dentro de una vista anidada — no se puede anidar más para evitar que el navegador se cuelgue.";
+                chat.appendChild(bot); scrollAbajo();
+                return;
+            }
+            setTimeout(() => openInception(), 300); return;
+        }
+
+
+
+
+
+
+
+        
+
+        
         let mensajeParaAPI, previewHTML, hasImage = false;
 
         if (attachedFile && featureFlags.attachments) {
