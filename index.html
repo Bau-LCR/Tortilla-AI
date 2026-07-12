@@ -107,6 +107,14 @@
         </iframe>
     </div>
 </div>
+
+<!-- INCEPTION OVERLAY -->
+<div id="inception-overlay" style="display:none;">
+    <button id="inception-close-btn" onclick="closeInception()">✕ Cerrar</button>
+    <div id="inception-frame-wrap">
+        <iframe id="inception-iframe" src="" title="Cut-real AI — Inception" frameborder="0"></iframe>
+    </div>
+</div>
 <!-- HEADER -->
 <header class="main-header">
         <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="openSidebar()" title="Ver tus chats">
@@ -844,6 +852,8 @@
 <script src="doom.js"></script>
 <!-- VIVO: easter egg de video -->
 <script src="vivo.js"></script>
+<!-- INCEPTION: easter egg — la web dentro de sí misma -->
+<script src="inception.js"></script>
 <!-- BUSCAMINAS: easter egg opcional -->
 <script src="buscaminas.js" onerror="console.log('buscaminas.js opcional no encontrado')"></script>
 
