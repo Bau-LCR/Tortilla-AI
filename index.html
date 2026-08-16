@@ -25,6 +25,8 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
     <script>
   if ('serviceWorker' in navigator) {
@@ -172,6 +174,7 @@
     <button id="admin-btn" onclick="openAdminPanel()" style="display:none;">Admin</button>
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="sandbox-btn" onclick="openSandbox()" style="display:none;">🧪 Sandbox</button>
 </div>
 
 <!-- ============================================================ -->
@@ -734,6 +737,51 @@
     </div><!-- /admin-card -->
 </div><!-- /admin-overlay -->
 
+
+<!-- ============================================================ -->
+<!-- SANDBOX — agente autónomo + mundo 3D                        -->
+<!-- ============================================================ -->
+<div id="sandbox-overlay">
+    <div class="sbx-topbar">
+        <div class="sbx-topbar-left">
+            <span class="sbx-logo">◈ SANDBOX</span>
+            <span id="sandbox-status-pill" class="sbx-status-pill sbx-status-idle">Inactivo</span>
+            <span id="sandbox-current-tool" class="sbx-current-tool"></span>
+        </div>
+        <div class="sbx-topbar-right">
+            <button id="sandbox-autonomy-toggle" class="sbx-btn sbx-btn-toggle" title="Autonomía ON/OFF">⚡ Autonomía</button>
+            <button id="sandbox-pause-btn" class="sbx-btn" title="Pausar/Reanudar">⏸ Pausar</button>
+            <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+            <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
+        </div>
+    </div>
+
+    <div class="sbx-mobile-tabs">
+        <button id="sandbox-tab-chat" class="active">💬 Chat</button>
+        <button id="sandbox-tab-scene">🧊 Escena</button>
+    </div>
+
+    <div class="sbx-body">
+        <aside class="sbx-panel-left">
+            <div class="sbx-sandboxes-bar">
+                <button id="sandbox-new-btn" class="sbx-btn sbx-btn-accent">➕ Nuevo Sandbox</button>
+                <div id="sandbox-list" class="sbx-list"></div>
+            </div>
+            <div id="sandbox-chat" class="sbx-chat"></div>
+            <div class="sbx-input-row">
+                <textarea id="sandbox-input" rows="1" placeholder="Hablále al agente…"></textarea>
+                <button id="sandbox-send-btn">➤</button>
+            </div>
+            <div class="sbx-agent-state-row">Estado del agente: <span id="sandbox-agent-state">inactivo</span></div>
+            <div id="sandbox-action-log" class="sbx-action-log"></div>
+        </aside>
+        <main class="sbx-panel-right">
+            <canvas id="sandbox-canvas"></canvas>
+        </main>
+    </div>
+</div>
+
+        
 <!-- CHAT -->
 <div id="chat">
     <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
@@ -848,6 +896,7 @@
 <script src="loquendo.js"></script>
 <!-- MAIN: lógica principal del chat -->
 <script src="main.js"></script>
+<script src="sandbox.js"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
 <!-- VIVO: easter egg de video -->
