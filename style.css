@@ -4274,3 +4274,102 @@ kbd {
         display: none !important;
     }
 }
+
+
+
+/* ================================================================
+   SANDBOX — agente autónomo + mundo 3D
+   ================================================================ */
+:root {
+    --sbx-green: #33ff77;
+    --sbx-green-dim: #114422;
+}
+#sandbox-btn {
+    border-color: rgba(51,255,119,0.3) !important;
+    color: #33ff77 !important;
+    background: rgba(51,255,119,0.06) !important;
+}
+#sandbox-btn:hover {
+    border-color: rgba(51,255,119,0.6) !important;
+    background: rgba(51,255,119,0.15) !important;
+    box-shadow: 0 0 14px rgba(51,255,119,0.25);
+}
+
+#sandbox-overlay {
+    position: fixed; inset: 0; z-index: 9700;
+    background: #000; display: none; flex-direction: column;
+    font-family: 'Inter', sans-serif; color: #eaeaea;
+}
+
+.sbx-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; border-bottom: 1px solid rgba(51,255,119,0.18);
+    background: #050505; flex-shrink: 0; flex-wrap: wrap; gap: 8px;
+}
+.sbx-topbar-left, .sbx-topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sbx-logo { font-weight: 800; letter-spacing: 3px; color: var(--sbx-green); font-size: 13px; text-shadow: 0 0 10px rgba(51,255,119,0.5); }
+.sbx-status-pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+.sbx-status-thinking, .sbx-status-acting { color: var(--sbx-green); border-color: rgba(51,255,119,0.4); animation: sbxPulse 1.2s ease-in-out infinite; }
+.sbx-status-waiting { color: #ffcc55; border-color: rgba(255,204,85,0.4); }
+.sbx-status-paused { color: #888; }
+.sbx-status-error { color: #ff5566; border-color: rgba(255,85,102,0.4); }
+@keyframes sbxPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.sbx-current-tool { font-size: 11px; color: var(--sbx-green); font-family: 'Courier New', monospace; }
+
+.sbx-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #ccc;
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.2s;
+}
+.sbx-btn:hover { border-color: var(--sbx-green); color: var(--sbx-green); }
+.sbx-btn-toggle.active { background: rgba(51,255,119,0.15); border-color: var(--sbx-green); color: var(--sbx-green); box-shadow: 0 0 10px rgba(51,255,119,0.3); }
+.sbx-btn-accent { border-color: rgba(51,255,119,0.4); color: var(--sbx-green); }
+.sbx-btn-close { color: #ff5566; border-color: rgba(255,85,102,0.3); }
+.sbx-btn-close:hover { background: rgba(255,85,102,0.15); color: white; }
+
+.sbx-mobile-tabs { display: none; }
+.sbx-body { flex: 1; display: flex; min-height: 0; }
+
+.sbx-panel-left {
+    width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
+    border-right: 1px solid rgba(51,255,119,0.15); background: #030303; min-height: 0;
+}
+.sbx-panel-right { flex: 1; position: relative; background: #000; }
+#sandbox-canvas { width: 100%; height: 100%; display: block; }
+
+.sbx-sandboxes-bar { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+.sbx-list { max-height: 110px; overflow-y: auto; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.sbx-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 9px; border-radius: 7px; font-size: 12px; cursor: pointer; border: 1px solid transparent; }
+.sbx-item:hover { background: rgba(51,255,119,0.06); }
+.sbx-item.active { border-color: rgba(51,255,119,0.3); background: rgba(51,255,119,0.08); color: var(--sbx-green); }
+.sbx-item-del { background: transparent; border: none; color: #666; cursor: pointer; font-size: 11px; }
+.sbx-item-del:hover { color: #ff5566; }
+.sbx-empty { font-size: 11px; color: #555; padding: 8px 2px; }
+
+.sbx-chat { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; min-height: 0; }
+.sbx-chat .user, .sbx-chat .ai { padding: 8px 12px; margin: 4px 0; border-radius: 10px; max-width: 90%; font-size: 13px; line-height: 1.5; }
+.sbx-chat .user { background: #111; border: 1px solid rgba(255,255,255,0.08); margin-left: auto; }
+.sbx-chat .ai { background: rgba(51,255,119,0.05); border: 1px solid rgba(51,255,119,0.2); color: #d5ffe0; }
+
+.sbx-input-row { display: flex; gap: 6px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+.sbx-input-row textarea { flex: 1; background: #0a0a0a; border: 1px solid rgba(51,255,119,0.2); border-radius: 8px; color: #eee; padding: 8px 10px; font-size: 13px; resize: none; outline: none; font-family: 'Inter', sans-serif; }
+.sbx-input-row button { background: var(--sbx-green-dim); border: 1px solid var(--sbx-green); color: var(--sbx-green); border-radius: 8px; padding: 0 14px; cursor: pointer; font-size: 15px; }
+.sbx-input-row button:hover { background: rgba(51,255,119,0.25); }
+
+.sbx-agent-state-row { padding: 6px 12px; font-size: 11px; color: #777; border-top: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+#sandbox-agent-state { font-weight: 700; }
+
+.sbx-action-log { max-height: 130px; overflow-y: auto; padding: 8px 12px; font-family: 'Courier New', monospace; font-size: 10.5px; color: #6a6; border-top: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+.sbx-log-line { padding: 2px 0; opacity: 0.85; }
+.sbx-log-time { color: #3a3; margin-right: 5px; }
+
+@media (max-width: 900px) {
+    .sbx-mobile-tabs { display: flex; border-bottom: 1px solid rgba(51,255,119,0.15); flex-shrink: 0; }
+    .sbx-mobile-tabs button { flex: 1; background: #050505; border: none; color: #888; padding: 10px; font-size: 12px; cursor: pointer; }
+    .sbx-mobile-tabs button.active { color: var(--sbx-green); border-bottom: 2px solid var(--sbx-green); }
+    .sbx-body { flex-direction: column; }
+    .sbx-panel-left { width: 100%; border-right: none; display: flex; }
+    .sbx-panel-right { display: none; }
+    #sandbox-overlay.sbx-show-scene .sbx-panel-left { display: none; }
+    #sandbox-overlay.sbx-show-scene .sbx-panel-right { display: block; }
+}
