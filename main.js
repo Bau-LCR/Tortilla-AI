@@ -1623,6 +1623,127 @@ function needsWebSearchFrontend(msg) {
 
 });
 
+// ================================================================
+//  CONTROL GLOBAL DEL SANDBOX (config/sandbox_control en Firestore)
+// ================================================================
+const SANDBOX_TOOL_NAMES = [
+    "create_3d_object","update_3d_object","delete_3d_object","create_3d_text",
+    "move_object","rotate_object","scale_object","change_object_appearance",
+    "inspect_scene","save_memory","retrieve_memory","clear_scene","set_agent_state",
+];
+
+window.adminLoadSandboxConfig = async function () {
+    const out = document.getElementById("admin-sandboxctl-output");
+    // Render de la lista de tools (checkboxes) una sola vez
+    const toolsWrap = document.getElementById("sbx-tools-list");
+    if (toolsWrap && !toolsWrap.dataset.built) {
+        toolsWrap.innerHTML = SANDBOX_TOOL_NAMES.map(name => `
+            <label style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;">
+                <input type="checkbox" class="sbx-tool-cb" value="${name}" checked style="accent-color:#4488ff;">
+                ${name}
+            </label>`).join("");
+        toolsWrap.dataset.built = "1";
+    }
+
+    try {
+        const { doc, getDoc } = window.firestore;
+        const snap = await getDoc(doc(window.db, "config", "sandbox_control"));
+        const d = snap.exists() ? snap.data() : {};
+
+        document.getElementById("sbx-enabled").classList.toggle("active", d.enabled !== false);
+        document.getElementById("sbx-adminonly").classList.toggle("active", !!d.adminOnly);
+        document.getElementById("sbx-maintenance").classList.toggle("active", !!d.maintenanceOnly);
+        document.getElementById("sbx-autonomy-enabled").classList.toggle("active", d.autonomyEnabled !== false);
+
+        const maxCycles = d.maxCyclesPerSandbox || 30;
+        document.getElementById("sbx-max-cycles").value = maxCycles;
+        document.getElementById("sbx-max-cycles-val").textContent = maxCycles;
+
+        const minInterval = d.minIntervalSeconds || 6;
+        document.getElementById("sbx-min-interval").value = minInterval;
+        document.getElementById("sbx-min-interval-val").textContent = minInterval;
+
+        const maxGlobal = d.maxGlobalCallsPerHour || 300;
+        document.getElementById("sbx-max-global").value = maxGlobal;
+        document.getElementById("sbx-max-global-val").textContent = maxGlobal;
+
+        document.getElementById("sbx-model").value = d.sandboxModel || "";
+        document.getElementById("sbx-system-addition").value = d.systemPromptAddition || "";
+
+        const disabled = new Set(d.disabledTools || []);
+        document.querySelectorAll(".sbx-tool-cb").forEach(cb => { cb.checked = !disabled.has(cb.value); });
+
+        const emergencyBadge = document.getElementById("sbx-emergency-status");
+        const emergencyBtn = document.getElementById("sbx-emergency-btn");
+        if (d.emergencyStop) {
+            emergencyBadge.textContent = "🛑 AUTONOMÍA DETENIDA";
+            emergencyBadge.style.color = "#ff6666";
+            emergencyBtn.textContent = "✅ Reactivar autonomía";
+        } else {
+            emergencyBadge.textContent = "🟢 Operando normalmente";
+            emergencyBadge.style.color = "#4caf50";
+            emergencyBtn.textContent = "🛑 DETENER AUTONOMÍA GLOBAL";
+        }
+
+        if (out) out.innerHTML = '<span class="admin-success">✅ Configuración cargada.</span>';
+    } catch (e) {
+        if (out) out.innerHTML = `<span class="admin-error">❌ ${e.message}</span>`;
+    }
+};
+
+window.adminSaveSandboxConfig = async function () {
+    const out = document.getElementById("admin-sandboxctl-output");
+    out.innerHTML = '<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
+    try {
+        const { doc, getDoc, setDoc } = window.firestore;
+        const existing = await getDoc(doc(window.db, "config", "sandbox_control"));
+        const disabledTools = Array.from(document.querySelectorAll(".sbx-tool-cb"))
+            .filter(cb => !cb.checked).map(cb => cb.value);
+
+        await setDoc(doc(window.db, "config", "sandbox_control"), {
+            enabled:              document.getElementById("sbx-enabled").classList.contains("active"),
+            adminOnly:            document.getElementById("sbx-adminonly").classList.contains("active"),
+            maintenanceOnly:      document.getElementById("sbx-maintenance").classList.contains("active"),
+            autonomyEnabled:      document.getElementById("sbx-autonomy-enabled").classList.contains("active"),
+            emergencyStop:        existing.exists() ? !!existing.data().emergencyStop : false, // se toca aparte
+            maxCyclesPerSandbox:  +document.getElementById("sbx-max-cycles").value,
+            minIntervalSeconds:   +document.getElementById("sbx-min-interval").value,
+            maxGlobalCallsPerHour:+document.getElementById("sbx-max-global").value,
+            sandboxModel:         document.getElementById("sbx-model").value.trim() || null,
+            systemPromptAddition: document.getElementById("sbx-system-addition").value.trim(),
+            disabledTools,
+            updatedAt: Date.now(),
+            updatedBy: currentUserUidForSandboxCtl(),
+        });
+        out.innerHTML = '<span class="admin-success">✅ Configuración del Sandbox guardada.</span>';
+        window.showToast && showToast("Configuración del Sandbox guardada", "#4caf50", "🧪");
+    } catch (e) {
+        out.innerHTML = `<span class="admin-error">❌ ${e.message}</span>`;
+    }
+};
+
+window.adminToggleEmergencyStop = async function () {
+    try {
+        const { doc, getDoc, setDoc } = window.firestore;
+        const snap = await getDoc(doc(window.db, "config", "sandbox_control"));
+        const current = snap.exists() ? !!snap.data().emergencyStop : false;
+        await setDoc(doc(window.db, "config", "sandbox_control"), {
+            ...(snap.exists() ? snap.data() : {}),
+            emergencyStop: !current,
+            emergencyStopAt: Date.now(),
+        });
+        window.showToast && showToast(!current ? "🛑 Autonomía detenida globalmente" : "✅ Autonomía reactivada", !current ? "#ff4444" : "#4caf50", "");
+        adminLoadSandboxConfig();
+    } catch (e) {
+        window.showToast && showToast("Error: " + e.message, "#ff4444", "❌");
+    }
+};
+
+function currentUserUidForSandboxCtl() {
+    try { return window.auth?.currentUser?.uid || "unknown"; } catch { return "unknown"; }
+}
+
+
 // ===== DOOM =====
 window.openDoom = function() {
     const overlay=document.getElementById("doom-overlay");
