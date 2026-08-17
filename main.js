@@ -518,6 +518,7 @@ const formatearTexto = (texto) => {
 
                     const isAdmin = user.uid === ADMIN_UID || await checkAdminRole(user.uid);
                     if (isAdmin && adminBtn) adminBtn.style.display = "block";
+                    window.__isAdminFlag = isAdmin;
 
                     cargarDeNube(user.uid);
                     buildModelSelector();
@@ -1225,6 +1226,10 @@ function needsWebSearchFrontend(msg) {
     function buildAdminPanel() {
         const myUidEl = document.getElementById("admin-my-uid");
         if (myUidEl) myUidEl.textContent = currentUser.uid;
+        fetch("/api/keys-status").then(r => r.json()).then(d => {
+            const el = document.getElementById("admin-total-tokens-label");
+            if (el && d?.summary) el.textContent = `${d.summary.totalUsed.toLocaleString()} / ${d.summary.totalLimit.toLocaleString()} (${d.summary.keysConfigured} keys)`;
+        }).catch(()=>{});
     }
 
     function fmtDate(ts) {
