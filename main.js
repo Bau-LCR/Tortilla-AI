@@ -511,6 +511,10 @@ const formatearTexto = (texto) => {
                     if (logoutBtn) logoutBtn.style.display = "block";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "block";
+                    
+                    const sandboxBtn = document.getElementById("sandbox-btn");
+                    if (sandboxBtn) sandboxBtn.style.display = "block";
+                    window.CutRealSandbox && window.CutRealSandbox.onAuthReady(user);
 
                     const isAdmin = user.uid === ADMIN_UID || await checkAdminRole(user.uid);
                     if (isAdmin && adminBtn) adminBtn.style.display = "block";
@@ -533,6 +537,9 @@ const formatearTexto = (texto) => {
                     if (logoutBtn) logoutBtn.style.display = "none";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "none";
+                    const sandboxBtn = document.getElementById("sandbox-btn");
+                    if (sandboxBtn) sandboxBtn.style.display = "none";
+                    window.CutRealSandbox && window.CutRealSandbox.onAuthReady(null);
                     if (adminBtn) adminBtn.style.display = "none";
                     document.getElementById('sidebar-toggle-btn').style.display='none'; // ← AGREGAR
                     const accepted = localStorage.getItem(TERMS_KEY);
@@ -721,6 +728,7 @@ window.useQuickPrompt = (text) => {
         if (lower.replace(/\s+/g, " ") === "doom 1993") return "doom";
         if (lower.replace(/\s+/g, " ") === "vivo") return "vivo";
         if (lower.replace(/\s+/g, " ") === "inception") return "inception";
+        if (lower.replace(/\s+/g, " ") === "crear sandbox" || lower.replace(/\s+/g, " ") === "sandbox") return "open_sandbox";
         // Detección de generación de Word
 const wordPattern = /\b(crea|creá|crear|genera|generá|generar|haz|hace|hacer|escribí|redactá|redactar|armá|armar|preparame)\b.{0,60}\b(word|docx|documento word|archivo word|\.docx|en word)\b/i;
 if (wordPattern.test(lower)) return 'generate_word';
@@ -973,6 +981,13 @@ function needsWebSearchFrontend(msg) {
             input.value = ""; input.style.height = "auto";
             const userDiv = document.createElement("div"); userDiv.className="user"; userDiv.innerHTML=`<b>Tú:</b> doom 1993`; chat.appendChild(userDiv); scrollAbajo();
             setTimeout(() => openDoom(), 400); return;
+        }
+                // Abrir SANDBOX
+        if (intent === "open_sandbox") {
+            input.value = "";
+            input.style.height = "auto";
+            window.openSandbox && window.openSandbox();
+            return;
         }
 
         // Easter egg VIVO (embed de YouTube)
