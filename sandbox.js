@@ -5,17 +5,38 @@
 //  del chat normal. Reusa window.auth / window.db / window.firestore
 //  ya inicializados en index.html — no crea una segunda config
 //  de Firebase.
+//
+//  CAMBIOS EN ESTA VERSIÓN (integración con api/sandbox-agent.js):
+//   - Cada request al agente manda userId, sandboxId e isAdmin,
+//     para que el servidor pueda aplicar límites por-sandbox y
+//     el modo "solo administradores" configurado desde el Admin.
+//   - Maneja las respuestas nuevas del servidor:
+//       · { skipped: true, reason: 'cooldown', waitMs }
+//       · { skipped: true, reason: 'max_cycles_reached' }
+//       · { skipped: true, reason: 'global_rate_limit' }
+//       · HTTP 423/403/503 → Sandbox bloqueado por un admin
+//         (desactivado, solo-admin, mantenimiento o emergencia)
+//     En NINGUNO de estos casos se cuenta como "error de conexión"
+//     ni dispara reintentos agresivos: el límite del admin gana
+//     siempre, tal como pediste.
+//   - Los límites locales (MAX_STEPS_PER_RUN, MIN_COOLDOWN_MS,
+//     MAX_CONSECUTIVE_ERRORS) siguen existiendo como piso de
+//     seguridad del propio cliente, independientes de lo que
+//     diga el admin — si el admin es más permisivo, estos siguen
+//     aplicando; si el admin es más estricto, el servidor corta
+//     antes de que estos entren en juego.
 // ============================================================
 (function () {
   'use strict';
 
   // ---------- CONFIG / LÍMITES DE SEGURIDAD ----------
   const MAX_OBJECTS            = 40;
-  const MAX_STEPS_PER_RUN      = 25;   // tope de pasos autónomos consecutivos
-  const MIN_COOLDOWN_MS        = 3000; // frecuencia mínima entre pasos autónomos
+  const MAX_STEPS_PER_RUN      = 25;   // tope de pasos autónomos consecutivos (piso local)
+  const MIN_COOLDOWN_MS        = 3000; // frecuencia mínima entre pasos autónomos (piso local)
   const MAX_CONSECUTIVE_ERRORS = 3;    // corta la autonomía si falla seguido
   const SAVE_DEBOUNCE_MS       = 1500;
   const WORLD_BOUND            = 12;   // clamp de coordenadas
+  const RATE_LIMIT_RETRY_MS    = 20000; // espera al pegar contra un límite de consumo del admin
 
   let currentUser = null;
   let sandboxId   = null;
@@ -328,6 +349,17 @@
     el.className = 'sbx-status-pill sbx-status-' + s;
   }
 
+  // Muestra, si existe el elemento opcional #sandbox-cycles-info,
+  // cuántos ciclos autónomos lleva usados el Sandbox actual sobre
+  // el máximo configurado por el admin. No falla si el elemento
+  // no existe en tu HTML — es puramente informativo.
+  function updateCyclesHUD(used, max) {
+    const el = $('sandbox-cycles-info');
+    if (!el) return;
+    el.textContent = `⚙ ${used}/${max} ciclos`;
+    el.style.color = used >= max * 0.8 ? '#ffaa44' : '#6a6';
+  }
+
   // ============================================================
   //  AGENT LOOP
   // ============================================================
@@ -339,19 +371,69 @@
       lastActions: state.actionLog.slice(-6).map(a => a.text),
       autonomous: !userText,
       userText: userText || null,
+      // ── NUEVO: necesarios para que el servidor pueda aplicar límites
+      //    por-sandbox y el modo "solo administradores" del panel Admin ──
+      userId: currentUser?.uid || 'anon',
+      sandboxId: sandboxId || 'default',
+      isAdmin: window.__isAdminFlag === true,
     };
+
     const res = await fetch('/api/sandbox-agent', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error('El agente no respondió (HTTP ' + res.status + ')');
-    return res.json();
+
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* respuesta sin body, se maneja abajo */ }
+
+    // 423 / 403 / 503 → el Sandbox está bloqueado por un admin
+    // (desactivado, solo-admin, mantenimiento o emergencia global).
+    if (res.status === 423 || res.status === 403 || res.status === 503) {
+      const err = new Error((data && data.error) || 'El Sandbox no está disponible ahora mismo.');
+      err.blocked = true;
+      err.code = (data && data.code) || 'BLOCKED';
+      throw err;
+    }
+
+    // 429 → límite de consumo (rotación de keys agotada, o límite
+    // global configurado por el admin). No es un error de red.
+    if (res.status === 429) {
+      const err = new Error((data && (data.message || data.error)) || 'Se alcanzó un límite de consumo configurado por un administrador.');
+      err.rateLimited = true;
+      throw err;
+    }
+
+    if (!res.ok) {
+      throw new Error((data && data.error) || ('El agente no respondió (HTTP ' + res.status + ')'));
+    }
+
+    return data;
   }
 
   async function runOneStep(userText) {
     setStatus('thinking');
     let decision;
-    try { decision = await requestAgentDecision(userText); }
-    catch (e) {
+    try {
+      decision = await requestAgentDecision(userText);
+    } catch (e) {
+      // Bloqueado por un admin: se corta la autonomía del todo, sin
+      // reintentar solo — el usuario tiene que reactivarla a mano
+      // (o esperar a que el admin la reactive/desbloquee).
+      if (e.blocked) {
+        logAction('🛑 ' + e.message);
+        setStatus('paused');
+        stopAutonomy(e.message);
+        showToastSafe(e.message, '#ff4444');
+        return;
+      }
+      // Límite de consumo (no de red): esperamos más tiempo antes de
+      // reintentar, sin contarlo como "error de conexión".
+      if (e.rateLimited) {
+        logAction('⚡ ' + e.message);
+        setStatus('waiting');
+        if (state.autonomyEnabled && !state.paused) scheduleNextTick(RATE_LIMIT_RETRY_MS);
+        return;
+      }
+      // Error real (red, servidor caído, etc.)
       state.consecutiveErrors++;
       logAction('⚠️ Error consultando al agente: ' + e.message);
       setStatus('error');
@@ -359,6 +441,33 @@
       return;
     }
     state.consecutiveErrors = 0;
+
+    // El servidor puede "saltear" este paso sin haber llamado a Groq:
+    // cooldown propio, tope de ciclos del admin, o límite global.
+    // En todos los casos, el límite del admin gana — no reintentamos
+    // agresivamente ni lo tratamos como error.
+    if (decision && decision.skipped) {
+      if (decision.reason === 'cooldown') {
+        setStatus('waiting');
+        if (state.autonomyEnabled && !state.paused) {
+          scheduleNextTick(Math.max(decision.waitMs || MIN_COOLDOWN_MS, 500));
+        }
+        return;
+      }
+      if (decision.reason === 'max_cycles_reached') {
+        logAction('⏹ ' + (decision.message || 'Máximo de ciclos autónomos alcanzado (límite del admin).'));
+        stopAutonomy(decision.message || 'Máximo de ciclos alcanzado.');
+        return;
+      }
+      if (decision.reason === 'global_rate_limit') {
+        logAction('⚡ ' + (decision.message || 'Límite global de consumo del Sandbox alcanzado.'));
+        setStatus('waiting');
+        if (state.autonomyEnabled && !state.paused) scheduleNextTick(RATE_LIMIT_RETRY_MS);
+        return;
+      }
+      setStatus('idle');
+      return;
+    }
 
     if (decision.assistantText) pushMessage('agent', decision.assistantText);
 
@@ -370,6 +479,10 @@
       catch (e) { logAction(`⚠️ Herramienta "${call.name}" falló: ${e.message}`); }
     }
     const toolEl = $('sandbox-current-tool'); if (toolEl) toolEl.textContent = '';
+
+    if (decision.cyclesUsed != null && decision.cyclesMax != null) {
+      updateCyclesHUD(decision.cyclesUsed, decision.cyclesMax);
+    }
     scheduleSave();
   }
 
@@ -398,7 +511,7 @@
     if (autonomyTimer) clearTimeout(autonomyTimer);
     autonomyTimer = setTimeout(async () => {
       if (!state.autonomyEnabled || state.paused) return;
-      if (state.consecutiveSteps >= MAX_STEPS_PER_RUN) { stopAutonomy('Límite de pasos alcanzado.'); return; }
+      if (state.consecutiveSteps >= MAX_STEPS_PER_RUN) { stopAutonomy('Límite de pasos alcanzado (piso local).'); return; }
       state.consecutiveSteps++;
       await runOneStep(null);
       if (state.autonomyEnabled && !state.paused) { setStatus('waiting'); scheduleNextTick(MIN_COOLDOWN_MS); }
