@@ -213,6 +213,7 @@
             <button class="admin-tab admin-tab-new" onclick="switchTab('analytics')" id="tab-analytics">🥧 Analytics</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('sessions')"  id="tab-sessions">🟢 Sesiones</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('webhooks')"  id="tab-webhooks">🔗 Webhooks</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('sandboxctl')" id="tab-sandboxctl">🧪 Sandbox</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('flags')"     id="tab-flags">🚩 Feature Flags</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('notifs')"    id="tab-notifs">🔔 Notificaciones</button>
         </div>
@@ -304,9 +305,9 @@
                 </div>
             </div>
             <div class="apikeys-setup-guide">
-                <h4>📋 ¿Cómo configurar las 5 API Keys?</h4>
+                <h4>📋 ¿Cómo agregar más API Keys?</h4>
                 <ol class="apikeys-steps">
-                    <li>Entrá a <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> y creá 5 API Keys.</li>
+                    <li>Entrá a <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> y creá tantas API Keys como necesites.</li>
                     <li>En Vercel, andá a tu proyecto → <b>Settings → Environment Variables</b>.</li>
                     <li>Agregá las siguientes variables con cada key respectiva:</li>
                 </ol>
@@ -316,6 +317,7 @@
                     <div class="apikeys-env-row"><code>GROQ_API_KEY_3</code><span>→ Tercera key</span></div>
                     <div class="apikeys-env-row"><code>GROQ_API_KEY_4</code><span>→ Cuarta key</span></div>
                     <div class="apikeys-env-row"><code>GROQ_API_KEY_5</code><span>→ Quinta key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_6, _7, _8...</code><span>→ El sistema las detecta solas, sin límite</span></div>
                 </div>
                 <p class="apikeys-note">
                     ⚡ El servidor rota automáticamente cuando una key recibe un error 429 (rate limit).
@@ -389,7 +391,7 @@
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Backend</span><b style="color:#ff8888;">Groq API (x5 keys)</b></div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b></div>
                         <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b></div>
-                        <div class="admin-stat" style="padding:8px 0;"><span>Tokens totales</span><b style="color:#ffcc55;">50.000 (5 × 10K)</b></div>
+                        <div class="admin-stat" style="padding:8px 0;"><span>Tokens totales</span><b id="admin-total-tokens-label" style="color:#ffcc55;">Cargando…</b></div>
                     </div>
                 </div>
             </div>
@@ -702,6 +704,96 @@
                 <div id="admin-flags-output" class="admin-feedback" style="margin-top:12px;"></div>
             </div>
         </div>
+                <!-- ========== TAB NUEVO: CONTROL GLOBAL DEL SANDBOX ========== -->
+<div class="admin-panel" id="panel-sandboxctl">
+    <div class="admin-toolbar">
+        <button onclick="adminLoadSandboxConfig()" class="admin-btn-primary">🔄 Cargar configuración</button>
+        <button onclick="adminSaveSandboxConfig()" class="admin-btn-accent">💾 Guardar</button>
+        <span class="new-feature-badge">✨ Nuevo</span>
+    </div>
+
+    <div class="admin-box" style="border-color:rgba(255,50,50,0.3);">
+        <h4 style="color:#ff6666;">🛑 Botón de emergencia</h4>
+        <p class="admin-hint">Detiene TODA la autonomía del Sandbox de inmediato, para todos los usuarios. No borra nada, solo pausa.</p>
+        <div class="admin-row">
+            <button id="sbx-emergency-btn" onclick="adminToggleEmergencyStop()" class="admin-btn-danger">🛑 DETENER AUTONOMÍA GLOBAL</button>
+            <span id="sbx-emergency-status" class="admin-badge">Cargando…</span>
+        </div>
+    </div>
+
+    <div class="admin-cols-2" style="margin-top:14px;">
+        <div class="admin-box">
+            <h4>⚙️ Disponibilidad del Sandbox</h4>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Sandbox activo</h5><p>Si está apagado, nadie puede usarlo</p></div>
+                <button class="flag-toggle active" id="sbx-enabled" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Solo administradores</h5><p>Bloquea el Sandbox para usuarios normales</p></div>
+                <button class="flag-toggle" id="sbx-adminonly" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="flag-row" style="border-bottom:none;">
+                <div class="flag-info"><h5>Modo mantenimiento</h5><p>Solo vos podés entrar mientras lo arreglás</p></div>
+                <button class="flag-toggle" id="sbx-maintenance" onclick="this.classList.toggle('active')"></button>
+            </div>
+        </div>
+
+        <div class="admin-box">
+            <h4>⚡ Autonomía</h4>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Autonomía habilitada</h5><p>Apagalo para forzar solo pasos manuales</p></div>
+                <button class="flag-toggle active" id="sbx-autonomy-enabled" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="rate-limit-card" style="margin-top:10px;">
+                <h5>Máximo de ciclos seguidos por Sandbox</h5>
+                <p>Se corta solo hasta que el usuario le escriba de nuevo</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-max-cycles" min="1" max="200" value="30" oninput="document.getElementById('sbx-max-cycles-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-max-cycles-val">30</span>
+                </div>
+            </div>
+            <div class="rate-limit-card" style="margin-top:10px;">
+                <h5>Intervalo mínimo entre ciclos (segundos)</h5>
+                <p>Cooldown obligatorio entre llamadas autónomas</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-min-interval" min="1" max="120" value="6" oninput="document.getElementById('sbx-min-interval-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-min-interval-val">6</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-cols-2" style="margin-top:14px;">
+        <div class="admin-box">
+            <h4>📊 Límite de consumo global</h4>
+            <div class="rate-limit-card">
+                <h5>Llamadas máximas por hora (todo el Sandbox)</h5>
+                <p>Frena a TODOS los Sandboxes combinados si se supera</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-max-global" min="10" max="2000" step="10" value="300" oninput="document.getElementById('sbx-max-global-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-max-global-val">300</span>
+                </div>
+            </div>
+            <div class="admin-row" style="margin-top:10px;">
+                <label style="font-size:12px;color:#888;">Modelo forzado (vacío = automático):</label>
+                <input type="text" id="sbx-model" class="admin-input admin-input-wide" placeholder="ej: llama-3.3-70b-versatile">
+            </div>
+        </div>
+
+        <div class="admin-box">
+            <h4>🛠️ Herramientas habilitadas</h4>
+            <p class="admin-hint">Una herramienta desmarcada queda inaccesible para el agente.</p>
+            <div id="sbx-tools-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+    </div>
+
+    <div class="admin-box" style="margin-top:14px;">
+        <h4>✏️ Instrucciones extra para el agente del Sandbox</h4>
+        <textarea id="sbx-system-addition" class="admin-textarea" placeholder="Ej: priorizá crear cosas relacionadas a la naturaleza..."></textarea>
+    </div>
+
+    <div id="admin-sandboxctl-output" class="admin-feedback"></div>
+</div>
 
         <!-- ========== TAB 10 NUEVO: NOTIFICACIONES ========== -->
         <div class="admin-panel" id="panel-notifs">
