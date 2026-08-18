@@ -27,6 +27,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+        <link rel="stylesheet" href="workspace.css">
 </head>
     <script>
   if ('serviceWorker' in navigator) {
@@ -844,13 +853,15 @@
             <button id="sandbox-autonomy-toggle" class="sbx-btn sbx-btn-toggle" title="Autonomía ON/OFF">⚡ Autonomía</button>
             <button id="sandbox-pause-btn" class="sbx-btn" title="Pausar/Reanudar">⏸ Pausar</button>
             <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+            <button id="sandbox-workspace-btn" class="sbx-btn" title="Abrir Workspace">🧩 Workspace</button>
             <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
         </div>
     </div>
 
     <div class="sbx-mobile-tabs">
-        <button id="sandbox-tab-chat" class="active">💬 Chat</button>
-        <button id="sandbox-tab-scene">🧊 Escena</button>
+    <button id="sandbox-tab-chat" class="active">💬 Chat</button>
+    <button id="sandbox-tab-scene">🧊 Escena</button>
+    <button id="sandbox-tab-workspace">🧩 Workspace</button>
     </div>
 
     <div class="sbx-body">
@@ -870,6 +881,42 @@
         <main class="sbx-panel-right">
             <canvas id="sandbox-canvas"></canvas>
         </main>
+                    <main class="sbx-panel-right">
+            <canvas id="sandbox-canvas"></canvas>
+        </main>
+
+        <section class="wks-workspace" id="sbx-panel-workspace">
+            <div class="wks-toolbar">
+                <button id="wks-new-file-btn" class="wks-btn">📄 Nuevo archivo</button>
+                <button id="wks-new-folder-btn" class="wks-btn">📁 Nueva carpeta</button>
+                <button id="wks-run-btn" class="wks-btn wks-btn-accent">▶ Ejecutar</button>
+                <span id="wks-status" class="wks-status"></span>
+            </div>
+
+            <div class="wks-mobile-tabs">
+                <button class="wks-mtab active" data-target="files">Archivos</button>
+                <button class="wks-mtab" data-target="editor">Editor</button>
+                <button class="wks-mtab" data-target="preview">Preview</button>
+            </div>
+
+            <div class="wks-layout">
+                <div class="wks-files-col wks-col-active" data-panel="files">
+                    <div id="wks-file-tree" class="wks-file-tree"></div>
+                </div>
+                <div class="wks-editor-col" data-panel="editor">
+                    <div id="wks-editor-tabs" class="wks-editor-tabs"></div>
+                    <div id="wks-editor-mount" class="wks-editor-mount"></div>
+                </div>
+                <div class="wks-preview-col" data-panel="preview">
+                    <iframe id="wks-preview-frame" class="wks-preview-frame" sandbox="allow-scripts"></iframe>
+                </div>
+            </div>
+
+            <div class="wks-bottom-bar">
+                <div id="wks-console" class="wks-console"></div>
+            </div>
+        </section>
+    </div>
     </div>
 </div>
 
@@ -989,6 +1036,7 @@
 <!-- MAIN: lógica principal del chat -->
 <script src="main.js"></script>
 <script src="sandbox.js"></script>
+<script src="workspace.js"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
 <!-- VIVO: easter egg de video -->
