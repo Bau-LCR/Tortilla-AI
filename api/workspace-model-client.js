@@ -6,15 +6,13 @@
 //  agente unificado de Sandbox 3D + Workspace (api/sandbox-agent.js),
 //  para que nunca compita por tokens/rate-limit con el chat normal.
 //
-//  Proveedor histórico documentado; el Sandbox actual queda fijado a OpenRouter:
-//   - Free tier sin tarjeta, con RPD/TPM mucho más altos que el
-//     free tier de Groq (esto es lo que resuelve "que no se
-//     inutilice tan rápido").
-//   - Expone un endpoint COMPATIBLE CON OPENAI:
-//       https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-//     que devuelve choices[0].message.tool_calls en el MISMO
-//     formato que ya parsea api/sandbox-agent.js — no hace falta
-//     tocar el parseo de la respuesta, solo el transporte.
+//  El Sandbox actual queda fijado a OpenRouter:
+//   - Usa el endpoint compatible con OpenAI:
+//       https://openrouter.ai/api/v1/chat/completions
+//   - Conserva el formato choices[0].message.tool_calls que ya parsea
+//     api/sandbox-agent.js.
+//   - El fallback entre modelos se envía en una única solicitud mediante
+//     el parámetro `models`, sin cambiar el proveedor del chat normal.
 //
 //  La variable histórica de proveedor se conserva por compatibilidad documental,
 //  pero el transporte del Sandbox no la utiliza y permanece aislado en OpenRouter.
@@ -50,10 +48,11 @@ const PROVIDER_PRESETS = {
       "HTTP-Referer": "https://cut-real-ai.vercel.app",
       "X-Title": "Cut-real AI Sandbox",
     },
-    // Free tier típico de OpenRouter (compartido entre todos los
-    // modelos :free de una misma key).
+    // Límites documentados actualmente por OpenRouter para modelos :free.
+    // Sin créditos suficientes, el límite diario puede ser 50; el límite
+    // local conservador evita seguir reintentando después de un 429 diario.
     rpm: 20,
-    rpd: 200,
+    rpd: 50,
   },
 };
 
@@ -64,6 +63,7 @@ const FALLBACK_MODEL  = process.env.WORKSPACE_MODEL_FALLBACK || PRESET.fallbackM
 const RPM_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPM || "", 10) || PRESET.rpm;
 const RPD_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPD || "", 10) || PRESET.rpd;
 const BLOCK_COOLDOWN_MS = parseInt(process.env.WORKSPACE_MODEL_BLOCK_COOLDOWN_MS || "60000", 10);
+const DAILY_LIMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export const WORKSPACE_MODEL_NAME     = MODEL_NAME;
 export const WORKSPACE_MODEL_FALLBACK = FALLBACK_MODEL;
@@ -91,7 +91,7 @@ function ensureStore() {
       keys: discovered.map((k, idx) => ({
         index: idx, envName: k.envName,
         callTimestamps: [],   // ventana deslizante de 24h, para RPM (60s) y RPD (24h)
-        blocked: false, lastBlockedAt: 0,
+        blockedUntil: 0, lastStatus: null,
       })),
     };
   }
@@ -105,8 +105,8 @@ function pruneTimestamps(k) {
 
 function keyIsAvailable(k) {
   const now = Date.now();
-  if (k.blocked && (now - k.lastBlockedAt) < BLOCK_COOLDOWN_MS) return false;
-  if (k.blocked) k.blocked = false;
+  if (k.blockedUntil > now) return false;
+  if (k.blockedUntil) k.blockedUntil = 0;
   pruneTimestamps(k);
   const lastMinuteCalls = k.callTimestamps.filter(t => now - t < 60000).length;
   if (lastMinuteCalls >= RPM_LIMIT) return false;
@@ -139,7 +139,15 @@ export async function callWorkspaceModel(payload) {
   }
 
   const key = pickKey(store);
-  if (!key) return { limited: true, provider: PROVIDER, retryAfterMs: 60000 };
+  if (!key) {
+    const nextRetryAt = Math.min(...store.map(k => k.blockedUntil || (Date.now() + BLOCK_COOLDOWN_MS)));
+    return {
+      limited: true,
+      provider: PROVIDER,
+      retryAfterMs: Math.max(1000, nextRetryAt - Date.now()),
+      message: "OpenRouter está limitando temporalmente las claves configuradas.",
+    };
+  }
 
   const apiKeyValue = process.env[key.envName];
   const headers = {
@@ -160,14 +168,31 @@ export async function callWorkspaceModel(payload) {
   }
 
   if (response.status === 429) {
-    key.blocked = true; key.lastBlockedAt = Date.now();
-    return { limited: true, provider: PROVIDER, retryAfterMs: BLOCK_COOLDOWN_MS };
+    const retryAfterHeader = response.headers?.get?.("retry-after");
+    const retryAfterSeconds = Number(retryAfterHeader);
+    const data = await response.json().catch(() => ({}));
+    const upstreamMessage = data?.error?.message || "OpenRouter devolvió HTTP 429.";
+    const looksDaily = /daily|per day|por d[ií]a|day limit|cuota diaria/i.test(upstreamMessage);
+    const retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds * 1000
+      : (looksDaily ? DAILY_LIMIT_COOLDOWN_MS : BLOCK_COOLDOWN_MS);
+    key.blockedUntil = Date.now() + retryAfterMs;
+    key.lastStatus = 429;
+    return {
+      limited: true,
+      provider: PROVIDER,
+      retryAfterMs,
+      message: upstreamMessage,
+      data,
+    };
   }
 
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    // Error real (modelo inválido, 400, etc.) — no cuenta como uso de cuota.
+    // Errores como 401/402/404 no son un rate limit: se devuelven
+    // al agente para que muestre el motivo real y no quede esperando.
+    key.lastStatus = response.status;
     return { response, data };
   }
 
