@@ -115,9 +115,48 @@ const ALL_TOOLS = [
       parameters: { type: "object", properties: {
           state: { type: "string" }, color: { type: "string" },
       }, required: ["state"] } } },
+  { type: "function", function: {
+      name: "create_file",
+      description: "Crear un archivo de código en el Workspace (HTML/CSS/JS/JSON/etc).",
+      parameters: { type: "object", properties: {
+          path: { type: "string", description: "Ruta relativa, ej: 'index.html' o 'components/card.js'." },
+          content: { type: "string" },
+      }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "read_file", description: "Leer el contenido actual de un archivo del Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "update_file", description: "Reemplazar el contenido completo de un archivo existente del Workspace.",
+      parameters: { type: "object", properties: {
+          path: { type: "string" }, content: { type: "string" },
+      }, required: ["path", "content"] } } },
+  { type: "function", function: {
+      name: "delete_file", description: "Eliminar un archivo del Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "rename_file", description: "Renombrar o mover un archivo del Workspace.",
+      parameters: { type: "object", properties: {
+          path: { type: "string" }, newPath: { type: "string" },
+      }, required: ["path", "newPath"] } } },
+  { type: "function", function: {
+      name: "create_folder", description: "Crear una carpeta (virtual) en el Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "list_files", description: "Listar todos los archivos actuales del Workspace.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "run_project", description: "Ejecutar el proyecto del Workspace y refrescar el preview.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "get_runtime_errors", description: "Obtener los últimos errores de ejecución capturados en el preview del Workspace.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "get_project_structure", description: "Obtener la estructura completa de archivos/carpetas del Workspace.",
+      parameters: { type: "object", properties: {} } } },
 ];
 
 const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
+Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código real (HTML/CSS/JS) con preview en vivo. Podés crear, leer, modificar, renombrar y borrar archivos, ejecutar el proyecto y leer los errores de ejecución para autocorregirte. Si el usuario te pide "construir" algo con código, usá las tools de archivos; si te pide algo puramente visual en el espacio 3D, usá las tools de objetos 3D. Podés combinar ambas: un archivo del Workspace puede llamar a window.CutReal3D.createObject(...) para aparecer también en la escena 3D.
 
 Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas geométricas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
 
@@ -208,6 +247,7 @@ export default async function handler(req, res) {
         messages = [], scene = {}, memoryKeys = [],
         lastActions = [], autonomous = false, userText = null,
         userId = "anon", sandboxId = "default", isAdmin = false,
+        workspace = null,
     } = req.body || {};
 
     if (!Array.isArray(messages))
@@ -292,6 +332,13 @@ export default async function handler(req, res) {
         `Claves de memoria disponibles: ${JSON.stringify(memoryKeys).slice(0, 500)}`,
         `Últimas acciones: ${JSON.stringify(lastActions.slice(-6))}`,
     ];
+    if (workspace) {
+        contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1500)}`);
+        contextParts.push(`Workspace — archivo activo: ${workspace.activeFile || "ninguno"}`);
+        if (workspace.lastErrors && workspace.lastErrors.length) {
+            contextParts.push(`Workspace — últimos errores de ejecución: ${JSON.stringify(workspace.lastErrors)}`);
+        }
+    }
     if (userText) contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
 
     const fullMessages = [
