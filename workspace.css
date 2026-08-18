@@ -147,3 +147,96 @@
     .wks-btn { padding: 5px 9px; font-size: 11px; }
     .wks-status { display: none; }
 }
+
+
+/* ================================================================
+   PARCHE ADITIVO — WORKSPACE MOBILE
+   Conserva todo el layout original y solo mejora la interacción táctil.
+   ================================================================ */
+@media (max-width: 900px) {
+    #sandbox-overlay.sbx-show-workspace .wks-workspace {
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-toolbar {
+        max-height: 24dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-mobile-tabs {
+        min-height: 42px;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-mtab {
+        min-height: 42px;
+        padding: 11px 6px;
+        touch-action: manipulation;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-layout {
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-files-col,
+    #sandbox-overlay.sbx-show-workspace .wks-editor-col,
+    #sandbox-overlay.sbx-show-workspace .wks-preview-col {
+        min-height: 0;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-file-tree,
+    #sandbox-overlay.sbx-show-workspace .wks-console {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-tree-file {
+        min-height: 40px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-file-del {
+        opacity: 1;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-btn {
+        min-height: 36px;
+        padding: 8px 10px;
+        touch-action: manipulation;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-status {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .CodeMirror {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    #sandbox-overlay.sbx-show-workspace .wks-toolbar {
+        gap: 4px;
+        padding: 6px 8px;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-left: 7px;
+        padding-right: 7px;
+        font-size: 11px;
+    }
+
+    #sandbox-overlay.sbx-show-workspace .wks-status {
+        display: none;
+    }
+}
