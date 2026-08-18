@@ -413,11 +413,14 @@
       throw err;
     }
 
-    // 429 → límite de consumo (rotación de keys agotada, o límite
-    // global configurado por el admin). No es un error de red.
+    // 429 → límite de OpenRouter o límite global del admin.
+    // Conservamos el Retry-After enviado por el servidor para no
+    // reintentar cada 20 segundos cuando el límite es más largo.
     if (res.status === 429) {
-      const err = new Error((data && (data.message || data.error)) || 'Se alcanzó un límite de consumo configurado por un administrador.');
+      const err = new Error((data && (data.message || data.error)) || 'OpenRouter está limitando temporalmente el Sandbox.');
       err.rateLimited = true;
+      err.retryAfterMs = Number(data && data.retryAfterMs) || RATE_LIMIT_RETRY_MS;
+      err.code = (data && data.code) || 'RATE_LIMITED';
       throw err;
     }
 
@@ -444,12 +447,20 @@
         showToastSafe(e.message, '#ff4444');
         return;
       }
-      // Límite de consumo (no de red): esperamos más tiempo antes de
-      // reintentar, sin contarlo como "error de conexión".
+      // Límite de consumo: una consulta manual debe terminar en error
+      // visible; solo la autonomía se programa para reintentar.
       if (e.rateLimited) {
-        logAction('⚡ ' + e.message);
-        setStatus('waiting');
-        if (state.autonomyEnabled && !state.paused) scheduleNextTick(RATE_LIMIT_RETRY_MS);
+        const retryMs = Math.max(3000, Number(e.retryAfterMs) || RATE_LIMIT_RETRY_MS);
+        const retrySeconds = Math.ceil(retryMs / 1000);
+        const message = `${e.message} Reintento recomendado en ${retrySeconds}s.`;
+        logAction('⚡ ' + message);
+        if (userText) {
+          setStatus('error');
+          showToastSafe(message, '#ffaa33');
+        } else {
+          setStatus('waiting');
+          if (state.autonomyEnabled && !state.paused) scheduleNextTick(retryMs);
+        }
         return;
       }
       // Error real (red, servidor caído, etc.)
