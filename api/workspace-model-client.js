@@ -6,7 +6,7 @@
 //  agente unificado de Sandbox 3D + Workspace (api/sandbox-agent.js),
 //  para que nunca compita por tokens/rate-limit con el chat normal.
 //
-//  Por qué Gemini por defecto:
+//  Proveedor histórico documentado; el Sandbox actual queda fijado a OpenRouter:
 //   - Free tier sin tarjeta, con RPD/TPM mucho más altos que el
 //     free tier de Groq (esto es lo que resuelve "que no se
 //     inutilice tan rápido").
@@ -16,8 +16,8 @@
 //     formato que ya parsea api/sandbox-agent.js — no hace falta
 //     tocar el parseo de la respuesta, solo el transporte.
 //
-//  Cambiar de proveedor es un env var, no un redeploy de código:
-//      WORKSPACE_MODEL_PROVIDER = gemini | openrouter
+//  La variable histórica de proveedor se conserva por compatibilidad documental,
+//  pero el transporte del Sandbox no la utiliza y permanece aislado en OpenRouter.
 //
 //  Rotación de keys (mismo patrón que groq-client.js):
 //      GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
@@ -44,11 +44,11 @@ const PROVIDER_PRESETS = {
   openrouter: {
     baseURL: "https://openrouter.ai/api/v1/chat/completions",
     keyPrefix: "OPENROUTER_API_KEY",
-    defaultModel: "openrouter/free",   // auto-router: filtra modelos :free CON tool calling
-    fallbackModel: "meta-llama/llama-3.3-70b-instruct:free",  // respaldo estable si el auto-router falla
+    defaultModel: "z-ai/glm-5.2:free",   // modelo avanzado de código/razonamiento con tool calling
+    fallbackModel: "cohere/north-mini-code:free",  // respaldo orientado a programación
     extraHeaders: {
       "HTTP-Referer": "https://cut-real-ai.vercel.app",
-      "X-Title": "Cut-real AI Workspace",
+      "X-Title": "Cut-real AI Sandbox",
     },
     // Free tier típico de OpenRouter (compartido entre todos los
     // modelos :free de una misma key).
@@ -57,7 +57,7 @@ const PROVIDER_PRESETS = {
   },
 };
 
-const PROVIDER = (process.env.WORKSPACE_MODEL_PROVIDER || "openrouter").toLowerCase();
+const PROVIDER = "openrouter";
 const PRESET   = PROVIDER_PRESETS[PROVIDER] || PROVIDER_PRESETS.openrouter;
 const MODEL_NAME      = process.env.WORKSPACE_MODEL_NAME || PRESET.defaultModel;
 const FALLBACK_MODEL  = process.env.WORKSPACE_MODEL_FALLBACK || PRESET.fallbackModel || MODEL_NAME;
