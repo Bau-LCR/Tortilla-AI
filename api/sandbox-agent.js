@@ -347,56 +347,71 @@ export default async function handler(req, res) {
         ...messages.slice(-16),
     ];
 
-    // ── 6) MODELO (admin puede forzar uno específico) ────
+    // ── 6) MODELO Y FALLBACK NATIVO DE OPENROUTER ─────────
+    // Una única solicitud evita gastar dos llamadas desde la aplicación.
+    // OpenRouter prueba `models` en orden cuando el primero está caído,
+    // rate-limited o no puede responder.
     const modelsToTry = config.sandboxModel
         ? [config.sandboxModel]
         : [PRIMARY_MODEL, FALLBACK_MODEL];
+    const requestedModel = modelsToTry[0];
 
-    let lastErr = null;
-    for (const model of modelsToTry) {
-        try {
-            const result = await callWorkspaceModel({
-                model, messages: fullMessages, tools: TOOLS, tool_choice: "auto",
-                temperature: 0.7, max_tokens: 900,
+    try {
+        const result = await callWorkspaceModel({
+            model: requestedModel,
+            models: modelsToTry,
+            messages: fullMessages,
+            tools: TOOLS,
+            tool_choice: "auto",
+            temperature: 0.7,
+            max_tokens: 900,
+        });
+
+        if (result.limited) {
+            return res.status(429).json({
+                error: result.message || "OpenRouter está limitando temporalmente el Sandbox.",
+                retryAfterMs: result.retryAfterMs || 60000,
+                code: "OPENROUTER_RATE_LIMITED",
             });
-
-            if (result.limited) {
-                return res.status(429).json({
-                    error: "Se alcanzó el límite de OpenRouter para el Sandbox.",
-                    retryAfterMs: result.retryAfterMs || 60000,
-                    code: "OPENROUTER_RATE_LIMITED",
-                });
-            }
-
-            const { response, data } = result;
-            if (!response?.ok) { lastErr = data?.error?.message || `HTTP ${response?.status || 502}`; continue; }
-
-            const msg = data.choices?.[0]?.message || {};
-            return res.status(200).json({
-                assistantText: msg.content || null,
-                toolCalls: (msg.tool_calls || []).map(tc => ({
-                    id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
-                })),
-                model, usage: data.usage || null,
-                cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
-                cyclesMax: config.maxCyclesPerSandbox,
-            });
-        } catch (e) {
-            lastErr = e.message;
-            if (e.code === "ALL_RATE_LIMITED") {
-                return res.status(429).json({ error: e.message });
-            }
-            if (e.code === "NO_KEYS") {
-                return res.status(503).json({
-                    error: "El Sandbox no tiene OPENROUTER_API_KEY configurada.",
-                    code: "OPENROUTER_NOT_CONFIGURED",
-                });
-            }
-            continue;
         }
-    }
 
-    return res.status(502).json({ error: "No se pudo obtener una decisión del agente.", detail: lastErr });
+        const { response, data } = result;
+        if (!response?.ok) {
+            const upstreamStatus = response?.status || 502;
+            const detail = data?.error?.message || `HTTP ${upstreamStatus}`;
+            // No convertir errores de autenticación, crédito, modelo o
+            // proveedor en un bloqueo administrativo del Sandbox.
+            return res.status(502).json({
+                error: `OpenRouter no pudo responder: ${detail}`,
+                code: "OPENROUTER_REQUEST_FAILED",
+                upstreamStatus,
+            });
+        }
+
+        const msg = data.choices?.[0]?.message || {};
+        return res.status(200).json({
+            assistantText: msg.content || null,
+            toolCalls: (msg.tool_calls || []).map(tc => ({
+                id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
+            })),
+            model: data.model || requestedModel,
+            usage: data.usage || null,
+            cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
+            cyclesMax: config.maxCyclesPerSandbox,
+        });
+    } catch (e) {
+        if (e.code === "NO_KEYS") {
+            return res.status(502).json({
+                error: "El Sandbox no tiene OPENROUTER_API_KEY configurada.",
+                code: "OPENROUTER_NOT_CONFIGURED",
+            });
+        }
+        return res.status(502).json({
+            error: "No se pudo obtener una decisión del agente.",
+            detail: e.message,
+            code: e.code || "OPENROUTER_REQUEST_FAILED",
+        });
+    }
 }
 
 function safeParseJSON(str) {
