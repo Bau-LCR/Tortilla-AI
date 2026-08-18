@@ -5,7 +5,7 @@
 //  ocurre en sandbox.js, que conoce el estado real de la escena 3D.
 //
 //  NUEVO en esta versión:
-//   - Usa api/groq-client.js (rotación dinámica, sin límite de 5 keys)
+//   - Usa api/workspace-model-client.js (OpenRouter exclusivo, rotación dinámica de keys)
 //   - Lee config/sandbox_control desde Firestore (vía REST, sin
 //     necesitar Firebase Admin SDK) para aplicar en el SERVIDOR:
 //       · enabled / adminOnly / maintenanceOnly / emergencyStop
@@ -21,10 +21,10 @@
 //  Ver ADMIN_PANEL_PATCH.md para el detalle exacto.
 // ============================================================
 
-import { callGroqWithRotation } from "./groq-client.js";
+import { callWorkspaceModel } from "./workspace-model-client.js";
 
-const PRIMARY_MODEL  = "openai/gpt-oss-120b";
-const FALLBACK_MODEL = "llama-3.3-70b-versatile";
+const PRIMARY_MODEL  = "z-ai/glm-5.2:free";
+const FALLBACK_MODEL = "cohere/north-mini-code:free";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
 // ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
@@ -285,7 +285,7 @@ export default async function handler(req, res) {
         const minIntervalMs = Math.max(1, config.minIntervalSeconds) * 1000;
 
         if (now - state.lastAutonomousAt < minIntervalMs) {
-            // No es un error: le decimos al cliente que espere, SIN llamar a Groq.
+            // No es un error: le decimos al cliente que espere, SIN llamar a OpenRouter.
             return res.status(200).json({
                 skipped: true,
                 reason: "cooldown",
@@ -355,12 +355,21 @@ export default async function handler(req, res) {
     let lastErr = null;
     for (const model of modelsToTry) {
         try {
-            const { response, data } = await callGroqWithRotation({
+            const result = await callWorkspaceModel({
                 model, messages: fullMessages, tools: TOOLS, tool_choice: "auto",
                 temperature: 0.7, max_tokens: 900,
             });
 
-            if (!response.ok) { lastErr = data.error?.message || `HTTP ${response.status}`; continue; }
+            if (result.limited) {
+                return res.status(429).json({
+                    error: "Se alcanzó el límite de OpenRouter para el Sandbox.",
+                    retryAfterMs: result.retryAfterMs || 60000,
+                    code: "OPENROUTER_RATE_LIMITED",
+                });
+            }
+
+            const { response, data } = result;
+            if (!response?.ok) { lastErr = data?.error?.message || `HTTP ${response?.status || 502}`; continue; }
 
             const msg = data.choices?.[0]?.message || {};
             return res.status(200).json({
@@ -376,6 +385,12 @@ export default async function handler(req, res) {
             lastErr = e.message;
             if (e.code === "ALL_RATE_LIMITED") {
                 return res.status(429).json({ error: e.message });
+            }
+            if (e.code === "NO_KEYS") {
+                return res.status(503).json({
+                    error: "El Sandbox no tiene OPENROUTER_API_KEY configurada.",
+                    code: "OPENROUTER_NOT_CONFIGURED",
+                });
             }
             continue;
         }
