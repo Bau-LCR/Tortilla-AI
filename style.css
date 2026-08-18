@@ -4373,3 +4373,145 @@ kbd {
     #sandbox-overlay.sbx-show-scene .sbx-panel-left { display: none; }
     #sandbox-overlay.sbx-show-scene .sbx-panel-right { display: block; }
 }
+
+
+/* ================================================================
+   PARCHE ADITIVO — MOBILE CUT-REAL / SANDBOX
+   No reemplaza ni elimina reglas anteriores.
+   ================================================================ */
+@media (max-width: 900px) {
+    #sandbox-overlay {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+    }
+
+    .sbx-topbar {
+        max-height: 30dvh;
+        overflow-y: auto;
+        padding: 8px 10px;
+        gap: 6px;
+    }
+
+    .sbx-topbar-left,
+    .sbx-topbar-right {
+        gap: 5px;
+        width: 100%;
+    }
+
+    .sbx-topbar-right {
+        justify-content: flex-end;
+    }
+
+    .sbx-btn {
+        min-height: 36px;
+        padding: 8px 10px;
+        touch-action: manipulation;
+    }
+
+    .sbx-mobile-tabs button {
+        min-height: 42px;
+        padding: 11px 6px;
+        touch-action: manipulation;
+    }
+
+    .sbx-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sbx-panel-left {
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sbx-chat {
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sbx-input-row textarea {
+        min-width: 0;
+        min-height: 40px;
+        max-height: 112px;
+        font-size: 16px;
+    }
+
+    .sbx-input-row button {
+        min-width: 44px;
+        min-height: 40px;
+        touch-action: manipulation;
+    }
+
+    /* El HTML original conserva dos paneles con el mismo canvas.
+       No se elimina ninguno: en móvil se muestra solamente el primero
+       para evitar dos renders superpuestos. */
+    .sbx-panel-right + .sbx-panel-right {
+        display: none !important;
+    }
+
+    #sandbox-overlay.sbx-show-scene .sbx-panel-right:first-of-type {
+        display: block;
+        min-height: 0;
+        flex: 1 1 auto;
+    }
+
+    #sandbox-canvas {
+        min-width: 0;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-header {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .nav-title {
+        font-size: 18px;
+    }
+
+    .side-controls {
+        max-width: 58vw;
+    }
+
+    #logout-btn,
+    #resetChat,
+    #admin-btn,
+    #search-btn,
+    #shortcuts-btn {
+        min-height: 34px;
+        padding: 6px 7px;
+    }
+
+    .sbx-topbar {
+        max-height: 34dvh;
+    }
+
+    .sbx-topbar-left,
+    .sbx-topbar-right {
+        justify-content: space-between;
+    }
+
+    .sbx-btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 11px;
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .sbx-logo {
+        font-size: 11px;
+        letter-spacing: 2px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sbx-status-thinking,
+    .sbx-status-acting {
+        animation: none;
+    }
+}
