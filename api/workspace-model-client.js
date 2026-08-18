@@ -44,11 +44,8 @@ const PROVIDER_PRESETS = {
   openrouter: {
     baseURL: "https://openrouter.ai/api/v1/chat/completions",
     keyPrefix: "OPENROUTER_API_KEY",
-    defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
-    // "openrouter/free" es el auto-router de OpenRouter: elige solo
-    // entre los modelos :free disponibles que soporten tool calling.
-    // Buen fallback cuando el modelo principal está caído/removido.
-    fallbackModel: "openrouter/free",
+    defaultModel: "openrouter/free",   // auto-router: filtra modelos :free CON tool calling
+    fallbackModel: "meta-llama/llama-3.3-70b-instruct:free",  // respaldo estable si el auto-router falla
     extraHeaders: {
       "HTTP-Referer": "https://cut-real-ai.vercel.app",
       "X-Title": "Cut-real AI Workspace",
@@ -60,8 +57,8 @@ const PROVIDER_PRESETS = {
   },
 };
 
-const PROVIDER      = (process.env.WORKSPACE_MODEL_PROVIDER || "gemini").toLowerCase();
-const PRESET         = PROVIDER_PRESETS[PROVIDER] || PROVIDER_PRESETS.gemini;
+const PROVIDER = (process.env.WORKSPACE_MODEL_PROVIDER || "openrouter").toLowerCase();
+const PRESET   = PROVIDER_PRESETS[PROVIDER] || PROVIDER_PRESETS.openrouter;
 const MODEL_NAME      = process.env.WORKSPACE_MODEL_NAME || PRESET.defaultModel;
 const FALLBACK_MODEL  = process.env.WORKSPACE_MODEL_FALLBACK || PRESET.fallbackModel || MODEL_NAME;
 const RPM_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPM || "", 10) || PRESET.rpm;
