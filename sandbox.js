@@ -301,6 +301,23 @@
     if (!fn) throw new Error('Herramienta no permitida: ' + name);
     return fn(args || {});
   }
+    // ── Extensión externa del Tool Registry (usada por workspace.js) ──
+  function registerExternalTool(name, fn) {
+    if (typeof fn === 'function') TOOLS[name] = fn;
+  }
+
+  // API de puente controlada: el Workspace NUNCA toca SceneManager
+  // directamente, solo estas funciones explícitas.
+  const WorkspaceBridge = {
+    createObject: (meta) => SceneManager.addObject(meta),
+    deleteObject: (id) => SceneManager.deleteObject(id),
+    moveObject: (id, position, duration) => SceneManager.moveObject(id, position, duration),
+    rotateObject: (id, rotation, duration) => SceneManager.rotateObject(id, rotation, duration),
+    scaleObject: (id, scale, duration) => SceneManager.scaleObject(id, scale, duration),
+    setColor: (id, color) => SceneManager.changeAppearance(id, { color }),
+    createText: (text, position, color) => SceneManager.addObject({ type: 'text', text, position, color }),
+    getSceneState: () => SceneManager.inspect(),
+  };
 
   // ============================================================
   //  CHAT / LOG UI
@@ -376,6 +393,8 @@
       userId: currentUser?.uid || 'anon',
       sandboxId: sandboxId || 'default',
       isAdmin: window.__isAdminFlag === true,
+      workspace: (window.CutRealWorkspace && typeof window.CutRealWorkspace.getContextForAgent === 'function')
+        ? window.CutRealWorkspace.getContextForAgent() : null,
     };
 
     const res = await fetch('/api/sandbox-agent', {
@@ -676,7 +695,13 @@
   document.addEventListener('DOMContentLoaded', bindUI);
 
   // ---------- API PÚBLICA ----------
-  window.CutRealSandbox = { open: openSandboxById, remove: removeSandbox, onAuthReady };
+  window.CutRealSandbox = {
+    open: openSandboxById, remove: removeSandbox, onAuthReady,
+    registerTool: registerExternalTool,
+    bridge: WorkspaceBridge,
+    getCurrentSandboxId: () => sandboxId,
+    getCurrentUser: () => currentUser,
+  };
   window.openSandbox  = openSandboxPanel;
   window.closeSandbox = closeSandboxPanel;
 
