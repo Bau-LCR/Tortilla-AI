@@ -1635,6 +1635,8 @@ const SANDBOX_TOOL_NAMES = [
     "create_3d_object","update_3d_object","delete_3d_object","create_3d_text",
     "move_object","rotate_object","scale_object","change_object_appearance",
     "inspect_scene","save_memory","retrieve_memory","clear_scene","set_agent_state",
+    "create_file","read_file","update_file","delete_file","rename_file",
+    "create_folder","list_files","run_project","get_runtime_errors","get_project_structure",
 ];
 
 window.adminLoadSandboxConfig = async function () {
