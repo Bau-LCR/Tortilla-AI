@@ -3,7 +3,7 @@
 //
 //  Editor de código real + preview en iframe aislado, integrado
 //  al MISMO agente y Tool Registry que ya usa sandbox.js (no
-//  duplica el loop de autonomía ni la llamada a Groq).
+//  duplica el loop de autonomía ni la llamada a OpenRouter).
 //
 //  REQUIERE (ver INTEGRATION.md):
 //   - Que sandbox.js exponga: window.CutRealSandbox.registerTool,
@@ -548,7 +548,7 @@ h1 { color: #33ff77; }`;
     Object.entries(WORKSPACE_TOOLS).forEach(([name, fn]) => window.CutRealSandbox.registerTool(name, fn));
   }
 
-  // Contexto que el loop del agente (en sandbox.js) le manda a Groq
+  // Contexto que el loop del agente (en sandbox.js) le manda a OpenRouter
   function getContextForAgent() {
     return {
       files: Array.from(wks.files.values()).map(f => ({ path: f.path, language: f.language, size: f.content.length })),
