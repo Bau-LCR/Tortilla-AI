@@ -1,0 +1,149 @@
+/* ============================================================
+   workspace.css — Cut-real AI · WORKSPACE
+   Usa las MISMAS variables CSS que ya definís en style.css
+   (--primary-red, --dark-red, --r-sm/md/lg/pill, --ease, --sbx-green).
+   No redefine paleta nueva: solo agrega layout y componentes.
+   Cargar DESPUÉS de style.css.
+   ============================================================ */
+
+.wks-workspace {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background: #030303;
+    min-height: 0;
+}
+
+/* ── Toolbar superior ── */
+.wks-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(51,255,119,0.15);
+    background: #050505; flex-shrink: 0;
+}
+.wks-btn {
+    background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #ccc;
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.2s var(--ease);
+}
+.wks-btn:hover { border-color: var(--sbx-green, #33ff77); color: var(--sbx-green, #33ff77); }
+.wks-btn-accent { border-color: rgba(51,255,119,0.5); color: var(--sbx-green, #33ff77); background: rgba(51,255,119,0.08); }
+.wks-btn-accent:hover { background: rgba(51,255,119,0.2); }
+.wks-btn:disabled { opacity: 0.4; cursor: default; }
+.wks-status { margin-left: auto; font-size: 11px; color: #888; font-family: 'Courier New', monospace; }
+.wks-status.wks-status-error { color: #ff5566; }
+.wks-status.wks-status-ok { color: var(--sbx-green, #33ff77); }
+
+/* ── Tabs mobile internas del workspace (Archivos/Editor/Preview) ── */
+.wks-mobile-tabs { display: none; border-bottom: 1px solid rgba(51,255,119,0.12); flex-shrink: 0; }
+.wks-mtab { flex: 1; background: #050505; border: none; color: #888; padding: 9px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.wks-mtab.active { color: var(--sbx-green, #33ff77); border-bottom: 2px solid var(--sbx-green, #33ff77); }
+
+/* ── Layout de 3 columnas ── */
+.wks-layout {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 210px 1fr 1fr;
+    gap: 0;
+}
+.wks-files-col, .wks-editor-col, .wks-preview-col {
+    min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+.wks-preview-col { border-right: none; }
+
+/* ── Árbol de archivos ── */
+.wks-file-tree {
+    flex: 1; overflow-y: auto; padding: 8px 4px;
+    font-size: 12.5px; scrollbar-width: thin; scrollbar-color: rgba(51,255,119,0.2) transparent;
+}
+.wks-tree-folder {
+    color: #6a9; font-size: 11.5px; padding: 5px 8px; user-select: none;
+    text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.75;
+}
+.wks-tree-file {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 8px; border-radius: 7px; cursor: pointer;
+    color: #ccc; transition: background 0.15s;
+    position: relative;
+}
+.wks-tree-file:hover { background: rgba(51,255,119,0.06); }
+.wks-tree-file.active { background: rgba(51,255,119,0.12); color: var(--sbx-green, #33ff77); }
+.wks-file-icon { flex-shrink: 0; font-size: 12px; }
+.wks-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wks-file-dirty { color: #ffaa44; font-size: 14px; flex-shrink: 0; }
+.wks-file-del {
+    opacity: 0; background: transparent; border: none; color: #666; cursor: pointer;
+    font-size: 11px; flex-shrink: 0; padding: 2px 4px; border-radius: 4px;
+}
+.wks-tree-file:hover .wks-file-del { opacity: 1; }
+.wks-file-del:hover { background: rgba(255,50,50,0.2); color: #ff8888; }
+.wks-tree-empty { color: #555; font-size: 12px; padding: 16px 10px; text-align: center; line-height: 1.6; }
+
+/* ── Editor ── */
+.wks-editor-tabs {
+    display: flex; gap: 2px; overflow-x: auto; flex-shrink: 0;
+    background: #050505; border-bottom: 1px solid rgba(255,255,255,0.06);
+    scrollbar-width: none;
+}
+.wks-editor-tabs::-webkit-scrollbar { display: none; }
+.wks-editor-tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px; font-size: 11.5px; color: #999; cursor: pointer;
+    border-bottom: 2px solid transparent; white-space: nowrap; font-family: 'Inter', sans-serif;
+}
+.wks-editor-tab.active { color: var(--sbx-green, #33ff77); border-bottom-color: var(--sbx-green, #33ff77); background: rgba(51,255,119,0.05); }
+.wks-editor-mount { flex: 1; min-height: 0; overflow: hidden; }
+.wks-editor-mount .CodeMirror { height: 100%; font-size: 13px; font-family: 'Fira Code','Courier New',monospace; background: #050505 !important; }
+.wks-editor-empty { color: #555; font-size: 13px; padding: 30px; text-align: center; }
+
+/* ── Preview ── */
+.wks-preview-frame {
+    flex: 1; width: 100%; border: none; background: #fff; min-height: 0;
+}
+.wks-preview-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; background: #0a0a0a; }
+
+/* ── Barra inferior: consola / errores / estado ── */
+.wks-bottom-bar {
+    flex-shrink: 0; max-height: 130px; overflow-y: auto;
+    border-top: 1px solid rgba(51,255,119,0.12); background: #020202;
+}
+.wks-console { padding: 4px 10px; font-family: 'Courier New', monospace; font-size: 11px; }
+.wks-console-item { padding: 3px 0; display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.03); }
+.wks-console-item.wks-console-error { color: #ff6666; }
+.wks-console-item.wks-console-info { color: #6a9; }
+.wks-console-item.wks-console-ai { color: #66aaff; }
+.wks-console-time { color: #555; flex-shrink: 0; }
+.wks-console-empty { color: #444; padding: 8px 0; }
+
+/* ================================================================
+   Toggle desktop: el Workspace reemplaza al panel 3D cuando está
+   activo (mismo espacio, sin quitarle lugar al chat).
+   ================================================================ */
+#sandbox-overlay.sbx-show-workspace .sbx-panel-right { display: none !important; }
+#sandbox-overlay.sbx-show-workspace .wks-workspace { display: flex !important; }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 900px) {
+    .wks-mobile-tabs { display: flex; }
+    .wks-layout { grid-template-columns: 1fr; }
+    .wks-files-col, .wks-editor-col, .wks-preview-col { display: none; border-right: none; }
+    .wks-files-col.wks-col-active,
+    .wks-editor-col.wks-col-active,
+    .wks-preview-col.wks-col-active { display: flex; }
+
+    /* En mobile, el botón "🧩 Workspace" de la topbar del Sandbox
+       se comporta como una tercera pestaña junto a Chat/Escena. */
+    #sandbox-overlay.sbx-show-workspace .sbx-panel-left { display: none; }
+    #sandbox-overlay.sbx-show-workspace .sbx-panel-right { display: none; }
+    #sandbox-overlay.sbx-show-workspace .wks-workspace { display: flex; }
+}
+
+@media (max-width: 480px) {
+    .wks-toolbar { padding: 6px 8px; gap: 5px; }
+    .wks-btn { padding: 5px 9px; font-size: 11px; }
+    .wks-status { display: none; }
+}
