@@ -4531,3 +4531,35 @@ kbd {
 @media (max-width: 720px) {
   .sbx-api-usage { max-width: 55vw; font-size: 9px; margin-left: 4px; }
 }
+
+/* Sandbox Editor 3D — capa aditiva y responsive */
+.sbx-btn-editor { border-color: rgba(104,255,158,.35); color: #b9ffd0; }
+.sbx-btn-editor.active { background: rgba(42,255,116,.16); border-color: #33ff77; color: #fff; box-shadow: 0 0 16px rgba(51,255,119,.22); }
+.sbx-legacy-scene { display: none !important; }
+.sbx-editor-toolbar { position: absolute; z-index: 20; top: 14px; left: 14px; width: min(420px, calc(100% - 28px)); padding: 12px; color: #d7ffe1; background: rgba(5,11,8,.94); border: 1px solid rgba(51,255,119,.42); border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,.45); backdrop-filter: blur(10px); }
+.sbx-editor-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.sbx-editor-head strong { color:#67ff9a; letter-spacing:.04em; }
+.sbx-editor-head span { color:#9fc8a9; font-size:.76rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sbx-editor-fields { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:7px; }
+.sbx-editor-fields label { display:flex; flex-direction:column; gap:4px; color:#9fc8a9; font-size:.68rem; }
+.sbx-editor-fields input { width:100%; min-height:32px; box-sizing:border-box; border:1px solid rgba(147,255,177,.22); border-radius:6px; padding:5px 6px; color:#eaffee; background:#0b1710; }
+.sbx-editor-fields input:focus { outline:1px solid #33ff77; border-color:#33ff77; }
+.sbx-editor-fields input[type=color] { padding:2px; cursor:pointer; }
+.sbx-editor-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.sbx-editor-actions button { min-height:34px; border:1px solid rgba(147,255,177,.3); border-radius:7px; padding:6px 10px; color:#dbffe4; background:#102017; cursor:pointer; }
+.sbx-editor-actions button:hover:not(:disabled) { background:#173622; border-color:#33ff77; }
+.sbx-editor-actions button:disabled { opacity:.35; cursor:not-allowed; }
+.sbx-editor-actions .sbx-editor-primary { color:#031107; background:#33ff77; border-color:#33ff77; }
+.sbx-editor-actions .sbx-editor-danger { color:#ffbaba; border-color:rgba(255,91,91,.5); }
+.sbx-editor-toolbar small { display:block; margin-top:9px; color:#759b80; line-height:1.35; }
+@media (max-width: 760px) {
+  .sbx-editor-toolbar { top:8px; left:8px; width:calc(100% - 16px); padding:10px; }
+  .sbx-editor-fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .sbx-editor-actions button { flex:1 1 calc(50% - 7px); min-height:40px; }
+  .sbx-btn-editor { order: 3; }
+}
+@media (max-width: 430px) {
+  .sbx-editor-head { align-items:flex-start; flex-direction:column; gap:3px; }
+  .sbx-editor-fields { grid-template-columns: repeat(2, minmax(0,1fr)); gap:6px; }
+  .sbx-editor-actions button { flex-basis:100%; }
+}
