@@ -4515,3 +4515,19 @@ kbd {
         animation: none;
     }
 }
+
+/* OpenRouter exclusivo del Sandbox: telemetría compacta y responsive. */
+.sbx-api-usage {
+  display: inline-block;
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #7fd99d;
+  font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  opacity: .86;
+  margin-left: 8px;
+}
+@media (max-width: 720px) {
+  .sbx-api-usage { max-width: 55vw; font-size: 9px; margin-left: 4px; }
+}
