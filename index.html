@@ -854,8 +854,10 @@
         <div class="sbx-topbar-right">
             <button id="sandbox-autonomy-toggle" class="sbx-btn sbx-btn-toggle" title="Autonomía ON/OFF">⚡ Autonomía</button>
             <button id="sandbox-pause-btn" class="sbx-btn" title="Pausar/Reanudar">⏸ Pausar</button>
-            <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+                        <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+            <button id="sandbox-editor-btn" class="sbx-btn sbx-btn-editor" title="Seleccionar y editar objetos 3D">✎ Modo Editor</button>
             <button id="sandbox-workspace-btn" class="sbx-btn" title="Abrir Workspace">🧩 Workspace</button>
+
             <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
         </div>
     </div>
@@ -880,11 +882,35 @@
             <div class="sbx-agent-state-row">Estado del agente: <span id="sandbox-agent-state">inactivo</span></div>
             <div id="sandbox-action-log" class="sbx-action-log"></div>
         </aside>
+                <main class="sbx-panel-right sbx-legacy-scene" aria-hidden="true">
+            <canvas id="sandbox-canvas-legacy"></canvas>
+        </main>
         <main class="sbx-panel-right">
             <canvas id="sandbox-canvas"></canvas>
-        </main>
-                    <main class="sbx-panel-right">
-            <canvas id="sandbox-canvas"></canvas>
+
+            <section id="sandbox-editor-toolbar" class="sbx-editor-toolbar" hidden aria-label="Editor de objetos 3D">
+                <div class="sbx-editor-head">
+                    <strong>Editor 3D</strong>
+                    <span id="sandbox-editor-selected">Seleccioná un objeto</span>
+                </div>
+                <div class="sbx-editor-fields">
+                    <label>Posición X<input id="sandbox-editor-x" type="number" step="0.1"></label>
+                    <label>Y<input id="sandbox-editor-y" type="number" step="0.1"></label>
+                    <label>Z<input id="sandbox-editor-z" type="number" step="0.1"></label>
+                    <label>Rotación X°<input id="sandbox-editor-rx" type="number" step="5"></label>
+                    <label>Y°<input id="sandbox-editor-ry" type="number" step="5"></label>
+                    <label>Z°<input id="sandbox-editor-rz" type="number" step="5"></label>
+                    <label>Escala<input id="sandbox-editor-scale" type="number" min="0.1" max="5" step="0.1"></label>
+                    <label>Color<input id="sandbox-editor-color" type="color" value="#33ff77"></label>
+                </div>
+                <div class="sbx-editor-actions">
+                    <button id="sandbox-editor-apply" class="sbx-editor-primary" disabled>Aplicar</button>
+                    <button id="sandbox-editor-focus" disabled>Enfocar</button>
+                    <button id="sandbox-editor-duplicate" disabled>Duplicar</button>
+                    <button id="sandbox-editor-delete" class="sbx-editor-danger" disabled>Eliminar</button>
+                </div>
+                <small>Activá el editor y arrastrá un objeto para moverlo sobre el plano. En móvil, tocá y arrastrá con un dedo.</small>
+            </section>
         </main>
 
         <section class="wks-workspace" id="sbx-panel-workspace">
