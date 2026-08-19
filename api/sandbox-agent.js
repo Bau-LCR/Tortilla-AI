@@ -192,15 +192,15 @@ Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código rea
 
 Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
 
-Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, `vertices` es una lista de puntos `[x,y,z]` y `faces` es una lista de triángulos `[a,b,c]` que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices `[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]` y doce caras como `[[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]`. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como `body`, `head`, `muzzle`, `leg_front_left`, `leg_front_right`, `leg_back_left`, `leg_back_right`, `ear_left`, `ear_right`, `tail_segment_1`, `tail_segment_2`, `eye_left` y `eye_right`. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 6 y 32 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí `flatShading: true` para el aspecto low-poly.
+Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, vertices es una lista de puntos [x,y,z] y faces es una lista de triángulos [a,b,c] que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]] y doce caras como [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como body, head, muzzle, leg_front_left, leg_front_right, leg_back_left, leg_back_right, ear_left, ear_right, tail_segment_1, tail_segment_2, eye_left y eye_right. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 6 y 32 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí flatShading=true para el aspecto low-poly.
 
 Reglas:
 - Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
 - Si no tenés nada útil que hacer todavía, usá "wait".
-- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object. Debés generar vos mismo `meshes`: cada submalla debe incluir `role`, `vertices` y `faces` trianguladas. `semanticType` es solo una etiqueta; nunca le pidas al motor que invente o complete la geometría.
+- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object. Debés generar vos mismo meshes: cada submalla debe incluir role, vertices y faces trianguladas. semanticType es solo una etiqueta; nunca le pidas al motor que invente o complete la geometría.
 - Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object. No uses primitivas para solicitudes low-poly.
 - Antes de crear un objeto complejo, usá inspect_scene para conocer los objetos existentes. Conservá la escena salvo que el usuario pida limpiarla, pero elegí una posición libre para que el objeto nuevo no quede superpuesto ni oculto detrás de pruebas anteriores.
-- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato, semanticType=cat y meshes completos generados por vos. Creá partes separadas con roles `body`, `head`, `muzzle`, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos. Las coordenadas y caras deben ser tuyas; no esperes que el Sandbox agregue ninguna parte.
+- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato, semanticType=cat y meshes completos generados por vos. Creá partes separadas con roles body, head, muzzle, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos. Las coordenadas y caras deben ser tuyas; no esperes que el Sandbox agregue ninguna parte.
 - Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila generando una nueva malla completa con update_lowpoly_object o moviéndola con move_object antes de responder.
 - Si la tool responde que faltan meshes, vertices o faces, no cambies a create_3d_object ni inventes que funcionó: generá los datos geométricos completos y reintentá.
 - Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
@@ -284,6 +284,19 @@ function checkGlobalRateLimit(maxPerHour) {
 
 // ── HANDLER PRINCIPAL ────────────────────────────────────────
 export default async function handler(req, res) {
+    try {
+        return await handleSandboxRequest(req, res);
+    } catch (e) {
+        console.error("[sandbox-agent] Error no controlado:", e);
+        return res.status(500).json({
+            error: "Error interno del agente Sandbox.",
+            detail: e?.message || "Error desconocido",
+            code: e?.code || "SANDBOX_AGENT_INTERNAL_ERROR",
+        });
+    }
+}
+
+async function handleSandboxRequest(req, res) {
     if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
     const {
@@ -295,6 +308,14 @@ export default async function handler(req, res) {
 
     if (!Array.isArray(messages))
         return res.status(400).json({ error: "'messages' inválido." });
+
+    // El cliente actual envía arrays y objetos completos, pero estos valores
+    // se normalizan para que una sesión antigua o un payload parcial no genere
+    // una excepción antes de llegar al manejo de errores de OpenRouter.
+    const safeScene = scene && typeof scene === "object" ? scene : {};
+    const safeSceneObjects = Array.isArray(safeScene.objects) ? safeScene.objects : [];
+    const safeMemoryKeys = Array.isArray(memoryKeys) ? memoryKeys : [];
+    const safeLastActions = Array.isArray(lastActions) ? lastActions : [];
 
     const config = await fetchSandboxConfig();
 
@@ -371,9 +392,9 @@ export default async function handler(req, res) {
 
     const contextParts = [
         `Modo: ${autonomous ? "ciclo autónomo (nadie te habló, decidí vos qué hacer)" : "respondiendo a un mensaje del usuario"}`,
-        `Objetos actuales en escena: ${JSON.stringify((scene.objects || []).map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
-        `Claves de memoria disponibles: ${JSON.stringify(memoryKeys).slice(0, 500)}`,
-        `Últimas acciones: ${JSON.stringify(lastActions.slice(-6))}`,
+        `Objetos actuales en escena: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
+        `Claves de memoria disponibles: ${JSON.stringify(safeMemoryKeys).slice(0, 500)}`,
+        `Últimas acciones: ${JSON.stringify(safeLastActions.slice(-6))}`,
     ];
     if (workspace) {
         contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1800)}`);
