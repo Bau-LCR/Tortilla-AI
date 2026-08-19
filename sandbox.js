@@ -76,8 +76,14 @@
 
   const escapeHtml = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const safeColor = (hex) => (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) ? hex : null;
-  const MAX_LOWPOLY_VERTICES = 96;
-  const MAX_LOWPOLY_FACES = 160;
+  // Presupuesto por submalla: suficiente para animales reconocibles sin
+  // permitir payloads gigantes en un dispositivo móvil.
+  const MAX_LOWPOLY_VERTICES = 192;
+  const MAX_LOWPOLY_FACES = 320;
+  const MAX_LOWPOLY_PARTS = 12;
+  const MIN_LOWPOLY_PARTS = 4;
+  const MIN_LOWPOLY_TOTAL_VERTICES = 24;
+  const MIN_LOWPOLY_TOTAL_FACES = 24;
 
   function debounce(fn, ms) {
     let t = null;
@@ -330,7 +336,7 @@
     if (!Array.isArray(meshes) || meshes.length === 0) {
       throw new Error('create_lowpoly_object requiere meshes generados por la IA con vertices y faces reales. No se usan plantillas automáticas.');
     }
-    return meshes.slice(0, 8).map((part, index) => {
+    const parts = meshes.slice(0, MAX_LOWPOLY_PARTS).map((part, index) => {
       if (!part || typeof part !== 'object') throw new Error(`La submalla ${index + 1} no es un objeto válido.`);
       if (!Array.isArray(part.vertices) || !Array.isArray(part.faces)) {
         throw new Error(`La submalla ${index + 1} debe incluir vertices y faces generados por la IA.`);
@@ -346,6 +352,12 @@
       const color = safeColor(part.color) || safeColor(fallbackColor) || '#33ff77';
       return { ...part, geometry: 'lowpoly', flatShading: true, color };
     });
+    const totalVertices = parts.reduce((sum, part) => sum + part.vertices.length / 3, 0);
+    const totalFaces = parts.reduce((sum, part) => sum + part.faces.length / 3, 0);
+    if (parts.length < MIN_LOWPOLY_PARTS || totalVertices < MIN_LOWPOLY_TOTAL_VERTICES || totalFaces < MIN_LOWPOLY_TOTAL_FACES) {
+      throw new Error(`La malla low-poly es demasiado simple: requiere al menos ${MIN_LOWPOLY_PARTS} submallas, ${MIN_LOWPOLY_TOTAL_VERTICES} vértices y ${MIN_LOWPOLY_TOTAL_FACES} triángulos generados por la IA.`);
+    }
+    return parts;
   }
 
   // LEGACY DISABLED: semanticType nunca se infiere desde el nombre del objeto.
