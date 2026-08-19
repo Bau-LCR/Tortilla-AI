@@ -52,6 +52,7 @@
     consecutiveErrors: 0,
     status: 'idle',                                   // idle|thinking|acting|waiting|paused|error
     agentState: { label: 'inactivo', color: '#33ff77' },
+    apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null },
   };
 
   let scene, camera, renderer, controls, animFrame, threeReady = false;
@@ -64,6 +65,8 @@
   const genId = () => 'obj_' + Math.random().toString(36).slice(2, 9);
   const escapeHtml = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const safeColor = (hex) => (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) ? hex : null;
+  const MAX_LOWPOLY_VERTICES = 96;
+  const MAX_LOWPOLY_FACES = 160;
 
   function debounce(fn, ms) {
     let t = null;
@@ -124,17 +127,19 @@
     plane:    () => new THREE.PlaneGeometry(1, 1),
   };
 
-  function buildPartMesh(part) {
-    const geomFn = GEOMS[part.geometry] || GEOMS.box;
-    const mat = new THREE.MeshStandardMaterial({
+  function buildMaterial(part, flatShading) {
+    return new THREE.MeshStandardMaterial({
       color: safeColor(part.color) || 0x33ff77,
       wireframe: !!part.wireframe,
+      flatShading: !!flatShading || !!part.flatShading,
       transparent: part.opacity != null,
       opacity: part.opacity != null ? clamp(part.opacity, 0.05, 1) : 1,
       emissive: 0x0a2a14, emissiveIntensity: 0.25,
       metalness: 0.15, roughness: 0.55,
     });
-    const mesh = new THREE.Mesh(geomFn(), mat);
+  }
+
+  function applyPartTransform(mesh, part) {
     const pos = clampVec(part.position || [0,0,0]);
     mesh.position.set(pos[0], pos[1], pos[2]);
     if (Array.isArray(part.rotation)) mesh.rotation.set(part.rotation[0]||0, part.rotation[1]||0, part.rotation[2]||0);
@@ -143,6 +148,48 @@
       mesh.scale.set(s[0]||1, s[1]||1, s[2]||1);
     }
     return mesh;
+  }
+
+  function normalizeLowPolyVertices(vertices) {
+    const rows = Array.isArray(vertices) ? vertices.slice(0, MAX_LOWPOLY_VERTICES) : [];
+    const flat = rows.length && Array.isArray(rows[0])
+      ? rows.flatMap(v => [v?.[0], v?.[1], v?.[2]])
+      : rows;
+    const out = flat.slice(0, MAX_LOWPOLY_VERTICES * 3).map(n => clamp(Number(n), -6, 6));
+    if (out.length < 9 || out.length % 3 !== 0) throw new Error('Una malla low-poly necesita al menos 3 vértices [x,y,z].');
+    return out;
+  }
+
+  function normalizeLowPolyFaces(faces, vertexCount) {
+    const out = [];
+    for (const face of (Array.isArray(faces) ? faces : []).slice(0, MAX_LOWPOLY_FACES)) {
+      if (!Array.isArray(face) || face.length < 3) continue;
+      const ids = face.slice(0, 8).map(n => Math.trunc(Number(n)));
+      if (ids.some(n => !Number.isInteger(n) || n < 0 || n >= vertexCount)) continue;
+      for (let i = 1; i < ids.length - 1 && out.length < MAX_LOWPOLY_FACES * 3; i++) {
+        out.push(ids[0], ids[i], ids[i + 1]);
+      }
+    }
+    if (out.length < 9) throw new Error('Una malla low-poly necesita al menos 3 caras válidas.');
+    return out;
+  }
+
+  function buildLowPolyMesh(part) {
+    const vertexValues = normalizeLowPolyVertices(part.vertices);
+    const vertexCount = vertexValues.length / 3;
+    const indices = normalizeLowPolyFaces(part.faces, vertexCount);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertexValues, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    return applyPartTransform(new THREE.Mesh(geometry, buildMaterial(part, true)), part);
+  }
+
+  function buildPartMesh(part) {
+    if (part && (part.geometry === 'lowpoly' || part.geometry === 'mesh')) return buildLowPolyMesh(part);
+    const geomFn = GEOMS[part.geometry] || GEOMS.box;
+    return applyPartTransform(new THREE.Mesh(geomFn(), buildMaterial(part, false)), part);
   }
 
   function buildTextSprite(text, color) {
@@ -266,6 +313,18 @@
       const id = SceneManager.addObject({ name: sanitizeText(name, 40), parts, position });
       logAction(`Creado objeto: ${sanitizeText(name,40)}`); return { ok: true, id };
     },
+    create_lowpoly_object: ({ name, meshes, position }) => {
+      if (!Array.isArray(meshes) || !meshes.length) throw new Error('meshes requerido');
+      const parts = meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true }));
+      const id = SceneManager.addObject({ name: sanitizeText(name, 40), type: 'lowpoly_mesh', parts, position });
+      logAction(`Creada malla low-poly: ${sanitizeText(name,40)}`); return { ok: true, id, vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0) };
+    },
+    update_lowpoly_object: ({ id, meshes, position }) => {
+      if (!Array.isArray(meshes) || !meshes.length) throw new Error('meshes requerido');
+      const parts = meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true }));
+      SceneManager.updateObject(id, { parts, position });
+      logAction(`Malla low-poly modificada: ${id}`); return { ok: true, id };
+    },
     update_3d_object: ({ id, parts, position }) => {
       SceneManager.updateObject(id, { parts, position }); logAction(`Objeto modificado: ${id}`); return { ok: true };
     },
@@ -356,6 +415,37 @@
     el.textContent = state.agentState.label;
     el.style.color = state.agentState.color;
     el.style.textShadow = `0 0 10px ${state.agentState.color}88`;
+  }
+
+  function renderUsageHUD() {
+    const el = $('sandbox-openrouter-usage'); if (!el) return;
+    const u = state.apiUsage || {};
+    const cost = Number(u.reportedCost || 0);
+    const model = u.last?.model ? ` · ${u.last.model}` : '';
+    el.textContent = `OpenRouter · ${Number(u.totalTokens || 0)} tokens · $${cost.toFixed(6)}${model}`;
+    el.title = u.last?.generationId ? `Generation: ${u.last.generationId}` : 'Uso de la API exclusiva del Sandbox';
+  }
+
+  function recordModelUsage(decision) {
+    const usage = decision?.usage || {};
+    const promptTokens = Number(usage.prompt_tokens || usage.input_tokens || 0);
+    const completionTokens = Number(usage.completion_tokens || usage.output_tokens || 0);
+    const totalTokens = Number(usage.total_tokens || promptTokens + completionTokens);
+    const rawCost = decision?.cost ?? usage.cost ?? usage.cost_details?.upstream_inference_cost;
+    const reportedCost = rawCost == null || rawCost === '' ? null : Number(rawCost);
+    state.apiUsage.requests += 1;
+    state.apiUsage.promptTokens += promptTokens;
+    state.apiUsage.completionTokens += completionTokens;
+    state.apiUsage.totalTokens += totalTokens;
+    if (Number.isFinite(reportedCost)) state.apiUsage.reportedCost += reportedCost;
+    state.apiUsage.last = {
+      at: Date.now(), model: decision?.model || 'desconocido', provider: decision?.provider || 'OpenRouter',
+      generationId: decision?.generationId || null, promptTokens, completionTokens, totalTokens,
+      reportedCost: Number.isFinite(reportedCost) ? reportedCost : null,
+    };
+    const costText = Number.isFinite(reportedCost) ? `$${reportedCost.toFixed(6)}` : 'no informado';
+    renderUsageHUD();
+    logAction(`OpenRouter | ${state.apiUsage.last.model} | ${totalTokens} tokens | costo reportado: ${costText}`);
   }
 
   function setStatus(s) {
@@ -470,7 +560,8 @@
       if (state.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) stopAutonomy('Demasiados errores seguidos.');
       return;
     }
-    state.consecutiveErrors = 0;
+        state.consecutiveErrors = 0;
+    if (decision && (decision.model || decision.usage || decision.generationId)) recordModelUsage(decision);
 
     // El servidor puede "saltear" este paso sin haber llamado a OpenRouter:
     // cooldown propio, tope de ciclos del admin, o límite global.
@@ -584,6 +675,7 @@
         actionLog: state.actionLog.slice(-80).map(a => a.text + '|' + a.ts),
         scene: SceneManager.serialize(),
         autonomyEnabled: state.autonomyEnabled,
+        apiUsage: state.apiUsage,
       }, { merge: true });
     } catch (e) { console.warn('[Sandbox] Error guardando:', e); }
   }
@@ -613,7 +705,7 @@
     const { doc, setDoc } = window.firestore;
     const ref = doc(sandboxCollection());
     const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], autonomyEnabled: false });
+    await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
     await loadSandboxList();
     await openSandboxById(ref.id);
   }
@@ -628,6 +720,8 @@
     state.messages = data.messages || [];
     state.memory = data.memory || {};
     state.actionLog = (data.actionLog || []).map(s => { const [text,ts]=String(s).split('|'); return { text, ts:+ts||Date.now() }; });
+    state.apiUsage = data.apiUsage || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null };
+    renderUsageHUD();
     state.autonomyEnabled = false;
 
     const chatEl = $('sandbox-chat'); if (chatEl) chatEl.innerHTML = '';
