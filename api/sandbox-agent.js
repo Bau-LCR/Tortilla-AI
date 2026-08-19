@@ -34,6 +34,15 @@ const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
 const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
+// Para solicitudes visuales explícitas no dejamos que el modelo consuma el
+// turno solamente en set_agent_state o send_message: debe devolver la tool
+// que genera la geometría. Esto no crea ninguna plantilla; solo fija la tool
+// cuyo argumento meshes todavía debe ser generado por el modelo.
+const DIRECT_LOWPOLY_INTENT_RE = /\b(gato|gatito|perro|animal|felino|canino|persona|humano|personaje|robot|auto|coche|veh[ií]culo|casa|[aá]rbol|drag[oó]n|monstruo|criatura|low[ -]?poly|malla 3d|modelo 3d)\b/i;
+function isDirectLowPolyRequest(text) {
+    return typeof text === "string" && DIRECT_LOWPOLY_INTENT_RE.test(text);
+}
+
 // ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
 const ALL_TOOLS = [
   { type: "function", function: {
@@ -430,6 +439,11 @@ async function handleSandboxRequest(req, res) {
         ? [configuredPrimary, configuredFallback]
         : [configuredPrimary];
     const requestedModel = modelsToTry[0];
+    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(userText);
+    const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
+    const toolChoice = directLowPolyRequest && lowPolyToolEnabled
+        ? { type: "function", function: { name: "create_lowpoly_object" } }
+        : "auto";
 
     try {
         const result = await callWorkspaceModel({
@@ -437,7 +451,7 @@ async function handleSandboxRequest(req, res) {
             models: modelsToTry,
             messages: fullMessages,
             tools: TOOLS,
-            tool_choice: "auto",
+            tool_choice: toolChoice,
             temperature: 0.7,
             max_tokens: 4000,
         });
@@ -475,6 +489,7 @@ async function handleSandboxRequest(req, res) {
             usage: data.usage || null,
             cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
             requestedModels: modelsToTry,
+            forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
             cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
             cyclesMax: config.maxCyclesPerSandbox,
         });
@@ -494,5 +509,6 @@ async function handleSandboxRequest(req, res) {
 }
 
 function safeParseJSON(str) {
+    if (str && typeof str === "object") return str;
     try { return JSON.parse(str || "{}"); } catch { return {}; }
 }
