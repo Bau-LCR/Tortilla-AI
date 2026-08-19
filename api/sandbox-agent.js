@@ -63,26 +63,27 @@ const ALL_TOOLS = [
       }, required: ["name", "parts"] } } },
   { type: "function", function: {
       name: "create_lowpoly_object",
-      description: "Crear una malla 3D low-poly reconocible. Para gato, persona, casa, auto, árbol o robot, enviá semanticType y el motor generará una silueta consistente con partes anatómicas; para otros objetos, enviá vértices y caras trianguladas. No uses primitivas para simular la silueta.",
+      description: "Crear una malla 3D low-poly generada por la IA. Debés enviar siempre meshes con vértices y caras creados por vos. semanticType es solo una etiqueta descriptiva y nunca activa una plantilla ni genera geometría automáticamente. No uses primitivas para simular la silueta.",
       parameters: { type: "object", properties: {
-          name: { type: "string", description: "Nombre semántico, ej: gato low-poly." },
-          semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Tipo semántico. Obligatorio para animales, personas, casas, autos y árboles." },
+          name: { type: "string", description: "Nombre del objeto, ej: gato low-poly." },
+          semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Etiqueta opcional para describir lo que generaste; no reemplaza meshes." },
           color: { type: "string", description: "Color base hex, ej: #33ff77." },
-          meshes: { type: "array", description: "Opcional para objetos custom: 1 a 8 submallas low-poly.", items: { type: "object", properties: {
-              vertices: { type: "array", description: "Vértices como [[x,y,z], ...].", items: { type: "array", items: { type: "number" } } },
-              faces: { type: "array", description: "Caras como índices de 3 o más vértices; se triangulan automáticamente.", items: { type: "array", items: { type: "integer" } } },
+          meshes: { type: "array", minItems: 1, maxItems: 8, description: "Obligatorio: 1 a 8 submallas creadas por la IA. Cada parte debe tener un role reconocible, vertices y faces trianguladas.", items: { type: "object", properties: {
+              role: { type: "string", description: "Parte creada por la IA, ej: body, head, muzzle, leg_front_left, ear_left, tail_segment_1, eye_left." },
+              vertices: { type: "array", minItems: 3, description: "Vértices creados por la IA como [[x,y,z], ...], con coordenadas 3D reales.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } },
+              faces: { type: "array", minItems: 1, description: "Caras triangulares creadas por la IA como índices [a,b,c].", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
               position: { type: "array", items: { type: "number" } }, rotation: { type: "array", items: { type: "number" } }, scale: { type: "array", items: { type: "number" } },
-              color: { type: "string", description: "Color hex, ej: #33ff77" }, wireframe: { type: "boolean" }
-          }, required: ["vertices", "faces"] } },
+              color: { type: "string", description: "Color hex de esta parte." }, wireframe: { type: "boolean" }
+          }, required: ["role", "vertices", "faces"] } },
           position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
-      }, required: ["name"] } } },
+      }, required: ["name", "meshes"] } } },
   { type: "function", function: {
-      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente. Usá semanticType para reconstruir una forma reconocible o meshes para una forma custom.",
+      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente con vertices y faces generados por la IA. semanticType solo describe el resultado y nunca reconstruye una plantilla.",
       parameters: { type: "object", properties: {
-          id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", items: { type: "object", properties: {
-              vertices: { type: "array", items: { type: "array", items: { type: "number" } } }, faces: { type: "array", items: { type: "array", items: { type: "integer" } } },
+          id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", minItems: 1, maxItems: 8, items: { type: "object", properties: {
+              role: { type: "string" }, vertices: { type: "array", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } }, faces: { type: "array", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
               position: { type: "array", items: { type: "number" } }, color: { type: "string" }, wireframe: { type: "boolean" }
-          }, required: ["vertices", "faces"] } },
+          }, required: ["role", "vertices", "faces"] } },
           position: { type: "array", items: { type: "number" } }
       }, required: ["id", "meshes"] } } },
   { type: "function", function: {
@@ -191,14 +192,17 @@ Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código rea
 
 Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
 
+Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, `vertices` es una lista de puntos `[x,y,z]` y `faces` es una lista de triángulos `[a,b,c]` que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices `[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]]` y doce caras como `[[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]`. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como `body`, `head`, `muzzle`, `leg_front_left`, `leg_front_right`, `leg_back_left`, `leg_back_right`, `ear_left`, `ear_right`, `tail_segment_1`, `tail_segment_2`, `eye_left` y `eye_right`. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 6 y 32 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí `flatShading: true` para el aspecto low-poly.
+
 Reglas:
 - Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
 - Si no tenés nada útil que hacer todavía, usá "wait".
-- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object; para gato usá semanticType=cat, para persona semanticType=person, para casa semanticType=house, para auto semanticType=car y para árbol semanticType=tree. No envíes meshes arbitrarios para esos tipos conocidos y no los simules con primitivas.
-- Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object.
+- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object. Debés generar vos mismo `meshes`: cada submalla debe incluir `role`, `vertices` y `faces` trianguladas. `semanticType` es solo una etiqueta; nunca le pidas al motor que invente o complete la geometría.
+- Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object. No uses primitivas para solicitudes low-poly.
 - Antes de crear un objeto complejo, usá inspect_scene para conocer los objetos existentes. Conservá la escena salvo que el usuario pida limpiarla, pero elegí una posición libre para que el objeto nuevo no quede superpuesto ni oculto detrás de pruebas anteriores.
-- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato y semanticType=cat; no agregues casas, personas, conos, cajas ni primitivas no solicitadas. El gato debe incluir cuerpo, cabeza, hocico, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos, con proporciones y posiciones coherentes.
-- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila con update_lowpoly_object o move_object antes de responder.
+- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato, semanticType=cat y meshes completos generados por vos. Creá partes separadas con roles `body`, `head`, `muzzle`, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos. Las coordenadas y caras deben ser tuyas; no esperes que el Sandbox agregue ninguna parte.
+- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila generando una nueva malla completa con update_lowpoly_object o moviéndola con move_object antes de responder.
+- Si la tool responde que faltan meshes, vertices o faces, no cambies a create_3d_object ni inventes que funcionó: generá los datos geométricos completos y reintentá.
 - Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
 - No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
 - Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
@@ -414,7 +418,7 @@ export default async function handler(req, res) {
             tools: TOOLS,
             tool_choice: "auto",
             temperature: 0.7,
-            max_tokens: 900,
+            max_tokens: 4000,
         });
 
         if (result.limited) {
