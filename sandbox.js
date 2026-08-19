@@ -958,7 +958,13 @@
     if (decision.assistantText) pushMessage('agent', decision.assistantText);
 
     setStatus('acting');
-    for (const call of (decision.toolCalls || []).slice(0, 4)) {
+    const toolCalls = (decision.toolCalls || []).slice(0, 4);
+    if (toolCalls.length) {
+      logAction(`Tools recibidas: ${toolCalls.map(call => call.name || 'desconocida').join(', ')}`);
+    } else if (userText && !decision.assistantText) {
+      logAction('⚠️ El modelo respondió sin texto ni tools; se reintentará con la tool visual forzada si corresponde.');
+    }
+    for (const call of toolCalls) {
       const toolEl = $('sandbox-current-tool');
       if (toolEl) toolEl.textContent = '⚙ ' + call.name;
       try { executeTool(call.name, call.args); }
@@ -970,6 +976,7 @@
       updateCyclesHUD(decision.cyclesUsed, decision.cyclesMax);
     }
     scheduleSave();
+    if (userText) setStatus('idle');
   }
 
   let autonomyTimer = null;
