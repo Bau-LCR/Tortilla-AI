@@ -170,7 +170,7 @@
     const flat = rows.length && Array.isArray(rows[0])
       ? rows.flatMap(v => [v?.[0], v?.[1], v?.[2]])
       : rows;
-    const out = flat.slice(0, MAX_LOWPOLY_VERTICES * 3).map(n => clamp(Number(n), -6, 6));
+    const out = flat.slice(0, MAX_LOWPOLY_VERTICES * 3).map(n => clamp(Number(n), -WORLD_BOUND, WORLD_BOUND));
     if (out.length < 9 || out.length % 3 !== 0) throw new Error('Una malla low-poly necesita al menos 3 vértices [x,y,z].');
     return out;
   }
@@ -198,6 +198,8 @@
     return [x,y,z];
   }
 
+  // LEGACY DISABLED: estas funciones se conservan por compatibilidad histórica,
+  // pero no participan en ninguna tool de generación low-poly.
   function makeEllipsoidShape(rx, ry, rz, segments = 8, rings = 4) {
     const vertices = [[0, ry, 0]];
     for (let r = 1; r < rings; r++) {
@@ -262,6 +264,7 @@
     return { geometry: 'lowpoly', vertices, faces, color, flatShading: true };
   }
 
+  // LEGACY DISABLED: no llamar desde tools; la IA debe suministrar meshes reales.
   function semanticModelMeshes(kind, color) {
     const main = safeColor(color) || '#33ff77';
     const dark = '#18251d';
@@ -320,17 +323,32 @@
     return [combineSemanticShapes([{ shape: makeEllipsoidShape(.8,.8,.8) }], main)];
   }
 
-  function validateSemanticModel(kind, parts) {
-    const minimumParts = { cat: 7, person: 6, house: 5, car: 3, tree: 2 };
-    if (!Array.isArray(parts) || parts.length < (minimumParts[kind] || 1)) throw new Error(`Modelo ${kind} incompleto: faltan partes reconocibles.`);
-    parts.forEach((part, index) => {
+  // La geometría low-poly debe venir del modelo. Esta validación no interpreta
+  // nombres, semanticType ni roles para construir piezas: solo verifica y
+  // prepara los datos que el modelo ya generó.
+  function validateGeneratedLowPolyMeshes(meshes, fallbackColor) {
+    if (!Array.isArray(meshes) || meshes.length === 0) {
+      throw new Error('create_lowpoly_object requiere meshes generados por la IA con vertices y faces reales. No se usan plantillas automáticas.');
+    }
+    return meshes.slice(0, 8).map((part, index) => {
+      if (!part || typeof part !== 'object') throw new Error(`La submalla ${index + 1} no es un objeto válido.`);
+      if (!Array.isArray(part.vertices) || !Array.isArray(part.faces)) {
+        throw new Error(`La submalla ${index + 1} debe incluir vertices y faces generados por la IA.`);
+      }
+      if (part.role != null && typeof part.role !== 'string') {
+        throw new Error(`El role de la submalla ${index + 1} debe ser texto.`);
+      }
       const vertices = normalizeLowPolyVertices(part.vertices);
       const faces = normalizeLowPolyFaces(part.faces, vertices.length / 3);
-      if (part.geometry !== 'lowpoly' || vertices.length < 9 || faces.length < 3) throw new Error(`Submalla ${index + 1} inválida para ${kind}.`);
+      if (vertices.length < 9 || faces.length < 9) {
+        throw new Error(`La submalla ${index + 1} necesita al menos 3 vértices y 3 caras válidas.`);
+      }
+      const color = safeColor(part.color) || safeColor(fallbackColor) || '#33ff77';
+      return { ...part, geometry: 'lowpoly', flatShading: true, color };
     });
-    return parts;
   }
 
+  // LEGACY DISABLED: semanticType nunca se infiere desde el nombre del objeto.
   function semanticKindFromText(text) {
     const value = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (/\b(gato|gatito|cat|felino)\b/.test(value)) return 'cat';
@@ -656,19 +674,18 @@
       logAction(`Creado objeto: ${sanitizeText(name,40)}`); return { ok: true, id };
     },
     create_lowpoly_object: ({ name, semanticType, meshes, position, color }) => {
-      const kind = semanticKindFromText(`${semanticType || ''} ${name || ''}`);
-      const parts = kind ? validateSemanticModel(kind, semanticModelMeshes(kind, color)) : (Array.isArray(meshes) ? meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true })) : []);
-      if (!parts.length) throw new Error('Para un objeto low-poly personalizado se requieren meshes; para animales y objetos conocidos usá semanticType.');
+      const parts = validateGeneratedLowPolyMeshes(meshes, color);
       const id = SceneManager.addObject({ name: sanitizeText(name, 40), type: 'lowpoly_mesh', parts, position });
-      logAction(`Creada malla low-poly reconocible: ${sanitizeText(name,40)}`); return { ok: true, id, semanticType: kind || 'custom', vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0) };
+      logAction(`Creada malla low-poly generada por IA: ${sanitizeText(name,40)}`);
+      return { ok: true, id, semanticType: semanticType || 'custom', vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0), parts: parts.length };
     },
     update_lowpoly_object: ({ id, semanticType, meshes, position, color }) => {
       const rec = SceneManager.getObject(id);
-      const kind = semanticKindFromText(`${semanticType || ''} ${rec?.name || ''}`);
-      const parts = kind ? validateSemanticModel(kind, semanticModelMeshes(kind, color || rec?.color)) : (Array.isArray(meshes) ? meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true })) : []);
-      if (!parts.length) throw new Error('Para actualizar una malla personalizada se requieren meshes.');
+      if (!rec) throw new Error(`No existe el objeto low-poly ${id}.`);
+      const parts = validateGeneratedLowPolyMeshes(meshes, color || rec?.color);
       SceneManager.updateObject(id, { parts, position });
-      logAction(`Malla low-poly modificada: ${id}`); return { ok: true, id, semanticType: kind || 'custom' };
+      logAction(`Malla low-poly generada por IA modificada: ${id}`);
+      return { ok: true, id, semanticType: semanticType || 'custom', parts: parts.length };
     },
     update_3d_object: ({ id, parts, position }) => {
       SceneManager.updateObject(id, { parts, position }); logAction(`Objeto modificado: ${id}`); return { ok: true };
