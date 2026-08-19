@@ -1632,7 +1632,8 @@ function needsWebSearchFrontend(msg) {
 //  CONTROL GLOBAL DEL SANDBOX (config/sandbox_control en Firestore)
 // ================================================================
 const SANDBOX_TOOL_NAMES = [
-    "create_3d_object","update_3d_object","delete_3d_object","create_3d_text",
+        "create_3d_object","create_lowpoly_object","update_lowpoly_object","update_3d_object","delete_3d_object","create_3d_text",
+
     "move_object","rotate_object","scale_object","change_object_appearance",
     "inspect_scene","save_memory","retrieve_memory","clear_scene","set_agent_state",
     "create_file","read_file","update_file","delete_file","rename_file",
