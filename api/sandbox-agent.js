@@ -63,21 +63,23 @@ const ALL_TOOLS = [
       }, required: ["name", "parts"] } } },
   { type: "function", function: {
       name: "create_lowpoly_object",
-      description: "Crear una malla 3D low-poly real usando vértices y caras trianguladas. No uses primitivas para simular la silueta: construí una malla reconocible con 1 a 8 submallas, entre 6 y 96 vértices por submalla y caras cerradas o casi cerradas.",
+      description: "Crear una malla 3D low-poly reconocible. Para gato, persona, casa, auto, árbol o robot, enviá semanticType y el motor generará una silueta consistente con partes anatómicas; para otros objetos, enviá vértices y caras trianguladas. No uses primitivas para simular la silueta.",
       parameters: { type: "object", properties: {
-          name: { type: "string", description: "Nombre semántico, ej: gato_lowpoly." },
-          meshes: { type: "array", description: "1 a 8 submallas low-poly.", items: { type: "object", properties: {
+          name: { type: "string", description: "Nombre semántico, ej: gato low-poly." },
+          semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Tipo semántico. Obligatorio para animales, personas, casas, autos y árboles." },
+          color: { type: "string", description: "Color base hex, ej: #33ff77." },
+          meshes: { type: "array", description: "Opcional para objetos custom: 1 a 8 submallas low-poly.", items: { type: "object", properties: {
               vertices: { type: "array", description: "Vértices como [[x,y,z], ...].", items: { type: "array", items: { type: "number" } } },
               faces: { type: "array", description: "Caras como índices de 3 o más vértices; se triangulan automáticamente.", items: { type: "array", items: { type: "integer" } } },
               position: { type: "array", items: { type: "number" } }, rotation: { type: "array", items: { type: "number" } }, scale: { type: "array", items: { type: "number" } },
               color: { type: "string", description: "Color hex, ej: #33ff77" }, wireframe: { type: "boolean" }
           }, required: ["vertices", "faces"] } },
           position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
-      }, required: ["name", "meshes"] } } },
+      }, required: ["name"] } } },
   { type: "function", function: {
-      name: "update_lowpoly_object", description: "Reemplazar la malla low-poly de un objeto existente usando vértices y caras.",
+      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente. Usá semanticType para reconstruir una forma reconocible o meshes para una forma custom.",
       parameters: { type: "object", properties: {
-          id: { type: "string" }, meshes: { type: "array", items: { type: "object", properties: {
+          id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", items: { type: "object", properties: {
               vertices: { type: "array", items: { type: "array", items: { type: "number" } } }, faces: { type: "array", items: { type: "array", items: { type: "integer" } } },
               position: { type: "array", items: { type: "number" } }, color: { type: "string" }, wireframe: { type: "boolean" }
           }, required: ["vertices", "faces"] } },
@@ -192,9 +194,11 @@ Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramient
 Reglas:
 - Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
 - Si no tenés nada útil que hacer todavía, usá "wait".
-- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object con vértices y caras; no lo simules con esferas, conos o cilindros.
+- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object; para gato usá semanticType=cat, para persona semanticType=person, para casa semanticType=house, para auto semanticType=car y para árbol semanticType=tree. No envíes meshes arbitrarios para esos tipos conocidos y no los simules con primitivas.
 - Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object.
-- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, entre 24 y 96 vértices por submalla cuando el objeto lo necesite, caras trianguladas, sombreado plano y rasgos distintivos. Un animal no debe ser solo una esfera con conos: separá cuerpo, cabeza, patas, orejas/cola y detalles mediante mallas coherentes.
+- Antes de crear un objeto complejo, usá inspect_scene para conocer los objetos existentes. Conservá la escena salvo que el usuario pida limpiarla, pero elegí una posición libre para que el objeto nuevo no quede superpuesto ni oculto detrás de pruebas anteriores.
+- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato y semanticType=cat; no agregues casas, personas, conos, cajas ni primitivas no solicitadas. El gato debe incluir cuerpo, cabeza, hocico, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos, con proporciones y posiciones coherentes.
+- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila con update_lowpoly_object o move_object antes de responder.
 - Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
 - No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
 - Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
