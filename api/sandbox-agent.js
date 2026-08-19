@@ -1,514 +1,1632 @@
-// ============================================================
-//  api/sandbox-agent.js — Cut-real AI · SANDBOX
-//  Un "paso" del agente autónomo. Devuelve la decisión del modelo
-//  (mensaje y/o tool calls) SIN ejecutar nada — la ejecución real
-//  ocurre en sandbox.js, que conoce el estado real de la escena 3D.
-//
-//  NUEVO en esta versión:
-//   - Usa api/workspace-model-client.js (OpenRouter exclusivo, rotación dinámica de keys)
-//   - Lee config/sandbox_control desde Firestore (vía REST, sin
-//     necesitar Firebase Admin SDK) para aplicar en el SERVIDOR:
-//       · enabled / adminOnly / maintenanceOnly / emergencyStop
-//       · autonomyEnabled / maxCyclesPerSandbox / minIntervalSeconds
-//       · maxGlobalCallsPerHour
-//       · disabledTools (filtra las tools ofrecidas al modelo)
-//       · sandboxModel (solo se aplica si WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE=true)
-//       · systemPromptAddition (instrucciones extra del admin)
-//
-//  IMPORTANTE: para que el tope por-sandbox y el "adminOnly"
-//  funcionen bien, sandbox.js (cliente) debe enviar en el body:
-//    { ..., userId, sandboxId, isAdmin }
-//  Ver ADMIN_PANEL_PATCH.md para el detalle exacto.
-// ============================================================
+<!DOCTYPE html>
+<html lang="es">
+<head>
+        <!-- PWA: Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- PWA: Tema y color en móvil -->
+    <meta name="theme-color" content="#7c3aed" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cut-real AI" />
+        
+    <!-- PWA: Ícono para iOS -->
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="Logo1.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cut-real AI - Inteligencia Artificial desarrollada por B-LCR">
+    <meta name="theme-color" content="#f8faff">
+    <title>Cut-real AI</title>
+    <!-- Generación de archivos Word y PDF -->
+    <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+        <link rel="stylesheet" href="workspace.css">
+</head>
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registrado:', reg.scope))
+        .catch(err => console.error('SW error:', err));
+    });
+  }
+</script>
+<body>
+<!-- SIDEBAR DE CHATS -->
+<div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()"></div>
+<aside id="chat-sidebar" class="chat-sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-title">💬 Tus chats</span>
+        <button class="sidebar-close-btn" onclick="closeSidebar()" title="Cerrar">✕</button>
+    </div>
 
-import {
-    callWorkspaceModel,
-    WORKSPACE_MODEL_NAME,
-    WORKSPACE_MODEL_FALLBACK,
-} from "./workspace-model-client.js";
+    <button class="new-chat-btn" onclick="startNewChat()">
+        <span>➕</span> Nuevo chat
+    </button>
 
-// La fuente única de modelos es el cliente OpenRouter del Sandbox.
-// Así se evita que este agente vuelva accidentalmente a modelos :free.
-const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
-const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
+    <div style="padding:0 12px 8px;">
+        <input type="text" id="sidebar-search-input" class="admin-input" style="width:100%;font-size:12px;"
+               placeholder="🔍 Buscar en tus chats…" oninput="filterSidebarChats(this.value)">
+    </div>
 
-// Para solicitudes visuales explícitas no dejamos que el modelo consuma el
-// turno solamente en set_agent_state o send_message: debe devolver la tool
-// que genera la geometría. Esto no crea ninguna plantilla; solo fija la tool
-// cuyo argumento meshes todavía debe ser generado por el modelo.
-const DIRECT_LOWPOLY_INTENT_RE = /\b(gato|gatito|perro|animal|felino|canino|persona|humano|personaje|robot|auto|coche|veh[ií]culo|casa|[aá]rbol|drag[oó]n|monstruo|criatura|low[ -]?poly|malla 3d|modelo 3d)\b/i;
-function isDirectLowPolyRequest(text) {
-    return typeof text === "string" && DIRECT_LOWPOLY_INTENT_RE.test(text);
-}
+    <div class="sidebar-list" id="sidebar-chat-list">
+        <div class="sidebar-skeleton"></div>
+        <div class="sidebar-skeleton"></div>
+        <div class="sidebar-skeleton"></div>
+    </div>
 
-// ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
-const ALL_TOOLS = [
-  { type: "function", function: {
-      name: "send_message",
-      description: "Enviar un mensaje de texto visible al usuario en el chat del Sandbox.",
-      parameters: { type: "object", properties: {
-          text: { type: "string", description: "Mensaje a mostrar, máx 400 caracteres." },
-      }, required: ["text"] } } },
-  { type: "function", function: {
-      name: "create_3d_object",
-      description: "Crear un objeto 3D simple compuesto por primitivas geométricas. Usá esta tool solo para formas básicas o cuando el usuario NO pida low-poly. Para animales, personajes, vehículos u objetos detallados, usá create_lowpoly_object.",
-      parameters: { type: "object", properties: {
-          name: { type: "string", description: "Nombre semántico, ej: 'gato', 'idea_curiosidad'." },
-          parts: {
-            type: "array", description: "1 a 12 piezas.",
-            items: { type: "object", properties: {
-                geometry: { type: "string", enum: ["sphere","box","cylinder","cone","torus","plane"] },
-                position: { type: "array", items: { type: "number" } },
-                rotation: { type: "array", items: { type: "number" } },
-                scale:    { type: "array", items: { type: "number" } },
-                color:    { type: "string", description: "Color hex, ej: #33ff77" },
-                wireframe:{ type: "boolean" },
-                opacity:  { type: "number" },
-            }, required: ["geometry"] },
-          },
-          position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" },
-      }, required: ["name", "parts"] } } },
-  { type: "function", function: {
-      name: "create_lowpoly_object",
-      description: "Crear una malla 3D low-poly generada por la IA. Debés enviar siempre meshes con vértices y caras creados por vos. semanticType es solo una etiqueta descriptiva y nunca activa una plantilla ni genera geometría automáticamente. No uses primitivas para simular la silueta.",
-      parameters: { type: "object", properties: {
-          name: { type: "string", description: "Nombre del objeto, ej: gato low-poly." },
-          semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Etiqueta opcional para describir lo que generaste; no reemplaza meshes." },
-          color: { type: "string", description: "Color base hex, ej: #33ff77." },
-          meshes: { type: "array", minItems: 1, maxItems: 8, description: "Obligatorio: 1 a 8 submallas creadas por la IA. Cada parte debe tener un role reconocible, vertices y faces trianguladas.", items: { type: "object", properties: {
-              role: { type: "string", description: "Parte creada por la IA, ej: body, head, muzzle, leg_front_left, ear_left, tail_segment_1, eye_left." },
-              vertices: { type: "array", minItems: 3, description: "Vértices creados por la IA como [[x,y,z], ...], con coordenadas 3D reales.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } },
-              faces: { type: "array", minItems: 1, description: "Caras triangulares creadas por la IA como índices [a,b,c].", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
-              position: { type: "array", items: { type: "number" } }, rotation: { type: "array", items: { type: "number" } }, scale: { type: "array", items: { type: "number" } },
-              color: { type: "string", description: "Color hex de esta parte." }, wireframe: { type: "boolean" }
-          }, required: ["role", "vertices", "faces"] } },
-          position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
-      }, required: ["name", "meshes"] } } },
-  { type: "function", function: {
-      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente con vertices y faces generados por la IA. semanticType solo describe el resultado y nunca reconstruye una plantilla.",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", minItems: 1, maxItems: 8, items: { type: "object", properties: {
-              role: { type: "string" }, vertices: { type: "array", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } }, faces: { type: "array", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
-              position: { type: "array", items: { type: "number" } }, color: { type: "string" }, wireframe: { type: "boolean" }
-          }, required: ["role", "vertices", "faces"] } },
-          position: { type: "array", items: { type: "number" } }
-      }, required: ["id", "meshes"] } } },
-  { type: "function", function: {
-      name: "update_3d_object", description: "Reemplazar las piezas primitivas y/o posición base de un objeto existente. Para mallas low-poly usá update_lowpoly_object.",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, parts: { type: "array", items: { type: "object" } },
-          position: { type: "array", items: { type: "number" } },
-      }, required: ["id"] } } },
-  { type: "function", function: {
-      name: "delete_3d_object", description: "Eliminar un objeto de la escena por su id.",
-      parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } } },
-  { type: "function", function: {
-      name: "create_3d_text", description: "Crear un texto flotante en el espacio 3D.",
-      parameters: { type: "object", properties: {
-          text: { type: "string" }, position: { type: "array", items: { type: "number" } },
-          color: { type: "string" },
-      }, required: ["text"] } } },
-  { type: "function", function: {
-      name: "move_object", description: "Mover un objeto a una nueva posición con transición suave.",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, position: { type: "array", items: { type: "number" } },
-          duration: { type: "number", description: "Segundos, 0.1 a 5" },
-      }, required: ["id", "position"] } } },
-  { type: "function", function: {
-      name: "rotate_object", description: "Rotar un objeto (radianes).",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, rotation: { type: "array", items: { type: "number" } },
-          duration: { type: "number" },
-      }, required: ["id", "rotation"] } } },
-  { type: "function", function: {
-      name: "scale_object", description: "Escalar un objeto.",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, scale: { type: "array", items: { type: "number" } },
-          duration: { type: "number" },
-      }, required: ["id", "scale"] } } },
-  { type: "function", function: {
-      name: "change_object_appearance", description: "Cambiar color, opacidad o modo wireframe de un objeto.",
-      parameters: { type: "object", properties: {
-          id: { type: "string" }, color: { type: "string" }, opacity: { type: "number" }, wireframe: { type: "boolean" },
-      }, required: ["id"] } } },
-  { type: "function", function: {
-      name: "inspect_scene", description: "Pedir el estado actual completo de la escena para razonar sobre él.",
-      parameters: { type: "object", properties: {} } } },
-  { type: "function", function: {
-      name: "save_memory", description: "Guardar un dato persistente en la memoria del Sandbox (clave/valor).",
-      parameters: { type: "object", properties: {
-          key: { type: "string" }, value: { type: "string" },
-      }, required: ["key", "value"] } } },
-  { type: "function", function: {
-      name: "retrieve_memory", description: "Leer un dato previamente guardado en la memoria del Sandbox.",
-      parameters: { type: "object", properties: { key: { type: "string" } }, required: ["key"] } } },
-  { type: "function", function: {
-      name: "wait", description: "No hacer nada por ahora y esperar antes de volver a evaluar la situación.",
-      parameters: { type: "object", properties: { seconds: { type: "number" } } } } },
-  { type: "function", function: {
-      name: "clear_scene", description: "Vaciar completamente la escena 3D.",
-      parameters: { type: "object", properties: {} } } },
-  { type: "function", function: {
-      name: "set_agent_state",
-      description: "Comunicar el estado visual actual del agente (etiqueta libre, ej: 'curioso', 'creando', 'analizando') y opcionalmente un color. No implica conciencia real, es solo una señal visual para el usuario.",
-      parameters: { type: "object", properties: {
-          state: { type: "string" }, color: { type: "string" },
-      }, required: ["state"] } } },
-  { type: "function", function: {
-      name: "create_file",
-      description: "Crear un archivo de código en el Workspace (HTML/CSS/JS/JSON/etc).",
-      parameters: { type: "object", properties: {
-          path: { type: "string", description: "Ruta relativa, ej: 'index.html' o 'components/card.js'." },
-          content: { type: "string" },
-      }, required: ["path"] } } },
-  { type: "function", function: {
-      name: "read_file", description: "Leer el contenido actual de un archivo del Workspace.",
-      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
-  { type: "function", function: {
-      name: "update_file", description: "Reemplazar el contenido completo de un archivo existente del Workspace.",
-      parameters: { type: "object", properties: {
-          path: { type: "string" }, content: { type: "string" },
-      }, required: ["path", "content"] } } },
-  { type: "function", function: {
-      name: "delete_file", description: "Eliminar un archivo del Workspace.",
-      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
-  { type: "function", function: {
-      name: "rename_file", description: "Renombrar o mover un archivo del Workspace.",
-      parameters: { type: "object", properties: {
-          path: { type: "string" }, newPath: { type: "string" },
-      }, required: ["path", "newPath"] } } },
-  { type: "function", function: {
-      name: "create_folder", description: "Crear una carpeta (virtual) en el Workspace.",
-      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
-  { type: "function", function: {
-      name: "list_files", description: "Listar todos los archivos actuales del Workspace.",
-      parameters: { type: "object", properties: {} } } },
-  { type: "function", function: {
-      name: "run_project", description: "Ejecutar el proyecto del Workspace y refrescar el preview.",
-      parameters: { type: "object", properties: {} } } },
-  { type: "function", function: {
-      name: "get_runtime_errors", description: "Obtener los últimos errores de ejecución capturados en el preview del Workspace.",
-      parameters: { type: "object", properties: {} } } },
-  { type: "function", function: {
-      name: "get_project_structure", description: "Obtener la estructura completa de archivos/carpetas del Workspace.",
-      parameters: { type: "object", properties: {} } } },
-];
+    <div class="sidebar-quick-prompts">
+        <div class="sidebar-group-label">⚡ Accesos rápidos</div>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Resumime este texto de forma clara y concisa:\n\n')">📝 Resumir texto</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Traducí el siguiente texto al inglés:\n\n')">🌐 Traducir a inglés</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Corregí la ortografía y gramática de este texto:\n\n')">✅ Corregir texto</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Explicame paso a paso cómo funciona esto: ')">💡 Explicar algo</button>
+        <button class="quick-prompt-btn" onclick="useQuickPrompt('Generá código en ')">💻 Generar código</button>
+    </div>
 
-const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
-Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código real (HTML/CSS/JS) con preview en vivo. Podés crear, leer, modificar, renombrar y borrar archivos, ejecutar el proyecto y leer los errores de ejecución para autocorregirte. Si el usuario te pide "construir" algo con código, usá las tools de archivos; si te pide algo puramente visual en el espacio 3D, usá las tools de objetos 3D. Podés combinar ambas: un archivo del Workspace puede llamar a window.CutReal3D.createObject(...) para aparecer también en la escena 3D.
+    <div class="sidebar-stats-footer" id="sidebar-stats-footer">
+        <span id="sidebar-stats-text">Cargando estadísticas…</span>
+    </div>
+</aside>
+<!-- SPLASH SCREEN -->
+<div id="splash-screen">
+    <img src="Logo1.png" alt="Cut-real AI" class="splash-logo">
+    <p class="splash-tagline">Cargando<span class="loading-dots"></span></p>
+</div>
 
-Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
+<!-- PARTÍCULAS DE FONDO -->
+<div id="particles"></div>
 
-Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, vertices es una lista de puntos [x,y,z] y faces es una lista de triángulos [a,b,c] que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]] y doce caras como [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como body, head, muzzle, leg_front_left, leg_front_right, leg_back_left, leg_back_right, ear_left, ear_right, tail_segment_1, tail_segment_2, eye_left y eye_right. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 6 y 32 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí flatShading=true para el aspecto low-poly.
+<!-- DOOM OVERLAY -->
+<div id="doom-overlay" style="display:none;">
+    <button id="doom-close-btn" onclick="closeDoom()">✕ Cerrar</button>
+    <canvas id="doom-canvas"></canvas>
+    <div id="doom-controls">
+        <div class="doom-ctrl-row">
+            <span>↑↓ Mover</span><span>←→ Girar</span><span>A/D Strafe</span>
+            <span>ESPACIO Disparar</span><span>1/2/3 Armas</span><span>R Reiniciar</span><span>ESC Salir</span>
+        </div>
+    </div>
+</div>
 
-Reglas:
-- Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
-- Si no tenés nada útil que hacer todavía, usá "wait".
-- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object. Debés generar vos mismo meshes: cada submalla debe incluir role, vertices y faces trianguladas. semanticType es solo una etiqueta; nunca le pidas al motor que invente o complete la geometría.
-- Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object. No uses primitivas para solicitudes low-poly.
-- Antes de crear un objeto complejo, usá inspect_scene para conocer los objetos existentes. Conservá la escena salvo que el usuario pida limpiarla, pero elegí una posición libre para que el objeto nuevo no quede superpuesto ni oculto detrás de pruebas anteriores.
-- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato, semanticType=cat y meshes completos generados por vos. Creá partes separadas con roles body, head, muzzle, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos. Las coordenadas y caras deben ser tuyas; no esperes que el Sandbox agregue ninguna parte.
-- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila generando una nueva malla completa con update_lowpoly_object o moviéndola con move_object antes de responder.
-- Si la tool responde que faltan meshes, vertices o faces, no cambies a create_3d_object ni inventes que funcionó: generá los datos geométricos completos y reintentá.
-- Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
-- No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
-- Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
-- Si una tool devuelve error, leé el mensaje, corregí los argumentos o el archivo y reintentá de forma acotada; no inventes que la operación funcionó.
-- set_agent_state es solo una etiqueta que elegís vos para comunicar actividad, no una afirmación de conciencia real.
-- Máximo 1 a 3 tool calls por paso.
-- No inventes ids de objetos nuevos; para crear, el sistema asigna el id. Para modificar/mover/borrar, usá los ids reales que te paso en el contexto.
-- Sé conciso en send_message (una o dos oraciones).`;
 
-// ── CONFIG DE ADMIN (Firestore REST, sin Admin SDK) ─────────
-// config/sandbox_control debe ser LEGIBLE PÚBLICAMENTE (regla
-// específica para ese documento) y ESCRIBIBLE solo por admins.
-// Ver firestore.rules.
-function parseFirestoreFields(fields) {
-    if (!fields) return {};
-    const out = {};
-    for (const [k, v] of Object.entries(fields)) {
-        if (v.stringValue !== undefined) out[k] = v.stringValue;
-        else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
-        else if (v.doubleValue !== undefined) out[k] = v.doubleValue;
-        else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
-        else if (v.arrayValue !== undefined) out[k] = (v.arrayValue.values || []).map(x => parseFirestoreFields({ t: x }).t);
+<!-- VIVO OVERLAY -->
+<div id="vivo-overlay" style="display:none;">
+    <button id="vivo-close-btn" onclick="closeVivo()">✕ Cerrar</button>
+    <div id="vivo-video-wrap">
+        <iframe id="vivo-iframe"
+            src=""
+            title="Cut-real AI — Vivo"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+</div>
+
+<!-- INCEPTION OVERLAY -->
+<div id="inception-overlay" style="display:none;">
+    <button id="inception-close-btn" onclick="closeInception()">✕ Cerrar</button>
+    <div id="inception-frame-wrap">
+        <iframe id="inception-iframe" src="" title="Cut-real AI — Inception" frameborder="0"></iframe>
+    </div>
+</div>
+<!-- HEADER -->
+<header class="main-header">
+        <button id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="openSidebar()" title="Ver tus chats">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+</button>
+    <a href="#" class="header-logo">
+        <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
+        <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
+    </a>
+</header>
+
+<!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
+<div id="terms-overlay" style="display:none;">
+    <div class="terms-card">
+        <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
+        <h2>Cut-real <span class="red-text">AI</span></h2>
+        <p class="terms-subtitle">Antes de continuar, leé y aceptá los Términos y Condiciones</p>
+        <div class="terms-body">
+            <h3>Términos y Condiciones de Uso</h3>
+            <p>Al utilizar <b>Cut-real AI</b>, aceptás los siguientes términos:</p>
+            <h4>1. Privacidad y datos</h4>
+            <p>Todos los mensajes enviados y recibidos en esta plataforma <b>podrían ser utilizados y revisados por los administradores de Cut-real AI</b>. No envíes información sensible, personal o confidencial.</p>
+            <h4>2. Responsabilidad</h4>
+            <p>Cut-real AI es una herramienta de inteligencia artificial. <b>No nos hacemos responsables por las acciones que realices basándote en la información proporcionada por la IA</b>.</p>
+            <h4>3. Uso adecuado</h4>
+            <p>Te comprometés a usar la plataforma de manera ética y legal. Queda prohibido el uso para actividades ilícitas, dañinas o que violen derechos de terceros.</p>
+            <h4>4. Modificaciones</h4>
+            <p>Los administradores se reservan el derecho de modificar estos términos en cualquier momento.</p>
+            <h4>5. Menores de edad</h4>
+            <p>Si sos menor de 13 años, necesitás el consentimiento de un adulto responsable para usar esta plataforma.</p>
+        </div>
+        <div class="terms-actions">
+            <button onclick="declineTerms()" class="terms-decline-btn">No acepto</button>
+            <button onclick="acceptTerms()" class="terms-accept-btn">Acepto los Términos</button>
+        </div>
+    </div>
+</div>
+
+<!-- OVERLAY DE LOGIN -->
+<div id="login-overlay" style="display:none;">
+    <div class="auth-card">
+        <img src="Logo1.png" alt="Cut-real AI" class="auth-logo-small">
+        <h2>Cut-real <span class="red-text">AI</span></h2>
+        <p>Iniciá sesión para sincronizar tus chats en la nube</p>
+        <button onclick="login()" class="google-btn">
+            <img src="google.png" alt="Google"> Entrar con Google
+        </button>
+    </div>
+</div>
+
+<!-- CONTROLES SUPERIORES -->
+<div class="side-controls">
+    <button id="admin-btn" onclick="openAdminPanel()" style="display:none;">Admin</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
+    <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
+    <button id="sandbox-btn" onclick="openSandbox()" style="display:none;">🧪 Sandbox</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- PANEL ADMIN — 10 nuevas funciones                           -->
+<!-- ============================================================ -->
+<div id="admin-overlay" style="display:none;">
+    <div class="admin-card">
+
+        <!-- Header -->
+        <div class="admin-header">
+            <div class="admin-header-left">
+                <span class="admin-header-icon">⚙️</span>
+                <div>
+                    <h2>Panel de <span class="red-text">Administración</span></h2>
+                    <p class="admin-subtitle">Cut-real AI · Control total de la plataforma</p>
+                </div>
+            </div>
+            <button onclick="closeAdminPanel()" class="admin-close-btn" title="Cerrar">✕</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" onclick="switchTab('users')"    id="tab-users">👥 Usuarios</button>
+            <button class="admin-tab"         onclick="switchTab('chat')"     id="tab-chat">💬 Chats</button>
+            <button class="admin-tab"         onclick="switchTab('stats')"    id="tab-stats">📊 Estadísticas</button>
+            <button class="admin-tab"         onclick="switchTab('apikeys')"  id="tab-apikeys">🔑 API Keys</button>
+            <button class="admin-tab"         onclick="switchTab('tools')"    id="tab-tools">🛠️ Herramientas</button>
+            <button class="admin-tab"         onclick="switchTab('messages')" id="tab-messages">✉️ Mensajes</button>
+            <button class="admin-tab"         onclick="switchTab('account')"  id="tab-account">👤 Mi Cuenta</button>
+            <!-- 10 NUEVOS TABS -->
+            <button class="admin-tab admin-tab-new" onclick="switchTab('activity')"  id="tab-activity">📈 Actividad</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('errors')"    id="tab-errors">🔴 Errores</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('prompt')"    id="tab-prompt">✏️ Prompt</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('ratelimit')" id="tab-ratelimit">⚡ Rate Limit</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('backup')"    id="tab-backup">💾 Backup</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('analytics')" id="tab-analytics">🥧 Analytics</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('sessions')"  id="tab-sessions">🟢 Sesiones</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('webhooks')"  id="tab-webhooks">🔗 Webhooks</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('sandboxctl')" id="tab-sandboxctl">🧪 Sandbox</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('flags')"     id="tab-flags">🚩 Feature Flags</button>
+            <button class="admin-tab admin-tab-new" onclick="switchTab('notifs')"    id="tab-notifs">🔔 Notificaciones</button>
+        </div>
+
+        <!-- ========== TAB: USUARIOS ========== -->
+        <div class="admin-panel active" id="panel-users">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadUsers()" class="admin-btn-primary">🔄 Cargar usuarios</button>
+                <span id="admin-user-count" class="admin-badge"></span>
+            </div>
+            <div class="admin-table-wrap" id="admin-users-list">
+                <div class="admin-empty">Hacé clic en "Cargar usuarios" para ver la lista.</div>
+            </div>
+            <div class="admin-subsection">
+                <h4>⬆️ Promover usuario a Admin por UID</h4>
+                <div class="admin-row">
+                    <input type="text" id="admin-promote-uid" placeholder="UID completo del usuario…" class="admin-input admin-input-wide">
+                    <button onclick="adminPromoteUser(document.getElementById('admin-promote-uid').value.trim())" class="admin-btn-accent">Promover a Admin</button>
+                </div>
+                <div id="admin-promote-output" class="admin-feedback"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: CHATS ========== -->
+        <div class="admin-panel" id="panel-chat">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>🔍 Ver conversación de un usuario</h4>
+                    <div class="admin-row">
+                        <input type="text" id="admin-uid-input" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminLoadChat()" class="admin-btn-primary">Ver chat</button>
+                    </div>
+                    <div id="admin-chat-output" class="admin-chat-scroll"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>🔍 Buscar usuario por email o nombre</h4>
+                    <div class="admin-row">
+                        <input type="text" id="admin-email-search" placeholder="Email o nombre…" class="admin-input admin-input-wide">
+                        <button onclick="adminSearchByEmail()" class="admin-btn-primary">Buscar</button>
+                    </div>
+                    <div id="admin-email-result" class="admin-feedback" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            <div class="admin-cols-2" style="margin-top:14px;">
+                <div class="admin-box">
+                    <h4>🗑️ Eliminar chat de usuario</h4>
+                    <p class="admin-hint">Borra el historial de chat. No elimina la cuenta de Google.</p>
+                    <div class="admin-row">
+                        <input type="text" id="admin-delete-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminDeleteChat()" class="admin-btn-danger">Borrar chat</button>
+                    </div>
+                    <div id="admin-delete-output" class="admin-feedback"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>📋 Exportar chat individual</h4>
+                    <p class="admin-hint">Exporta el historial de un usuario como archivo JSON.</p>
+                    <div class="admin-row">
+                        <input type="text" id="admin-export-uid" placeholder="UID del usuario…" class="admin-input admin-input-wide">
+                        <button onclick="adminExportChat(document.getElementById('admin-export-uid').value.trim())" class="admin-btn-primary">Exportar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: ESTADÍSTICAS ========== -->
+        <div class="admin-panel" id="panel-stats">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadStats()" class="admin-btn-primary">🔄 Actualizar estadísticas</button>
+                <button onclick="adminLoadModelStats()" class="admin-btn-outline">📱 Stats de modelos</button>
+            </div>
+            <div id="admin-stats-output" class="admin-stats-grid">
+                <div class="admin-empty">Hacé clic en "Actualizar estadísticas".</div>
+            </div>
+            <div id="admin-model-stats" style="margin-top:4px;"></div>
+        </div>
+
+        <!-- ========== TAB: API KEYS ========== -->
+        <div class="admin-panel" id="panel-apikeys">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadApiKeys()" class="admin-btn-primary">🔄 Actualizar estado</button>
+                <span class="admin-badge" style="background:rgba(255,170,0,0.12);border-color:rgba(255,170,0,0.3);color:#ffcc55;">
+                    🔑 Rotación automática activa
+                </span>
+            </div>
+            <div id="admin-apikeys-output">
+                <div class="admin-empty" style="padding:40px 20px;">
+                    <div style="font-size:36px;margin-bottom:12px;">🔑</div>
+                    <div style="color:#888;font-size:14px;">Hacé clic en "Actualizar estado" para ver el uso de cada API Key.</div>
+                </div>
+            </div>
+            <div class="apikeys-setup-guide">
+                <h4>📋 ¿Cómo agregar más API Keys?</h4>
+                <ol class="apikeys-steps">
+                    <li>Entrá a <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> y creá tantas API Keys como necesites.</li>
+                    <li>En Vercel, andá a tu proyecto → <b>Settings → Environment Variables</b>.</li>
+                    <li>Agregá las siguientes variables con cada key respectiva:</li>
+                </ol>
+                <div class="apikeys-env-list">
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY</code><span>→ Tu primera API Key (ya existente)</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_2</code><span>→ Segunda key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_3</code><span>→ Tercera key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_4</code><span>→ Cuarta key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_5</code><span>→ Quinta key</span></div>
+                    <div class="apikeys-env-row"><code>GROQ_API_KEY_6, _7, _8...</code><span>→ El sistema las detecta solas, sin límite</span></div>
+                </div>
+                <p class="apikeys-note">
+                    ⚡ El servidor rota automáticamente cuando una key recibe un error 429 (rate limit).
+                    Con 5 keys de 10.000 tokens cada una = <b>50.000 tokens</b> antes del bloqueo total.
+                </p>
+            </div>
+        </div>
+
+        <!-- ========== TAB: HERRAMIENTAS ========== -->
+        <div class="admin-panel" id="panel-tools">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>📢 Broadcast — Mensaje global</h4>
+                    <p class="admin-hint">El mensaje aparece como banner la próxima vez que cada usuario abra la app.</p>
+                    <textarea id="admin-broadcast-msg" placeholder="Escribí el mensaje aquí…" class="admin-textarea"></textarea>
+                    <div class="admin-row" style="margin-top:10px;">
+                        <button onclick="adminSendBroadcast()" class="admin-btn-accent">📤 Enviar broadcast</button>
+                        <button onclick="adminClearBroadcast()" class="admin-btn-outline">🗑️ Borrar broadcast</button>
+                    </div>
+                    <div id="admin-broadcast-output" class="admin-feedback"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>🔧 Mantenimiento</h4>
+                    <p class="admin-hint">Opciones avanzadas de mantenimiento de la plataforma.</p>
+                    <div class="admin-tools-list">
+                        <button onclick="adminExportData()" class="admin-tool-btn">📥 Exportar todos los datos (JSON)</button>
+                        <button onclick="adminToggleMaintenance()" class="admin-tool-btn" id="btn-maintenance">🚧 Activar modo mantenimiento</button>
+                        <button onclick="adminPurgeOldChats()" class="admin-tool-btn admin-tool-danger">⚠️ Purgar chats inactivos (+30 días)</button>
+                        <button onclick="adminCleanupInactive()" class="admin-tool-btn admin-tool-danger">🧹 Limpiar chats inactivos (+90 días)</button>
+                    </div>
+                    <div id="admin-tools-output" class="admin-feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: MENSAJES ========== -->
+        <div class="admin-panel" id="panel-messages">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>✉️ Mensaje privado a usuario</h4>
+                    <p class="admin-hint">El mensaje aparece en el chat del usuario la próxima vez que lo abra.</p>
+                    <div class="admin-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                        <input type="text" id="admin-pm-uid" placeholder="UID del usuario…" class="admin-input">
+                        <textarea id="admin-pm-msg" placeholder="Escribí tu mensaje privado…" class="admin-textarea" style="min-height:70px;"></textarea>
+                        <button onclick="adminSendPrivateMessage()" class="admin-btn-accent">✉️ Enviar mensaje privado</button>
+                    </div>
+                    <div id="admin-pm-output" class="admin-feedback"></div>
+                </div>
+                <div class="admin-box">
+                    <h4>👑 Administradores activos</h4>
+                    <p class="admin-hint">Lista de usuarios con privilegios de administrador.</p>
+                    <button onclick="adminLoadAdmins()" class="admin-btn-primary">Ver admins</button>
+                    <div id="admin-admins-list" class="admin-feedback" style="margin-top:12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB: MI CUENTA ========== -->
+        <div class="admin-panel" id="panel-account">
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>🔑 Mi UID de administrador</h4>
+                    <p class="admin-hint">Este es tu UID único. Compartilo con cuidado.</p>
+                    <div class="uid-display-box" id="admin-my-uid">—</div>
+                    <button onclick="adminCopyUID(document.getElementById('admin-my-uid').textContent)" class="admin-btn-outline" style="margin-top:10px;">📋 Copiar UID</button>
+                </div>
+                <div class="admin-box">
+                    <h4>ℹ️ Info de la plataforma</h4>
+                    <div class="admin-feedback">
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Versión</span><b style="color:#5599ff;">2.1.0</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Backend</span><b style="color:#ff8888;">Groq API (x5 keys)</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Pro</span><b style="color:#ff8888;">Llama 3.3 70B</b></div>
+                        <div class="admin-stat" style="border-bottom:1px solid rgba(255,59,59,0.1);padding:8px 0;"><span>Modelo Básico</span><b style="color:#ff8888;">Llama 3.1 8B</b></div>
+                        <div class="admin-stat" style="padding:8px 0;"><span>Tokens totales</span><b id="admin-total-tokens-label" style="color:#ffcc55;">Cargando…</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 1 NUEVO: ACTIVIDAD (gráfico de barras) ========== -->
+        <div class="admin-panel" id="panel-activity">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadActivity()" class="admin-btn-primary">🔄 Actualizar</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-cols-2">
+                <div class="admin-activity-chart-wrap">
+                    <h4>📊 Mensajes por día (últimos 7 días)</h4>
+                    <div class="activity-bars-container" id="activity-bars">
+                        <div style="color:#555;font-size:12px;padding:20px;">Cargando…</div>
+                    </div>
+                </div>
+                <div class="admin-box">
+                    <h4>⏱️ Horas pico de uso</h4>
+                    <div class="activity-bars-container" id="activity-hours" style="height:80px;"></div>
+                </div>
+            </div>
+            <div id="admin-activity-output" class="admin-feedback" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- ========== TAB 2 NUEVO: MONITOR DE ERRORES ========== -->
+        <div class="admin-panel" id="panel-errors">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadErrors()" class="admin-btn-primary">🔄 Actualizar logs</button>
+                <button onclick="adminClearErrors()" class="admin-btn-danger">🗑️ Limpiar logs</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>🔴 Log de errores del sistema</h4>
+                <p class="admin-hint">Errores capturados en tiempo real. Se limpia al recargar el servidor.</p>
+                <div class="error-monitor-wrap" id="error-monitor-list">
+                    <div class="admin-empty">No hay errores registrados.</div>
+                </div>
+            </div>
+            <div class="admin-box" style="margin-top:14px;">
+                <h4>📝 Agregar entrada de log manual</h4>
+                <div class="admin-row">
+                    <select id="error-level-select" class="admin-input" style="width:auto;">
+                        <option value="info">ℹ️ Info</option>
+                        <option value="warn">⚠️ Warning</option>
+                        <option value="error">🔴 Error</option>
+                    </select>
+                    <input type="text" id="error-msg-input" placeholder="Mensaje de log…" class="admin-input admin-input-wide">
+                    <button onclick="adminAddLogEntry()" class="admin-btn-accent">➕ Agregar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 3 NUEVO: EDITOR DE PROMPT ========== -->
+        <div class="admin-panel" id="panel-prompt">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadPrompt()" class="admin-btn-primary">🔄 Cargar prompt actual</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>✏️ System Prompt de la IA</h4>
+                <p class="admin-hint">Este texto se envía como instrucción de sistema a la IA en cada conversación.</p>
+                <div class="system-prompt-editor">
+                    <textarea id="system-prompt-textarea" placeholder="Escribí aquí el system prompt…&#10;Ej: Eres Cut-real AI, un asistente creado por Bautista. Responde siempre en español…" oninput="updatePromptCount()"></textarea>
+                    <div class="prompt-char-count">Caracteres: <span id="prompt-char-count">0</span> / 4000</div>
+                </div>
+                <div class="admin-row" style="margin-top:12px;">
+                    <button onclick="adminSavePrompt()" class="admin-btn-accent">💾 Guardar prompt</button>
+                    <button onclick="adminResetPrompt()" class="admin-btn-outline">↩️ Restaurar por defecto</button>
+                </div>
+                <div id="admin-prompt-output" class="admin-feedback"></div>
+            </div>
+            <div class="admin-box" style="margin-top:14px;">
+                <h4>📜 Historial de prompts</h4>
+                <div class="prompt-history-wrap" id="prompt-history-list">
+                    <div class="admin-empty">No hay historial guardado.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 4 NUEVO: RATE LIMIT CONFIGURATOR ========== -->
+        <div class="admin-panel" id="panel-ratelimit">
+            <div class="admin-toolbar">
+                <button onclick="adminSaveRateLimits()" class="admin-btn-accent">💾 Guardar configuración</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>⚡ Control de Rate Limits por usuario</h4>
+                <p class="admin-hint">Configurá cuántos mensajes puede enviar un usuario en distintos períodos de tiempo.</p>
+                <div class="rate-limit-grid">
+                    <div class="rate-limit-card">
+                        <h5>Mensajes por minuto</h5>
+                        <p>Límite de mensajes en 60 segundos</p>
+                        <div class="rate-slider-wrap">
+                            <input type="range" class="rate-slider" id="rl-per-min" min="1" max="30" value="5" oninput="document.getElementById('rl-per-min-val').textContent=this.value">
+                            <span class="rate-slider-val" id="rl-per-min-val">5</span>
+                        </div>
+                    </div>
+                    <div class="rate-limit-card">
+                        <h5>Mensajes por hora</h5>
+                        <p>Límite de mensajes en 60 minutos</p>
+                        <div class="rate-slider-wrap">
+                            <input type="range" class="rate-slider" id="rl-per-hour" min="10" max="500" value="100" step="10" oninput="document.getElementById('rl-per-hour-val').textContent=this.value">
+                            <span class="rate-slider-val" id="rl-per-hour-val">100</span>
+                        </div>
+                    </div>
+                    <div class="rate-limit-card">
+                        <h5>Mensajes por día</h5>
+                        <p>Límite diario de mensajes</p>
+                        <div class="rate-slider-wrap">
+                            <input type="range" class="rate-slider" id="rl-per-day" min="50" max="2000" value="500" step="50" oninput="document.getElementById('rl-per-day-val').textContent=this.value">
+                            <span class="rate-slider-val" id="rl-per-day-val">500</span>
+                        </div>
+                    </div>
+                    <div class="rate-limit-card">
+                        <h5>Max. tokens por mensaje</h5>
+                        <p>Longitud máxima de respuesta</p>
+                        <div class="rate-slider-wrap">
+                            <input type="range" class="rate-slider" id="rl-max-tokens" min="256" max="4096" value="1024" step="256" oninput="document.getElementById('rl-max-tokens-val').textContent=this.value">
+                            <span class="rate-slider-val" id="rl-max-tokens-val">1024</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="admin-ratelimit-output" class="admin-feedback" style="margin-top:14px;"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 5 NUEVO: BACKUP & RESTORE ========== -->
+        <div class="admin-panel" id="panel-backup">
+            <div class="admin-toolbar">
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>💾 Backup automático</h4>
+                <p class="admin-hint">Creá y descargá copias de seguridad de todos los datos de la plataforma.</p>
+                <div class="backup-list">
+                    <div class="backup-item">
+                        <span class="backup-icon">👥</span>
+                        <div class="backup-info">
+                            <h5>Backup de Usuarios</h5>
+                            <span>Exporta todos los perfiles y datos de usuario</span>
+                        </div>
+                        <div class="backup-actions">
+                            <button onclick="adminBackup('users')" class="admin-btn-primary admin-sm-btn">⬇️ Descargar</button>
+                        </div>
+                    </div>
+                    <div class="backup-item">
+                        <span class="backup-icon">💬</span>
+                        <div class="backup-info">
+                            <h5>Backup de Chats</h5>
+                            <span>Exporta todos los historiales de conversación</span>
+                        </div>
+                        <div class="backup-actions">
+                            <button onclick="adminBackup('chats')" class="admin-btn-primary admin-sm-btn">⬇️ Descargar</button>
+                        </div>
+                    </div>
+                    <div class="backup-item">
+                        <span class="backup-icon">⚙️</span>
+                        <div class="backup-info">
+                            <h5>Backup de Configuración</h5>
+                            <span>Exporta settings, prompts y feature flags</span>
+                        </div>
+                        <div class="backup-actions">
+                            <button onclick="adminBackup('config')" class="admin-btn-primary admin-sm-btn">⬇️ Descargar</button>
+                        </div>
+                    </div>
+                    <div class="backup-item" style="border-color:rgba(255,59,59,0.2);">
+                        <span class="backup-icon">🗃️</span>
+                        <div class="backup-info">
+                            <h5>Backup Completo</h5>
+                            <span>Todo en un solo archivo ZIP JSON</span>
+                        </div>
+                        <div class="backup-actions">
+                            <button onclick="adminBackup('all')" class="admin-btn-accent admin-sm-btn">⬇️ Completo</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="admin-backup-output" class="admin-feedback"></div>
+            </div>
+            <div class="admin-box" style="margin-top:14px;">
+                <h4>♻️ Restaurar desde archivo</h4>
+                <p class="admin-hint">Subí un archivo JSON de backup para restaurar datos. ⚠️ Acción irreversible.</p>
+                <div class="admin-row">
+                    <input type="file" id="restore-file-input" accept=".json" class="admin-input" style="flex:1;">
+                    <button onclick="adminRestore()" class="admin-btn-danger">♻️ Restaurar</button>
+                </div>
+                <div id="admin-restore-output" class="admin-feedback"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 6 NUEVO: ANALYTICS (donut) ========== -->
+        <div class="admin-panel" id="panel-analytics">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadAnalytics()" class="admin-btn-primary">🔄 Actualizar analytics</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-cols-2">
+                <div class="admin-box">
+                    <h4>🥧 Distribución de usuarios</h4>
+                    <div class="analytics-donut-wrap" id="analytics-donut-wrap">
+                        <div class="admin-empty">Cargando…</div>
+                    </div>
+                </div>
+                <div class="admin-box">
+                    <h4>📊 Métricas clave</h4>
+                    <div id="analytics-metrics" class="admin-feedback">
+                        <div class="admin-empty">Hacé clic en actualizar.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 7 NUEVO: SESIONES ACTIVAS ========== -->
+        <div class="admin-panel" id="panel-sessions">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadSessions()" class="admin-btn-primary">🔄 Actualizar sesiones</button>
+                <span id="sessions-count-badge" class="admin-badge">0 activas</span>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>🟢 Usuarios activos ahora</h4>
+                <p class="admin-hint">Usuarios con sesión iniciada en los últimos 15 minutos.</p>
+                <div class="sessions-wrap" id="sessions-list">
+                    <div class="admin-empty">Cargando sesiones…</div>
+                </div>
+            </div>
+            <div id="admin-sessions-output" class="admin-feedback"></div>
+        </div>
+
+        <!-- ========== TAB 8 NUEVO: WEBHOOKS ========== -->
+        <div class="admin-panel" id="panel-webhooks">
+            <div class="admin-toolbar">
+                <button onclick="adminAddWebhook()" class="admin-btn-primary">➕ Nuevo webhook</button>
+                <button onclick="adminSaveWebhooks()" class="admin-btn-accent">💾 Guardar</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>🔗 Webhooks configurados</h4>
+                <p class="admin-hint">Enviá notificaciones automáticas a URLs externas cuando ocurran eventos en la plataforma.</p>
+                <div id="webhooks-list">
+                    <div class="webhook-item">
+                        <div class="webhook-header">
+                            <div class="webhook-name"><div class="webhook-status-dot active"></div> Nuevo usuario</div>
+                            <div style="display:flex;gap:6px;">
+                                <button onclick="adminTestWebhook(this)" class="webhook-test-btn">🧪 Probar</button>
+                                <button onclick="this.closest('.webhook-item').remove()" class="admin-icon-btn admin-danger-icon-btn admin-sm-btn" style="width:auto;padding:4px 8px;height:auto;font-size:11px;">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="webhook-url-field">
+                            <input type="url" class="webhook-url-input" placeholder="https://hooks.ejemplo.com/endpoint…" value="">
+                        </div>
+                        <div class="webhook-events">
+                            <span class="webhook-event-tag active" onclick="this.classList.toggle('active')">user.created</span>
+                            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">user.deleted</span>
+                            <span class="webhook-event-tag active" onclick="this.classList.toggle('active')">chat.message</span>
+                            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">error.429</span>
+                            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">maintenance.toggle</span>
+                        </div>
+                        <div class="webhook-last-ping">Último ping: <span class="webhook-ping-ok">✓ 200 OK</span> — hace 2 min</div>
+                    </div>
+                </div>
+                <div id="admin-webhooks-output" class="admin-feedback"></div>
+            </div>
+        </div>
+
+        <!-- ========== TAB 9 NUEVO: FEATURE FLAGS ========== -->
+        <div class="admin-panel" id="panel-flags">
+            <div class="admin-toolbar">
+                <button onclick="adminSaveFlags()" class="admin-btn-accent">💾 Guardar flags</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>🚩 Feature Flags de la plataforma</h4>
+                <p class="admin-hint">Activá o desactivá funcionalidades sin redesplegar el servidor.</p>
+                <div id="feature-flags-list">
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>🎨 Generación de imágenes</h5><p>Permite a los usuarios generar imágenes con canvas</p></div>
+                        <button class="flag-toggle active" id="flag-imggen" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>🔍 Búsqueda de imágenes</h5><p>Búsqueda en Unsplash integrada en el chat</p></div>
+                        <button class="flag-toggle active" id="flag-imgsearch" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>▶️ Búsqueda en YouTube</h5><p>Links de YouTube en resultados de búsqueda</p></div>
+                        <button class="flag-toggle active" id="flag-youtube" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>📎 Adjuntos de archivos</h5><p>PDF, Word e imágenes adjuntas al chat</p></div>
+                        <button class="flag-toggle active" id="flag-attachments" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>🧠 Modelo Pro disponible</h5><p>Los usuarios pueden usar Llama 3.3 70B</p></div>
+                        <button class="flag-toggle active" id="flag-promodel" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>🎮 Easter egg DOOM</h5><p>El comando secreto "doom 1993" abre el juego</p></div>
+                        <button class="flag-toggle active" id="flag-doom" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row">
+                        <div class="flag-info"><h5>🔔 Notificaciones push</h5><p>Broadcast y mensajes privados del admin</p></div>
+                        <button class="flag-toggle active" id="flag-notifications" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                    <div class="flag-row" style="border-bottom:none;">
+                        <div class="flag-info"><h5>📷 Cámara / foto directa</h5><p>Botón de cámara en el área de input</p></div>
+                        <button class="flag-toggle active" id="flag-camera" onclick="this.classList.toggle('active')"></button>
+                    </div>
+                </div>
+                <div id="admin-flags-output" class="admin-feedback" style="margin-top:12px;"></div>
+            </div>
+        </div>
+                <!-- ========== TAB NUEVO: CONTROL GLOBAL DEL SANDBOX ========== -->
+<div class="admin-panel" id="panel-sandboxctl">
+    <div class="admin-toolbar">
+        <button onclick="adminLoadSandboxConfig()" class="admin-btn-primary">🔄 Cargar configuración</button>
+        <button onclick="adminSaveSandboxConfig()" class="admin-btn-accent">💾 Guardar</button>
+        <span class="new-feature-badge">✨ Nuevo</span>
+    </div>
+
+    <div class="admin-box" style="border-color:rgba(255,50,50,0.3);">
+        <h4 style="color:#ff6666;">🛑 Botón de emergencia</h4>
+        <p class="admin-hint">Detiene TODA la autonomía del Sandbox de inmediato, para todos los usuarios. No borra nada, solo pausa.</p>
+        <div class="admin-row">
+            <button id="sbx-emergency-btn" onclick="adminToggleEmergencyStop()" class="admin-btn-danger">🛑 DETENER AUTONOMÍA GLOBAL</button>
+            <span id="sbx-emergency-status" class="admin-badge">Cargando…</span>
+        </div>
+    </div>
+
+    <div class="admin-cols-2" style="margin-top:14px;">
+        <div class="admin-box">
+            <h4>⚙️ Disponibilidad del Sandbox</h4>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Sandbox activo</h5><p>Si está apagado, nadie puede usarlo</p></div>
+                <button class="flag-toggle active" id="sbx-enabled" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Solo administradores</h5><p>Bloquea el Sandbox para usuarios normales</p></div>
+                <button class="flag-toggle" id="sbx-adminonly" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="flag-row" style="border-bottom:none;">
+                <div class="flag-info"><h5>Modo mantenimiento</h5><p>Solo vos podés entrar mientras lo arreglás</p></div>
+                <button class="flag-toggle" id="sbx-maintenance" onclick="this.classList.toggle('active')"></button>
+            </div>
+        </div>
+
+        <div class="admin-box">
+            <h4>⚡ Autonomía</h4>
+            <div class="flag-row">
+                <div class="flag-info"><h5>Autonomía habilitada</h5><p>Apagalo para forzar solo pasos manuales</p></div>
+                <button class="flag-toggle active" id="sbx-autonomy-enabled" onclick="this.classList.toggle('active')"></button>
+            </div>
+            <div class="rate-limit-card" style="margin-top:10px;">
+                <h5>Máximo de ciclos seguidos por Sandbox</h5>
+                <p>Se corta solo hasta que el usuario le escriba de nuevo</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-max-cycles" min="1" max="200" value="30" oninput="document.getElementById('sbx-max-cycles-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-max-cycles-val">30</span>
+                </div>
+            </div>
+            <div class="rate-limit-card" style="margin-top:10px;">
+                <h5>Intervalo mínimo entre ciclos (segundos)</h5>
+                <p>Cooldown obligatorio entre llamadas autónomas</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-min-interval" min="1" max="120" value="6" oninput="document.getElementById('sbx-min-interval-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-min-interval-val">6</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-cols-2" style="margin-top:14px;">
+        <div class="admin-box">
+            <h4>📊 Límite de consumo global</h4>
+            <div class="rate-limit-card">
+                <h5>Llamadas máximas por hora (todo el Sandbox)</h5>
+                <p>Frena a TODOS los Sandboxes combinados si se supera</p>
+                <div class="rate-slider-wrap">
+                    <input type="range" class="rate-slider" id="sbx-max-global" min="10" max="2000" step="10" value="300" oninput="document.getElementById('sbx-max-global-val').textContent=this.value">
+                    <span class="rate-slider-val" id="sbx-max-global-val">300</span>
+                </div>
+            </div>
+            <div class="admin-row" style="margin-top:10px;">
+                <label style="font-size:12px;color:#888;">Modelo forzado (vacío = automático):</label>
+                <input type="text" id="sbx-model" class="admin-input admin-input-wide" placeholder="ej: llama-3.3-70b-versatile">
+            </div>
+        </div>
+
+        <div class="admin-box">
+            <h4>🛠️ Herramientas habilitadas</h4>
+            <p class="admin-hint">Una herramienta desmarcada queda inaccesible para el agente.</p>
+            <div id="sbx-tools-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+    </div>
+
+    <div class="admin-box" style="margin-top:14px;">
+        <h4>✏️ Instrucciones extra para el agente del Sandbox</h4>
+        <textarea id="sbx-system-addition" class="admin-textarea" placeholder="Ej: priorizá crear cosas relacionadas a la naturaleza..."></textarea>
+    </div>
+
+    <div id="admin-sandboxctl-output" class="admin-feedback"></div>
+</div>
+
+        <!-- ========== TAB 10 NUEVO: NOTIFICACIONES ========== -->
+        <div class="admin-panel" id="panel-notifs">
+            <div class="admin-toolbar">
+                <button onclick="adminLoadNotifs()" class="admin-btn-primary">🔄 Actualizar</button>
+                <button onclick="adminMarkAllRead()" class="admin-btn-outline">✅ Marcar todas como leídas</button>
+                <span class="new-feature-badge">✨ Nuevo</span>
+            </div>
+            <div class="admin-box">
+                <h4>🔔 Centro de notificaciones del admin</h4>
+                <p class="admin-hint">Alertas, eventos importantes y actividad reciente de la plataforma.</p>
+                <div class="admin-notif-list" id="admin-notif-list">
+                    <div class="admin-empty">No hay notificaciones.</div>
+                </div>
+            </div>
+            <div class="admin-box" style="margin-top:14px;">
+                <h4>⚙️ Configuración de alertas</h4>
+                <div class="flag-row">
+                    <div class="flag-info"><h5>Alerta de rate limit 429</h5><p>Notificar cuando una API Key se bloquea</p></div>
+                    <button class="flag-toggle active" onclick="this.classList.toggle('active')"></button>
+                </div>
+                <div class="flag-row">
+                    <div class="flag-info"><h5>Nuevo usuario registrado</h5><p>Notificar cuando un usuario se une</p></div>
+                    <button class="flag-toggle active" onclick="this.classList.toggle('active')"></button>
+                </div>
+                <div class="flag-row" style="border-bottom:none;">
+                    <div class="flag-info"><h5>Alerta de inactividad total</h5><p>Si no hay mensajes en las últimas 24h</p></div>
+                    <button class="flag-toggle" onclick="this.classList.toggle('active')"></button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /admin-card -->
+</div><!-- /admin-overlay -->
+
+
+<!-- ============================================================ -->
+<!-- SANDBOX — agente autónomo + mundo 3D                        -->
+<!-- ============================================================ -->
+<div id="sandbox-overlay">
+    <div class="sbx-topbar">
+        <div class="sbx-topbar-left">
+            <span class="sbx-logo">◈ SANDBOX</span>
+            <span id="sandbox-status-pill" class="sbx-status-pill sbx-status-idle">Inactivo</span>
+                        <span id="sandbox-current-tool" class="sbx-current-tool"></span>
+            <span id="sandbox-openrouter-usage" class="sbx-api-usage" title="Uso de la API exclusiva del Sandbox">OpenRouter · 0 tokens · $0.000000</span>
+
+        </div>
+        <div class="sbx-topbar-right">
+            <button id="sandbox-autonomy-toggle" class="sbx-btn sbx-btn-toggle" title="Autonomía ON/OFF">⚡ Autonomía</button>
+            <button id="sandbox-pause-btn" class="sbx-btn" title="Pausar/Reanudar">⏸ Pausar</button>
+                        <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+            <button id="sandbox-editor-btn" class="sbx-btn sbx-btn-editor" title="Seleccionar y editar objetos 3D">✎ Modo Editor</button>
+            <button id="sandbox-workspace-btn" class="sbx-btn" title="Abrir Workspace">🧩 Workspace</button>
+
+            <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
+        </div>
+    </div>
+
+    <div class="sbx-mobile-tabs">
+    <button id="sandbox-tab-chat" class="active">💬 Chat</button>
+    <button id="sandbox-tab-scene">🧊 Escena</button>
+    <button id="sandbox-tab-workspace">🧩 Workspace</button>
+    </div>
+
+    <div class="sbx-body">
+        <aside class="sbx-panel-left">
+            <div class="sbx-sandboxes-bar">
+                <button id="sandbox-new-btn" class="sbx-btn sbx-btn-accent">➕ Nuevo Sandbox</button>
+                <div id="sandbox-list" class="sbx-list"></div>
+            </div>
+            <div id="sandbox-chat" class="sbx-chat"></div>
+            <div class="sbx-input-row">
+                <textarea id="sandbox-input" rows="1" placeholder="Hablále al agente…"></textarea>
+                <button id="sandbox-send-btn">➤</button>
+            </div>
+            <div class="sbx-agent-state-row">Estado del agente: <span id="sandbox-agent-state">inactivo</span></div>
+            <div id="sandbox-action-log" class="sbx-action-log"></div>
+        </aside>
+                <main class="sbx-panel-right sbx-legacy-scene" aria-hidden="true">
+            <canvas id="sandbox-canvas-legacy"></canvas>
+        </main>
+        <main class="sbx-panel-right">
+            <canvas id="sandbox-canvas"></canvas>
+
+            <section id="sandbox-editor-toolbar" class="sbx-editor-toolbar" hidden aria-label="Editor de objetos 3D">
+                <div class="sbx-editor-head">
+                    <strong>Editor 3D</strong>
+                    <span id="sandbox-editor-selected">Seleccioná un objeto</span>
+                </div>
+                <div class="sbx-editor-fields">
+                    <label>Posición X<input id="sandbox-editor-x" type="number" step="0.1"></label>
+                    <label>Y<input id="sandbox-editor-y" type="number" step="0.1"></label>
+                    <label>Z<input id="sandbox-editor-z" type="number" step="0.1"></label>
+                    <label>Rotación X°<input id="sandbox-editor-rx" type="number" step="5"></label>
+                    <label>Y°<input id="sandbox-editor-ry" type="number" step="5"></label>
+                    <label>Z°<input id="sandbox-editor-rz" type="number" step="5"></label>
+                    <label>Escala<input id="sandbox-editor-scale" type="number" min="0.1" max="5" step="0.1"></label>
+                    <label>Color<input id="sandbox-editor-color" type="color" value="#33ff77"></label>
+                </div>
+                <div class="sbx-editor-actions">
+                    <button id="sandbox-editor-apply" class="sbx-editor-primary" disabled>Aplicar</button>
+                    <button id="sandbox-editor-focus" disabled>Enfocar</button>
+                    <button id="sandbox-editor-duplicate" disabled>Duplicar</button>
+                    <button id="sandbox-editor-delete" class="sbx-editor-danger" disabled>Eliminar</button>
+                </div>
+                <small>Activá el editor y arrastrá un objeto para moverlo sobre el plano. En móvil, tocá y arrastrá con un dedo.</small>
+            </section>
+        </main>
+
+        <section class="wks-workspace" id="sbx-panel-workspace">
+            <div class="wks-toolbar">
+                <button id="wks-new-file-btn" class="wks-btn">📄 Nuevo archivo</button>
+                <button id="wks-new-folder-btn" class="wks-btn">📁 Nueva carpeta</button>
+                <button id="wks-run-btn" class="wks-btn wks-btn-accent">▶ Ejecutar</button>
+                <span id="wks-status" class="wks-status"></span>
+            </div>
+
+            <div class="wks-mobile-tabs">
+                <button class="wks-mtab active" data-target="files">Archivos</button>
+                <button class="wks-mtab" data-target="editor">Editor</button>
+                <button class="wks-mtab" data-target="preview">Preview</button>
+            </div>
+
+            <div class="wks-layout">
+                <div class="wks-files-col wks-col-active" data-panel="files">
+                    <div id="wks-file-tree" class="wks-file-tree"></div>
+                </div>
+                <div class="wks-editor-col" data-panel="editor">
+                    <div id="wks-editor-tabs" class="wks-editor-tabs"></div>
+                    <div id="wks-editor-mount" class="wks-editor-mount"></div>
+                </div>
+                <div class="wks-preview-col" data-panel="preview">
+                    <iframe id="wks-preview-frame" class="wks-preview-frame" sandbox="allow-scripts"></iframe>
+                </div>
+            </div>
+
+            <div class="wks-bottom-bar">
+                <div id="wks-console" class="wks-console"></div>
+            </div>
+        </section>
+    </div>
+    </div>
+</div>
+
+        
+<!-- CHAT -->
+<div id="chat">
+    <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ORB — Esfera 3D animada (estilo Xbox)                       -->
+<!-- Se inserta aquí entre el chat y el input.                   -->
+<!-- orb.js lo gestiona y lo muestra/oculta dinámicamente.       -->
+<!-- ============================================================ -->
+<div id="orb-wrap">
+    <div id="orb-container">
+        <canvas id="orb-canvas" width="260" height="260"></canvas>
+        <div id="orb-rings">
+            <div class="orb-ring orb-ring-1"></div>
+            <div class="orb-ring orb-ring-2"></div>
+            <div class="orb-ring orb-ring-3"></div>
+        </div>
+        <div id="orb-glow"></div>
+    </div>
+</div>
+
+<!-- BARRA DE PREVISUALIZACIÓN DE ARCHIVO ADJUNTO -->
+<div id="file-preview" class="file-preview-bar" style="display:none;">
+    <span id="file-preview-name">📎 Archivo adjunto</span>
+    <button id="remove-file-btn" onclick="removeAttachment()" title="Quitar archivo">✕</button>
+</div>
+
+<!-- ÁREA DE ENTRADA -->
+<div class="input-area">
+    <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
+    <button id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo: PDF, Word o imagen">📎</button>
+    <button id="camera-btn" onclick="document.getElementById('camera-input').click()" title="Tomar foto o seleccionar imagen">📷</button>
+    <textarea id="input" placeholder="Escribe un mensaje… (CTRL+V para pegar imagen)" autocomplete="off" rows="1"></textarea>
+    <button id="send-btn" onclick="sendMessage()">
+        <span>Enviar</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+</div>
+
+<!-- IMAGE ZOOM MODAL -->
+<div id="image-zoom-modal">
+    <div class="zoom-inner">
+        <img id="zoom-img" src="" alt="Imagen ampliada">
+        <button class="zoom-close-btn" onclick="document.getElementById('image-zoom-modal').style.display='none';document.getElementById('image-zoom-modal').classList.remove('zoom-visible')">✕</button>
+        <a id="zoom-download" class="zoom-download-btn" href="#" download="imagen.png">⬇️ Descargar</a>
+    </div>
+</div>
+
+<!-- SHORTCUTS MODAL -->
+<div id="shortcuts-modal">
+    <div class="shortcuts-card">
+        <div class="shortcuts-header">
+            <h3>⌨️ Atajos de teclado</h3>
+            <button onclick="document.getElementById('shortcuts-modal').style.display='none'">✕</button>
+        </div>
+        <div class="shortcuts-body">
+            <div class="shortcut-sep">Chat</div>
+            <div class="shortcut-row"><span>Enviar mensaje</span><kbd>Enter</kbd></div>
+            <div class="shortcut-row"><span>Nueva línea</span><kbd>Shift + Enter</kbd></div>
+            <div class="shortcut-row"><span>Pegar imagen</span><kbd>Ctrl + V</kbd></div>
+            <div class="shortcut-sep">Navegación</div>
+            <div class="shortcut-row"><span>Buscar en chat</span><kbd>Ctrl + F</kbd></div>
+            <div class="shortcut-row"><span>Ver atajos</span><kbd>Ctrl + /</kbd></div>
+            <div class="shortcut-sep">Voz</div>
+            <div class="shortcut-row"><span>Activar/desactivar voz</span><span style="color:#5599ff;">Botón 🔊</span></div>
+            <div class="shortcut-row"><span>Detener voz</span><span style="color:#5599ff;">Botón ⏹</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- CHAT SEARCH OVERLAY -->
+<div id="chat-search-overlay">
+    <div class="chat-search-box">
+        <input type="text" id="chat-search-input" placeholder="Buscar en el chat…">
+        <button onclick="performChatSearch()">🔍</button>
+        <button onclick="closeChatSearch()">✕</button>
+    </div>
+    <div id="chat-search-results"></div>
+</div>
+
+<!-- FIREBASE -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCQVU9rcF41NL1j6S30SNEMzF9VxBknNEI",
+    authDomain: "cutreal-ai.firebaseapp.com",
+    projectId: "cutreal-ai",
+    storageBucket: "cutreal-ai.firebasestorage.app",
+    messagingSenderId: "79541553692",
+    appId: "1:79541553692:web:388068da209f1b4ac9edd9"
+  };
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  window.auth = auth; window.db = db; window.provider = provider;
+  window.signInWithPopup = signInWithPopup; window.signOut = signOut;
+  window.signInWithCredential = signInWithCredential; // ← NUEVO
+  window.GoogleAuthProvider = GoogleAuthProvider;     // ← NUEVO
+  window.firestore = { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, orderBy };
+</script>
+
+<!-- SCRIPTS PRINCIPALES -->
+<script src="particles.js"></script>
+<!-- ORB: esfera animada — debe cargarse ANTES de loquendo.js y main.js -->
+<script src="orb.js"></script>
+<!-- LOQUENDO: síntesis de voz con sincronización al orb -->
+<script src="loquendo.js"></script>
+<!-- MAIN: lógica principal del chat -->
+<script src="main.js?v=lowpoly-20260819-2"></script>
+<!-- Versionado para invalidar caché tras agregar tools low-poly -->
+<script src="sandbox.js?v=lowpoly-20260819-2"></script>
+<script src="workspace.js"></script>
+<!-- DOOM: easter egg -->
+<script src="doom.js"></script>
+<!-- VIVO: easter egg de video -->
+<script src="vivo.js"></script>
+<!-- INCEPTION: easter egg — la web dentro de sí misma -->
+<script src="inception.js"></script>
+<!-- BUSCAMINAS: easter egg opcional -->
+<script src="buscaminas.js" onerror="console.log('buscaminas.js opcional no encontrado')"></script>
+
+<!-- switchTab + lógica de nuevas funciones del admin -->
+<script>
+function switchTab(name) {
+    document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.admin-panel').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('tab-'+name).classList.add('active');
+    document.getElementById('panel-'+name).classList.add('active');
+    if (name === 'apikeys') {
+        if (typeof window.onKeysTabVisible === 'function') window.onKeysTabVisible();
+    } else {
+        if (typeof window.onKeysTabHidden === 'function') window.onKeysTabHidden();
     }
-    return out;
+    // Auto-load nuevos tabs
+    if (name === 'activity')  adminLoadActivity();
+    if (name === 'errors')    adminLoadErrors();
+    if (name === 'prompt')    adminLoadPrompt();
+    if (name === 'analytics') adminLoadAnalytics();
+    if (name === 'sessions')  adminLoadSessions();
+    if (name === 'notifs')    adminLoadNotifs();
+    if (name === 'ratelimit') adminLoadRateLimits();
+    if (name === 'sandboxctl') adminLoadSandboxConfig();
 }
 
-async function fetchSandboxConfig() {
-    const defaults = {
-        enabled: true,
-        adminOnly: false,
-        maintenanceOnly: false,
-        emergencyStop: false,
-        autonomyEnabled: true,
-        maxCyclesPerSandbox: 30,
-        minIntervalSeconds: 6,
-        maxGlobalCallsPerHour: 300,
-        disabledTools: [],
-        sandboxModel: null,
-        systemPromptAddition: "",
+/* ── helpers ── */
+function escH(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(ts){ if(!ts) return '—'; const d=new Date(ts); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
+function now(){ return new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+
+/* ===================================================================
+   1. GRÁFICO DE ACTIVIDAD
+   =================================================================== */
+window.adminLoadActivity = async function() {
+    const barsEl = document.getElementById('activity-bars');
+    const hoursEl = document.getElementById('activity-hours');
+    const out = document.getElementById('admin-activity-output');
+    if (!barsEl) return;
+    barsEl.innerHTML = '<div style="color:#555;font-size:12px;padding:20px;align-self:center;">Cargando…</div>';
+    try {
+        const {collection,getDocs} = window.firestore;
+        const snap = await getDocs(collection(window.db,'chats'));
+        const dayBuckets = [0,0,0,0,0,0,0];
+        const hourBuckets = new Array(24).fill(0);
+        const labels = [];
+        const now2 = Date.now();
+        for (let i=6;i>=0;i--){
+            const d = new Date(now2 - i*86400000);
+            labels.push(['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()]);
+        }
+        snap.forEach(d=>{
+            const msgs = (d.data().mensajes||[]).filter(m=>m.role==='user');
+            const upd = d.data().updatedAt||0;
+            const daysAgo = Math.floor((now2-upd)/86400000);
+            if(daysAgo<7) dayBuckets[6-daysAgo]+=msgs.length;
+            const h = new Date(upd).getHours();
+            hourBuckets[h]+=msgs.length;
+        });
+        const maxDay = Math.max(...dayBuckets,1);
+        barsEl.innerHTML = dayBuckets.map((v,i)=>`
+            <div class="activity-bar-wrap">
+                <div class="activity-bar" style="height:${Math.max(6,Math.round((v/maxDay)*90))}px;">
+                    <div class="activity-bar-tooltip">${v} msgs</div>
+                </div>
+                <span class="activity-bar-label">${labels[i]}</span>
+            </div>`).join('');
+        const maxH = Math.max(...hourBuckets,1);
+        hoursEl.innerHTML = hourBuckets.map((v,i)=>`
+            <div class="activity-bar-wrap" title="${i}:00">
+                <div class="activity-bar" style="height:${Math.max(2,Math.round((v/maxH)*70))}px;width:100%;">
+                    <div class="activity-bar-tooltip">${i}:00 — ${v}</div>
+                </div>
+            </div>`).join('');
+        out.innerHTML = `<span class="admin-success">✅ Actividad actualizada a las ${now()}</span>`;
+    } catch(e) { barsEl.innerHTML='<div style="color:#555;font-size:12px;padding:20px;">Sin datos.</div>'; }
+};
+
+/* ===================================================================
+   2. MONITOR DE ERRORES
+   =================================================================== */
+const errorLogs = JSON.parse(sessionStorage.getItem('cutreal_error_logs')||'[]');
+function saveErrors(){ sessionStorage.setItem('cutreal_error_logs',JSON.stringify(errorLogs)); }
+function addError(level,msg){ errorLogs.unshift({level,msg,ts:now()}); if(errorLogs.length>100) errorLogs.pop(); saveErrors(); }
+window.addEventListener('error', e=>{ addError('error',e.message||'Unknown error'); });
+
+window.adminLoadErrors = function() {
+    const el = document.getElementById('error-monitor-list');
+    if (!el) return;
+    if (!errorLogs.length){ el.innerHTML='<div class="admin-empty">No hay errores registrados.</div>'; return; }
+    el.innerHTML = errorLogs.map(e=>`
+        <div class="error-log-entry">
+            <span class="error-level error-level-${e.level}">${e.level==='error'?'🔴':e.level==='warn'?'⚠️':'ℹ️'} ${e.level}</span>
+            <span class="error-msg">${escH(e.msg)}</span>
+            <span class="error-ts">${e.ts}</span>
+        </div>`).join('');
+};
+window.adminClearErrors = function(){
+    errorLogs.length=0; saveErrors();
+    document.getElementById('error-monitor-list').innerHTML='<div class="admin-empty">Logs limpiados.</div>';
+    window.showToast&&showToast('Logs limpiados','#4caf50','🗑️');
+};
+window.adminAddLogEntry = function(){
+    const level = document.getElementById('error-level-select').value;
+    const msg = document.getElementById('error-msg-input').value.trim();
+    if(!msg) return;
+    addError(level,msg);
+    document.getElementById('error-msg-input').value='';
+    adminLoadErrors();
+    window.showToast&&showToast('Log agregado','#4caf50','📝');
+};
+
+/* ===================================================================
+   3. EDITOR DE PROMPT
+   =================================================================== */
+window.updatePromptCount = function(){
+    const ta = document.getElementById('system-prompt-textarea');
+    const cnt = document.getElementById('prompt-char-count');
+    if(ta&&cnt) cnt.textContent = ta.value.length;
+};
+window.adminLoadPrompt = async function(){
+    const ta = document.getElementById('system-prompt-textarea');
+    const histEl = document.getElementById('prompt-history-list');
+    if(!ta) return;
+    try {
+        const {doc,getDoc} = window.firestore;
+        const snap = await getDoc(doc(window.db,'config','system_prompt'));
+        if(snap.exists()){
+            ta.value = snap.data().prompt||'';
+            updatePromptCount();
+            const history = snap.data().history||[];
+            histEl.innerHTML = history.length
+                ? history.slice(0,5).map(h=>`
+                    <div class="prompt-history-item" onclick="document.getElementById('system-prompt-textarea').value=${JSON.stringify(h.prompt)};updatePromptCount();">
+                        <span class="prompt-history-date">${fmtDate(h.savedAt)}</span>
+                        <span class="prompt-history-preview">${escH((h.prompt||'').substring(0,80))}…</span>
+                    </div>`).join('')
+                : '<div class="admin-empty">Sin historial.</div>';
+        }
+    } catch(e) {}
+};
+window.adminSavePrompt = async function(){
+    const ta = document.getElementById('system-prompt-textarea');
+    const out = document.getElementById('admin-prompt-output');
+    if(!ta?.value.trim()){ out.innerHTML='<span class="admin-error">Escribí un prompt.</span>'; return; }
+    out.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
+    try {
+        const {doc,getDoc,setDoc} = window.firestore;
+        const existing = await getDoc(doc(window.db,'config','system_prompt'));
+        const oldHistory = existing.exists()?(existing.data().history||[]):[];
+        const oldPrompt = existing.exists()?existing.data().prompt:'';
+        if(oldPrompt) oldHistory.unshift({prompt:oldPrompt,savedAt:Date.now()});
+        await setDoc(doc(window.db,'config','system_prompt'),{prompt:ta.value.trim(),savedAt:Date.now(),savedBy:window.auth?.currentUser?.uid,history:oldHistory.slice(0,10)});
+        out.innerHTML='<span class="admin-success">✅ Prompt guardado.</span>';
+        window.showToast&&showToast('Prompt guardado','#4caf50','✏️');
+        adminLoadPrompt();
+    } catch(e){ out.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+window.adminResetPrompt = async function(){
+    if(!confirm('¿Restaurar el prompt por defecto?')) return;
+    const defaultPrompt = 'Eres Cut-real AI, un asistente de inteligencia artificial creado por Bautista. Respondés siempre en español argentino de manera amigable, clara y útil. Podés procesar imágenes, documentos PDF y archivos Word.';
+    document.getElementById('system-prompt-textarea').value = defaultPrompt;
+    updatePromptCount();
+    await adminSavePrompt();
+};
+
+/* ===================================================================
+   4. RATE LIMIT CONFIGURATOR
+   =================================================================== */
+window.adminLoadRateLimits = async function(){
+    try {
+        const {doc,getDoc} = window.firestore;
+        const snap = await getDoc(doc(window.db,'config','rate_limits'));
+        if(!snap.exists()) return;
+        const d = snap.data();
+        if(d.perMin){ document.getElementById('rl-per-min').value=d.perMin; document.getElementById('rl-per-min-val').textContent=d.perMin; }
+        if(d.perHour){ document.getElementById('rl-per-hour').value=d.perHour; document.getElementById('rl-per-hour-val').textContent=d.perHour; }
+        if(d.perDay){ document.getElementById('rl-per-day').value=d.perDay; document.getElementById('rl-per-day-val').textContent=d.perDay; }
+        if(d.maxTokens){ document.getElementById('rl-max-tokens').value=d.maxTokens; document.getElementById('rl-max-tokens-val').textContent=d.maxTokens; }
+    } catch(e){}
+};
+window.adminSaveRateLimits = async function(){
+    const out = document.getElementById('admin-ratelimit-output');
+    out.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
+    try {
+        const {doc,setDoc} = window.firestore;
+        await setDoc(doc(window.db,'config','rate_limits'),{
+            perMin:  +document.getElementById('rl-per-min').value,
+            perHour: +document.getElementById('rl-per-hour').value,
+            perDay:  +document.getElementById('rl-per-day').value,
+            maxTokens: +document.getElementById('rl-max-tokens').value,
+            updatedAt: Date.now()
+        });
+        out.innerHTML='<span class="admin-success">✅ Rate limits guardados.</span>';
+        window.showToast&&showToast('Rate limits actualizados','#4caf50','⚡');
+    } catch(e){ out.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+
+/* ===================================================================
+   5. BACKUP & RESTORE
+   =================================================================== */
+window.adminBackup = async function(type){
+    const out = document.getElementById('admin-backup-output');
+    out.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Generando backup…</div>';
+    try {
+        const {collection,getDocs,doc,getDoc} = window.firestore;
+        let data = {};
+        if(type==='users'||type==='all'){
+            const snap = await getDocs(collection(window.db,'chats'));
+            data.users = []; snap.forEach(d=>data.users.push({uid:d.id,...d.data(),mensajes:undefined}));
+        }
+        if(type==='chats'||type==='all'){
+            const snap = await getDocs(collection(window.db,'chats'));
+            data.chats = []; snap.forEach(d=>data.chats.push({uid:d.id,mensajes:d.data().mensajes||[]}));
+        }
+        if(type==='config'||type==='all'){
+            const cfgs = ['broadcast','maintenance','system_prompt','rate_limits'];
+            data.config = {};
+            for(const c of cfgs){ try{ const s=await getDoc(doc(window.db,'config',c)); if(s.exists()) data.config[c]=s.data(); }catch(e){} }
+        }
+        data._meta = {type,exportedAt:new Date().toISOString(),version:'2.1.0'};
+        const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download=`cutreal-backup-${type}-${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+        out.innerHTML=`<span class="admin-success">✅ Backup "${type}" descargado.</span>`;
+        window.showToast&&showToast('Backup descargado','#4caf50','💾');
+    } catch(e){ out.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+window.adminRestore = function(){
+    const file = document.getElementById('restore-file-input').files[0];
+    const out = document.getElementById('admin-restore-output');
+    if(!file){ out.innerHTML='<span class="admin-error">Seleccioná un archivo JSON.</span>'; return; }
+    if(!confirm('⚠️ Esto sobrescribirá datos existentes. ¿Seguro?')) return;
+    const reader = new FileReader();
+    reader.onload = async e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            out.innerHTML=`<span class="admin-success">✅ Archivo leído (${Object.keys(data).join(', ')}). La restauración completa requiere implementación en el servidor.</span>`;
+        } catch(err){ out.innerHTML=`<span class="admin-error">❌ JSON inválido.</span>`; }
+    };
+    reader.readAsText(file);
+};
+
+/* ===================================================================
+   6. ANALYTICS (donut SVG)
+   =================================================================== */
+window.adminLoadAnalytics = async function(){
+    const donutWrap = document.getElementById('analytics-donut-wrap');
+    const metricsEl = document.getElementById('analytics-metrics');
+    if(!donutWrap) return;
+    donutWrap.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span></div>';
+    try {
+        const {collection,getDocs} = window.firestore;
+        const snap = await getDocs(collection(window.db,'chats'));
+        let proC=0,basicC=0,active7=0,inactive=0;
+        const now2=Date.now(), w7=7*86400000;
+        snap.forEach(d=>{
+            const dt=d.data();
+            if(dt.model==='basic') basicC++; else proC++;
+            if(dt.updatedAt&&(now2-dt.updatedAt)<w7) active7++; else inactive++;
+        });
+        const total=proC+basicC||1;
+        const segments=[
+            {val:proC,color:'#4488ff',label:'Modelo Pro'},
+            {val:basicC,color:'#7ba7ff',label:'Modelo Básico'},
+            {val:active7,color:'#4caf50',label:'Activos 7d'},
+            {val:inactive,color:'#99aacc',label:'Inactivos'},
+        ];
+        const r=60,cx=80,cy=80,stroke=22;
+        const circ=2*Math.PI*r;
+        let offset=0;
+        const totalVal=segments.reduce((a,s)=>a+s.val,0)||1;
+        const paths=segments.map(s=>{
+            const pct=s.val/totalVal;
+            const dash=pct*circ;
+            const gap=circ-dash;
+            const el=`<circle class="donut-ring" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" style="transform:rotate(-90deg);transform-origin:${cx}px ${cy}px;"/>`;
+            offset+=dash;
+            return el;
+        });
+        donutWrap.innerHTML=`
+            <svg class="analytics-donut-svg" width="160" height="160" viewBox="0 0 160 160">
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="${stroke}"/>
+                ${paths.join('')}
+                <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="#ccc" font-size="18" font-weight="800" font-family="Inter">${total}</text>
+                <text x="${cx}" y="${cy+12}" text-anchor="middle" fill="#666" font-size="9" font-family="Inter">USUARIOS</text>
+            </svg>
+            <div class="analytics-donut-legend">
+                ${segments.map(s=>`
+                    <div class="donut-legend-item">
+                        <div class="donut-legend-dot" style="background:${s.color};"></div>
+                        <span class="donut-legend-label">${s.label}</span>
+                        <span class="donut-legend-val">${s.val}</span>
+                    </div>`).join('')}
+            </div>`;
+        metricsEl.innerHTML=`
+            <div class="admin-stat" style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.08);">
+                <span>Tasa de retención (7d)</span>
+                <b style="color:#ff8888;">${total?Math.round(active7/total*100):0}%</b>
+            </div>
+            <div class="admin-stat" style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.08);">
+                <span>Preferencia Pro</span>
+                <b style="color:#ff8888;">${total?Math.round(proC/total*100):0}%</b>
+            </div>
+            <div class="admin-stat" style="padding:8px 0;">
+                <span>Última actualización</span>
+                <b style="color:#ff8888;">${now()}</b>
+            </div>`;
+    } catch(e){ donutWrap.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+
+/* ===================================================================
+   7. SESIONES ACTIVAS
+   =================================================================== */
+window.adminLoadSessions = async function(){
+    const listEl = document.getElementById('sessions-list');
+    const badge = document.getElementById('sessions-count-badge');
+    if(!listEl) return;
+    listEl.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Buscando…</div>';
+    try {
+        const {collection,getDocs} = window.firestore;
+        const snap = await getDocs(collection(window.db,'chats'));
+        const now2=Date.now(), min15=15*60*1000;
+        const active=[];
+        snap.forEach(d=>{
+            const dt=d.data();
+            if(dt.updatedAt&&(now2-dt.updatedAt)<min15)
+                active.push({uid:d.id,...dt});
+        });
+        if(badge) badge.textContent=`${active.length} activas`;
+        if(!active.length){ listEl.innerHTML='<div class="admin-empty">No hay sesiones activas ahora.</div>'; return; }
+        listEl.innerHTML=active.map(u=>`
+            <div class="active-session-item">
+                <div class="session-avatar">👤</div>
+                <div class="session-info">
+                    <div class="session-name">${escH(u.userName||'Anónimo')}</div>
+                    <div class="session-meta">${escH(u.userEmail||'—')} · ${fmtDate(u.updatedAt)}</div>
+                </div>
+                <div class="session-status">
+                    <div class="session-dot"></div>
+                    <span style="font-size:11px;color:#4caf50;">Activo</span>
+                </div>
+                <button class="session-kick-btn" onclick="adminDeleteChat('${u.uid}')">🚫 Kick</button>
+            </div>`).join('');
+    } catch(e){ listEl.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+
+/* ===================================================================
+   8. WEBHOOKS
+   =================================================================== */
+window.adminAddWebhook = function(){
+    const list = document.getElementById('webhooks-list');
+    if(!list) return;
+    const item = document.createElement('div');
+    item.className='webhook-item'; item.style.animation='msgIn 0.2s var(--ease) both';
+    item.innerHTML=`
+        <div class="webhook-header">
+            <div class="webhook-name"><div class="webhook-status-dot inactive"></div> Nuevo webhook</div>
+            <div style="display:flex;gap:6px;">
+                <button onclick="adminTestWebhook(this)" class="webhook-test-btn">🧪 Probar</button>
+                <button onclick="this.closest('.webhook-item').remove()" class="admin-icon-btn admin-danger-icon-btn admin-sm-btn" style="width:auto;padding:4px 8px;height:auto;font-size:11px;">🗑️</button>
+            </div>
+        </div>
+        <div class="webhook-url-field">
+            <input type="url" class="webhook-url-input" placeholder="https://…">
+        </div>
+        <div class="webhook-events">
+            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">user.created</span>
+            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">user.deleted</span>
+            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">chat.message</span>
+            <span class="webhook-event-tag" onclick="this.classList.toggle('active')">error.429</span>
+        </div>`;
+    list.appendChild(item);
+};
+window.adminTestWebhook = async function(btn){
+    const url=btn.closest('.webhook-item').querySelector('.webhook-url-input').value.trim();
+    const pingEl = btn.closest('.webhook-item').querySelector('.webhook-last-ping');
+    if(!url){ window.showToast&&showToast('Ingresá una URL primero','#ff4444','⚠️'); return; }
+    btn.textContent='⏳…'; btn.disabled=true;
+    try {
+        await fetch(url,{method:'POST',body:JSON.stringify({event:'test',source:'cutreal-ai',ts:Date.now()}),headers:{'Content-Type':'application/json'},mode:'no-cors'});
+        btn.textContent='✅ OK';
+        if(pingEl) pingEl.innerHTML=`Último ping: <span class="webhook-ping-ok">✓ enviado</span> — ${now()}`;
+    } catch(e) {
+        btn.textContent='❌ Fail';
+        if(pingEl) pingEl.innerHTML=`Último ping: <span class="webhook-ping-fail">✗ error</span>`;
+    }
+    setTimeout(()=>{ btn.textContent='🧪 Probar'; btn.disabled=false; },2000);
+};
+window.adminSaveWebhooks = function(){
+    const out=document.getElementById('admin-webhooks-output');
+    out.innerHTML='<span class="admin-success">✅ Webhooks guardados (simulado — conectá a tu backend para persistencia real).</span>';
+    window.showToast&&showToast('Webhooks guardados','#4caf50','🔗');
+};
+
+/* ===================================================================
+   9. FEATURE FLAGS
+   =================================================================== */
+window.adminSaveFlags = async function(){
+    const out=document.getElementById('admin-flags-output');
+    out.innerHTML='<div class="admin-loading"><span class="admin-spin">⟳</span> Guardando…</div>';
+    const flags={
+        imggen:    document.getElementById('flag-imggen')?.classList.contains('active'),
+        imgsearch: document.getElementById('flag-imgsearch')?.classList.contains('active'),
+        youtube:   document.getElementById('flag-youtube')?.classList.contains('active'),
+        attachments:document.getElementById('flag-attachments')?.classList.contains('active'),
+        promodel:  document.getElementById('flag-promodel')?.classList.contains('active'),
+        doom:      document.getElementById('flag-doom')?.classList.contains('active'),
+        notifications:document.getElementById('flag-notifications')?.classList.contains('active'),
+        camera:    document.getElementById('flag-camera')?.classList.contains('active'),
+        savedAt:   Date.now(),
     };
     try {
-        const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/config/sandbox_control`;
-        const res = await fetch(url);
-        if (!res.ok) return defaults; // doc no existe todavía → valores por defecto
-        const doc = await res.json();
-        return { ...defaults, ...parseFirestoreFields(doc.fields) };
-    } catch {
-        return defaults; // fail-open: si Firestore no responde, el sandbox sigue andando con defaults sanos
+        const {doc,setDoc} = window.firestore;
+        await setDoc(doc(window.db,'config','feature_flags'),flags);
+        out.innerHTML='<span class="admin-success">✅ Feature flags guardados.</span>';
+        window.showToast&&showToast('Feature flags actualizados','#4caf50','🚩');
+    } catch(e){ out.innerHTML=`<span class="admin-error">❌ ${escH(e.message)}</span>`; }
+};
+
+/* ===================================================================
+   10. NOTIFICACIONES
+   =================================================================== */
+const adminNotifs = JSON.parse(localStorage.getItem('cutreal_admin_notifs')||'[]');
+function saveNotifs(){ localStorage.setItem('cutreal_admin_notifs',JSON.stringify(adminNotifs)); }
+if(!adminNotifs.length){
+    adminNotifs.push(
+        {icon:'🔑',title:'Rotación de API Key',text:'La Key 1 alcanzó el 80% de uso',ts:Date.now()-300000,read:false},
+        {icon:'👤',title:'Nuevo usuario',text:'Un usuario inició sesión por primera vez',ts:Date.now()-900000,read:false},
+        {icon:'⚡',title:'Rate limit activo',text:'Key 3 recibió error 429',ts:Date.now()-1800000,read:true},
+    );
+    saveNotifs();
+}
+window.adminLoadNotifs = function(){
+    const el=document.getElementById('admin-notif-list');
+    if(!el) return;
+    if(!adminNotifs.length){ el.innerHTML='<div class="admin-empty">No hay notificaciones.</div>'; return; }
+    el.innerHTML=adminNotifs.map((n,i)=>`
+        <div class="admin-notif-item ${n.read?'':'admin-notif-unread'}" onclick="adminMarkRead(${i})">
+            <span class="admin-notif-icon">${n.icon}</span>
+            <div class="admin-notif-text"><b>${escH(n.title)}</b><br>${escH(n.text)}</div>
+            <span class="admin-notif-time">${fmtDate(n.ts)}</span>
+        </div>`).join('');
+};
+window.adminMarkRead = function(i){
+    if(adminNotifs[i]) adminNotifs[i].read=true;
+    saveNotifs(); adminLoadNotifs();
+};
+window.adminMarkAllRead = function(){
+    adminNotifs.forEach(n=>n.read=true);
+    saveNotifs(); adminLoadNotifs();
+    window.showToast&&showToast('Todas marcadas como leídas','#4caf50','✅');
+};
+window.pushAdminNotif = function(icon,title,text){
+    adminNotifs.unshift({icon,title,text,ts:Date.now(),read:false});
+    if(adminNotifs.length>50) adminNotifs.pop();
+    saveNotifs();
+};
+
+/* ===================================================================
+   CHAT SEARCH
+   =================================================================== */
+function performChatSearch() {
+    const q = document.getElementById('chat-search-input')?.value.trim().toLowerCase();
+    const resultsEl = document.getElementById('chat-search-results');
+    if (!q || !resultsEl) return;
+    const messages = document.querySelectorAll('#chat .user, #chat .ai');
+    const results = [];
+    messages.forEach((el, idx) => {
+        const text = el.textContent || '';
+        if (text.toLowerCase().includes(q)) {
+            results.push({ el, text: text.substring(0, 120), idx });
+        }
+    });
+    if (!results.length) {
+        resultsEl.innerHTML = '<div class="search-no-results">No se encontraron resultados.</div>';
+        return;
     }
+    resultsEl.innerHTML = results.map((r, i) => {
+        const highlighted = r.text.replace(new RegExp(q, 'gi'), m => `<mark>${m}</mark>`);
+        const isUser = r.el.classList.contains('user');
+        return `<div class="search-result-item" onclick="scrollToMessage(${r.idx})">
+            <span class="search-result-badge ${isUser ? 'badge-user' : 'badge-ai'}">${isUser ? 'Tú' : 'IA'}</span>
+            <span class="search-result-text">${highlighted}</span>
+        </div>`;
+    }).join('');
 }
 
-// ── ESTADO EN MEMORIA PARA CONTROL DE CONSUMO ───────────────
-// (vive mientras la instancia serverless esté caliente, igual que el
-// contador de keys — no es persistencia real entre despliegues, pero
-// sí frena loops dentro de una misma sesión activa, que es el problema real)
-if (!global._sandboxAgentState) {
-    global._sandboxAgentState = {
-        perSandbox: new Map(),   // sandboxId -> { lastAutonomousAt, autonomousStreak }
-        globalCallTimestamps: [], // rolling window para el límite global/hora
-    };
-}
-const AGENT_STATE = global._sandboxAgentState;
-
-function getSandboxState(sandboxId) {
-    if (!AGENT_STATE.perSandbox.has(sandboxId)) {
-        AGENT_STATE.perSandbox.set(sandboxId, { lastAutonomousAt: 0, autonomousStreak: 0 });
+window.scrollToMessage = function(idx) {
+    const messages = document.querySelectorAll('#chat .user, #chat .ai');
+    if (messages[idx]) {
+        messages[idx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messages[idx].classList.add('msg-highlight');
+        setTimeout(() => messages[idx].classList.remove('msg-highlight'), 2000);
+        closeChatSearch();
     }
-    return AGENT_STATE.perSandbox.get(sandboxId);
+};
+
+function closeChatSearch() {
+    const overlay = document.getElementById('chat-search-overlay');
+    if (overlay) overlay.style.display = 'none';
 }
 
-function checkGlobalRateLimit(maxPerHour) {
-    const now = Date.now();
-    const oneHourAgo = now - 60 * 60 * 1000;
-    AGENT_STATE.globalCallTimestamps = AGENT_STATE.globalCallTimestamps.filter(t => t > oneHourAgo);
-    if (AGENT_STATE.globalCallTimestamps.length >= maxPerHour) return false;
-    AGENT_STATE.globalCallTimestamps.push(now);
-    return true;
-}
-
-// ── HANDLER PRINCIPAL ────────────────────────────────────────
-export default async function handler(req, res) {
-    try {
-        return await handleSandboxRequest(req, res);
-    } catch (e) {
-        console.error("[sandbox-agent] Error no controlado:", e);
-        return res.status(500).json({
-            error: "Error interno del agente Sandbox.",
-            detail: e?.message || "Error desconocido",
-            code: e?.code || "SANDBOX_AGENT_INTERNAL_ERROR",
-        });
-    }
-}
-
-async function handleSandboxRequest(req, res) {
-    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
-
-    const {
-        messages = [], scene = {}, memoryKeys = [],
-        lastActions = [], autonomous = false, userText = null,
-        userId = "anon", sandboxId = "default", isAdmin = false,
-        workspace = null,
-    } = req.body || {};
-
-    if (!Array.isArray(messages))
-        return res.status(400).json({ error: "'messages' inválido." });
-
-    // El cliente actual envía arrays y objetos completos, pero estos valores
-    // se normalizan para que una sesión antigua o un payload parcial no genere
-    // una excepción antes de llegar al manejo de errores de OpenRouter.
-    const safeScene = scene && typeof scene === "object" ? scene : {};
-    const safeSceneObjects = Array.isArray(safeScene.objects) ? safeScene.objects : [];
-    const safeMemoryKeys = Array.isArray(memoryKeys) ? memoryKeys : [];
-    const safeLastActions = Array.isArray(lastActions) ? lastActions : [];
-
-    const config = await fetchSandboxConfig();
-
-    // ── 1) BOTÓN DE EMERGENCIA — máxima prioridad ────────
-    if (config.emergencyStop) {
-        return res.status(423).json({
-            error: "🛑 Autonomía detenida globalmente por un administrador.",
-            code: "EMERGENCY_STOP",
-        });
-    }
-
-    // ── 2) SANDBOX DESHABILITADO / SOLO-ADMIN / MANTENIMIENTO ──
-    if (config.enabled === false) {
-        return res.status(423).json({ error: "El Sandbox está desactivado por un administrador.", code: "SANDBOX_DISABLED" });
-    }
-    if (config.adminOnly && !isAdmin) {
-        return res.status(403).json({ error: "El Sandbox está disponible solo para administradores por ahora.", code: "ADMIN_ONLY" });
-    }
-    if (config.maintenanceOnly && !isAdmin) {
-        return res.status(503).json({ error: "El Sandbox está en mantenimiento.", code: "MAINTENANCE" });
-    }
-
-    // ── 3) LÍMITES DE AUTONOMÍA (esto es lo que evita el gasto descontrolado) ──
-    if (autonomous) {
-        if (config.autonomyEnabled === false) {
-            return res.status(423).json({ error: "La autonomía está desactivada globalmente.", code: "AUTONOMY_DISABLED" });
-        }
-
-        const state = getSandboxState(sandboxId);
-        const now = Date.now();
-        const minIntervalMs = Math.max(1, config.minIntervalSeconds) * 1000;
-
-        if (now - state.lastAutonomousAt < minIntervalMs) {
-            // No es un error: le decimos al cliente que espere, SIN llamar a OpenRouter.
-            return res.status(200).json({
-                skipped: true,
-                reason: "cooldown",
-                waitMs: minIntervalMs - (now - state.lastAutonomousAt),
-            });
-        }
-
-        if (state.autonomousStreak >= config.maxCyclesPerSandbox) {
-            return res.status(200).json({
-                skipped: true,
-                reason: "max_cycles_reached",
-                message: `Se alcanzó el máximo de ${config.maxCyclesPerSandbox} ciclos autónomos seguidos. Escribile algo al agente para reactivarlo.`,
-            });
-        }
-
-        if (!checkGlobalRateLimit(config.maxGlobalCallsPerHour)) {
-            return res.status(429).json({
-                skipped: true,
-                reason: "global_rate_limit",
-                message: "Se alcanzó el límite global de llamadas del Sandbox para esta hora (configurado por un admin).",
-            });
-        }
-
-        state.lastAutonomousAt = now;
-        state.autonomousStreak += 1;
-    } else if (userText) {
-        // Un mensaje real del usuario resetea el contador de ciclos autónomos
-        const state = getSandboxState(sandboxId);
-        state.autonomousStreak = 0;
-    }
-
-    // ── 4) FILTRAR HERRAMIENTAS DESHABILITADAS ───────────
-    const disabled = new Set(config.disabledTools || []);
-    const TOOLS = ALL_TOOLS.filter(t => !disabled.has(t.function.name));
-
-    // ── 5) ARMAR CONTEXTO Y SYSTEM PROMPT ────────────────
-    const systemPrompt = config.systemPromptAddition
-        ? `${BASE_SYSTEM_PROMPT}\n\nInstrucciones adicionales del administrador:\n${config.systemPromptAddition}`
-        : BASE_SYSTEM_PROMPT;
-
-    const contextParts = [
-        `Modo: ${autonomous ? "ciclo autónomo (nadie te habló, decidí vos qué hacer)" : "respondiendo a un mensaje del usuario"}`,
-        `Objetos actuales en escena: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
-        `Claves de memoria disponibles: ${JSON.stringify(safeMemoryKeys).slice(0, 500)}`,
-        `Últimas acciones: ${JSON.stringify(safeLastActions.slice(-6))}`,
-    ];
-    if (workspace) {
-        contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1800)}`);
-        contextParts.push(`Workspace — archivo activo: ${workspace.activeFile || "ninguno"}`);
-        if (workspace.activeContent) {
-            contextParts.push(`Workspace — contenido del archivo activo (${workspace.activeFile}):\n${String(workspace.activeContent).slice(0, 14000)}`);
-        }
-        if (Array.isArray(workspace.relevantFiles) && workspace.relevantFiles.length) {
-            const snippets = workspace.relevantFiles.map(f => `--- ${f.path} ---\n${String(f.content || '').slice(0, 4500)}`).join("\n");
-            contextParts.push(`Workspace — archivos relevantes:\n${snippets.slice(0, 15000)}`);
-        }
-        if (workspace.lastErrors && workspace.lastErrors.length) {
-            contextParts.push(`Workspace — últimos errores de ejecución: ${JSON.stringify(workspace.lastErrors)}`);
+// Atajos de teclado globales
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const overlay = document.getElementById('chat-search-overlay');
+        if (overlay) {
+            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+            if (overlay.style.display === 'flex') {
+                document.getElementById('chat-search-input')?.focus();
+            }
         }
     }
-    if (userText) contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
-
-    const fullMessages = [
-        { role: "system", content: systemPrompt },
-        { role: "system", content: contextParts.join("\n") },
-        ...messages.slice(-16),
-    ];
-
-    // ── 6) MODELO Y FALLBACK NATIVO DE OPENROUTER ─────────
-    // Una única solicitud evita gastar dos llamadas desde la aplicación.
-    // OpenRouter prueba `models` en orden cuando el primero está caído,
-    // rate-limited o no puede responder.
-        const configuredPrimary = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxModel
-            ? config.sandboxModel : PRIMARY_MODEL;
-        const configuredFallback = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxFallbackModel
-            ? config.sandboxFallbackModel : FALLBACK_MODEL;
-    const modelsToTry = configuredFallback && configuredFallback !== configuredPrimary
-        ? [configuredPrimary, configuredFallback]
-        : [configuredPrimary];
-    const requestedModel = modelsToTry[0];
-    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(userText);
-    const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
-    const toolChoice = directLowPolyRequest && lowPolyToolEnabled
-        ? { type: "function", function: { name: "create_lowpoly_object" } }
-        : "auto";
-
-    try {
-        const result = await callWorkspaceModel({
-            model: requestedModel,
-            models: modelsToTry,
-            messages: fullMessages,
-            tools: TOOLS,
-            tool_choice: toolChoice,
-            temperature: 0.7,
-            max_tokens: 4000,
-        });
-
-        if (result.limited) {
-            return res.status(429).json({
-                error: result.message || "OpenRouter está limitando temporalmente el Sandbox.",
-                retryAfterMs: result.retryAfterMs || 60000,
-                code: "OPENROUTER_RATE_LIMITED",
-            });
-        }
-
-        const { response, data } = result;
-        if (!response?.ok) {
-            const upstreamStatus = response?.status || 502;
-            const detail = data?.error?.message || `HTTP ${upstreamStatus}`;
-            // No convertir errores de autenticación, crédito, modelo o
-            // proveedor en un bloqueo administrativo del Sandbox.
-            return res.status(502).json({
-                error: `OpenRouter no pudo responder: ${detail}`,
-                code: "OPENROUTER_REQUEST_FAILED",
-                upstreamStatus,
-            });
-        }
-
-        const msg = data.choices?.[0]?.message || {};
-        return res.status(200).json({
-            assistantText: msg.content || null,
-            toolCalls: (msg.tool_calls || []).map(tc => ({
-                id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
-            })),
-            model: data.model || requestedModel,
-            provider: data.provider || null,
-            generationId: data.id || null,
-            usage: data.usage || null,
-            cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
-            requestedModels: modelsToTry,
-            forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
-            cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
-            cyclesMax: config.maxCyclesPerSandbox,
-        });
-    } catch (e) {
-        if (e.code === "NO_KEYS") {
-            return res.status(502).json({
-                error: "El Sandbox no tiene OPENROUTER_API_KEY configurada.",
-                code: "OPENROUTER_NOT_CONFIGURED",
-            });
-        }
-        return res.status(502).json({
-            error: "No se pudo obtener una decisión del agente.",
-            detail: e.message,
-            code: e.code || "OPENROUTER_REQUEST_FAILED",
-        });
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        const modal = document.getElementById('shortcuts-modal');
+        if (modal) modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
     }
-}
+    if (e.key === 'Escape') {
+        closeChatSearch();
+        closeSidebar();
+        document.getElementById('shortcuts-modal').style.display = 'none';
+        document.getElementById('image-zoom-modal').style.display = 'none';
+        document.getElementById('image-zoom-modal').classList.remove('zoom-visible');
+    }
+});
 
-function safeParseJSON(str) {
-    if (str && typeof str === "object") return str;
-    try { return JSON.parse(str || "{}"); } catch { return {}; }
-}
+// Zoom de imágenes del chat
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('attached-image')) {
+        const modal = document.getElementById('image-zoom-modal');
+        const zoomImg = document.getElementById('zoom-img');
+        const zoomDl = document.getElementById('zoom-download');
+        if (modal && zoomImg) {
+            zoomImg.src = e.target.src;
+            if (zoomDl) zoomDl.href = e.target.src;
+            modal.style.display = 'flex';
+            requestAnimationFrame(() => modal.classList.add('zoom-visible'));
+        }
+    }
+});
+document.getElementById('image-zoom-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('zoom-visible');
+        setTimeout(() => { this.style.display = 'none'; }, 250);
+    }
+});
+</script>
+
+<footer class="copyright">
+    <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
+    <p>&copy; 2026 Cut-real AI &nbsp;|&nbsp; TODOS LOS DERECHOS RESERVADOS</p>
+</footer>
+
+</body>
+</html>
