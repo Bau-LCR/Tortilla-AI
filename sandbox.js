@@ -877,7 +877,10 @@
     }
 
     if (!res.ok) {
-      throw new Error((data && data.error) || ('El agente no respondió (HTTP ' + res.status + ')'));
+      const baseMessage = (data && data.error) || ('El agente no respondió (HTTP ' + res.status + ')');
+      const detail = data && data.detail ? ` — ${data.detail}` : '';
+      const code = data && data.code ? ` [${data.code}]` : '';
+      throw new Error(`${baseMessage}${detail}${code}`);
     }
 
     return data;
