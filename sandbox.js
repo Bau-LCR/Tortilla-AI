@@ -53,16 +53,27 @@
     status: 'idle',                                   // idle|thinking|acting|waiting|paused|error
     agentState: { label: 'inactivo', color: '#33ff77' },
     apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null },
+    editorMode: false,
+    selectedObjectId: null,
   };
 
-  let scene, camera, renderer, controls, animFrame, threeReady = false;
+    let scene, camera, renderer, controls, animFrame, threeReady = false;
+  let raycaster = null;
+  let editorDrag = null;
+
   let sandboxListCache = [];
 
   // ---------- UTIL ----------
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
   const clampVec = (arr) => Array.isArray(arr) ? [0,1,2].map(i => clamp(arr[i], -WORLD_BOUND, WORLD_BOUND)) : [0,0,0];
-  const genId = () => 'obj_' + Math.random().toString(36).slice(2, 9);
+    const genId = () => 'obj_' + Math.random().toString(36).slice(2, 9);
+  function suggestedScenePosition(position) {
+    if (Array.isArray(position) && position.length >= 3 && position.every(n => Number.isFinite(Number(n)))) return clampVec(position);
+    const slots = [[0,0,0],[3.4,0,0],[-3.4,0,0],[0,0,3.4],[0,0,-3.4],[3.4,0,3.4],[-3.4,0,-3.4]];
+    return slots[state.objects.size % slots.length];
+  }
+
   const escapeHtml = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const safeColor = (hex) => (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) ? hex : null;
   const MAX_LOWPOLY_VERTICES = 96;
@@ -95,11 +106,14 @@
     const p1 = new THREE.PointLight(0x33ff77, 1.4, 60); p1.position.set(6,10,6); scene.add(p1);
     const p2 = new THREE.PointLight(0x2266ff, 0.5, 60); p2.position.set(-8,6,-6); scene.add(p2);
 
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08;
     controls.minDistance = 3; controls.maxDistance = 40;
+    raycaster = new THREE.Raycaster();
+    bindEditorCanvas(renderer.domElement);
 
     window.addEventListener('resize', resizeRenderer);
+
     animate();
   }
 
@@ -114,7 +128,8 @@
   function animate() {
     animFrame = requestAnimationFrame(animate);
     if (controls) controls.update();
-    state.objects.forEach(o => { if (o.mesh) o.mesh.rotation.y += 0.0022; });
+        if (!state.editorMode) state.objects.forEach(o => { if (o.mesh) o.mesh.rotation.y += 0.0022; });
+
     if (renderer && scene && camera) renderer.render(scene, camera);
   }
 
@@ -174,6 +189,158 @@
     return out;
   }
 
+  function rotateLocalPoint(v, rotation) {
+    const [rx, ry, rz] = rotation || [0,0,0];
+    let [x,y,z] = v;
+    let c = Math.cos(rx), s = Math.sin(rx); [y,z] = [y*c - z*s, y*s + z*c];
+    c = Math.cos(ry); s = Math.sin(ry); [x,z] = [x*c + z*s, -x*s + z*c];
+    c = Math.cos(rz); s = Math.sin(rz); [x,y] = [x*c - y*s, x*s + y*c];
+    return [x,y,z];
+  }
+
+  function makeEllipsoidShape(rx, ry, rz, segments = 8, rings = 4) {
+    const vertices = [[0, ry, 0]];
+    for (let r = 1; r < rings; r++) {
+      const phi = Math.PI * r / rings;
+      for (let s = 0; s < segments; s++) {
+        const theta = Math.PI * 2 * s / segments;
+        vertices.push([Math.sin(phi) * rx * Math.cos(theta), Math.cos(phi) * ry, Math.sin(phi) * rz * Math.sin(theta)]);
+      }
+    }
+    const bottom = vertices.length; vertices.push([0, -ry, 0]);
+    const faces = [];
+    for (let s = 0; s < segments; s++) faces.push([0, 1+s, 1+(s+1)%segments]);
+    for (let r = 0; r < rings - 2; r++) {
+      const a = 1 + r * segments, b = a + segments;
+      for (let s = 0; s < segments; s++) {
+        const n = (s+1)%segments;
+        faces.push([a+s,b+s,a+n], [a+n,b+s,b+n]);
+      }
+    }
+    const last = 1 + (rings - 2) * segments;
+    for (let s = 0; s < segments; s++) faces.push([last+s,bottom,last+(s+1)%segments]);
+    return { vertices, faces };
+  }
+
+  function makeFrustumShape(rxTop, rzTop, rxBottom, rzBottom, height, segments = 6) {
+    const vertices = [];
+    for (const [y, rx, rz] of [[height/2, rxTop, rzTop], [-height/2, rxBottom, rzBottom]]) {
+      for (let s = 0; s < segments; s++) {
+        const theta = Math.PI * 2 * s / segments;
+        vertices.push([rx * Math.cos(theta), y, rz * Math.sin(theta)]);
+      }
+    }
+    const faces = [[...Array(segments).keys()].reverse(), [...Array(segments).keys()].map(i => segments+i)];
+    for (let s = 0; s < segments; s++) {
+      const n = (s+1)%segments;
+      faces.push([s,n,segments+s], [n,segments+n,segments+s]);
+    }
+    return { vertices, faces };
+  }
+
+  function makeBoxShape(sx, sy, sz) {
+    const x=sx/2, y=sy/2, z=sz/2;
+    return { vertices:[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]], faces:[[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[4,0,3],[4,3,7]] };
+  }
+
+  function makeTriPrismShape(width, height, depth) {
+    const w=width/2, d=depth/2;
+    return { vertices:[[-w,0,-d],[w,0,-d],[0,height,-d],[-w,0,d],[w,0,d],[0,height,d]], faces:[[0,1,2],[3,5,4],[0,3,4],[0,4,1],[1,4,5],[1,5,2],[2,5,3],[2,3,0]] };
+  }
+
+  function combineSemanticShapes(shapes, color) {
+    const vertices = [], faces = [];
+    for (const spec of shapes) {
+      const offset = vertices.length;
+      const pos = spec.position || [0,0,0], scale = spec.scale || [1,1,1], rotation = spec.rotation || [0,0,0];
+      for (const vertex of spec.shape.vertices) {
+        const rotated = rotateLocalPoint([vertex[0]*scale[0], vertex[1]*scale[1], vertex[2]*scale[2]], rotation);
+        vertices.push([rotated[0]+pos[0], rotated[1]+pos[1], rotated[2]+pos[2]]);
+      }
+      for (const face of spec.shape.faces) faces.push(face.map(index => index + offset));
+    }
+    return { geometry: 'lowpoly', vertices, faces, color, flatShading: true };
+  }
+
+  function semanticModelMeshes(kind, color) {
+    const main = safeColor(color) || '#33ff77';
+    const dark = '#18251d';
+    const skin = '#c98f72';
+    const white = '#f4f4e8';
+    if (kind === 'cat' || kind === 'gato') {
+      return [
+        combineSemanticShapes([{ shape: makeEllipsoidShape(1.0,.75,1.25), position:[0,1.35,0] }], main),
+        combineSemanticShapes([{ shape: makeEllipsoidShape(.72,.68,.7), position:[0,2.62,.62] }], main),
+        combineSemanticShapes([{ shape: makeEllipsoidShape(.32,.22,.28), position:[0,2.38,1.18] }], '#d99a85'),
+        combineSemanticShapes([
+          { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[-.56,.55,.62] }, { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[.56,.55,.62] },
+          { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[-.56,.55,-.62] }, { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[.56,.55,-.62] },
+        ], main),
+        combineSemanticShapes([{ shape: makeTriPrismShape(.42,.72,.34), position:[-.4,3.12,.62] }, { shape: makeTriPrismShape(.42,.72,.34), position:[.4,3.12,.62] }], main),
+        combineSemanticShapes([
+          { shape: makeEllipsoidShape(.23,.23,.55), position:[1.05,1.65,-.55], rotation:[0,.35,-.3] },
+          { shape: makeEllipsoidShape(.2,.2,.5), position:[1.42,2.0,-.7], rotation:[0,.25,-.45] },
+          { shape: makeEllipsoidShape(.16,.16,.42), position:[1.55,2.35,-.62], rotation:[0,.1,-.1] },
+        ], main),
+        combineSemanticShapes([{ shape: makeEllipsoidShape(.1,.1,.07), position:[-.27,2.76,1.2] }, { shape: makeEllipsoidShape(.1,.1,.07), position:[.27,2.76,1.2] }], dark),
+      ];
+    }
+    if (kind === 'person' || kind === 'persona') {
+      return [
+        combineSemanticShapes([{ shape: makeFrustumShape(.52,.3,.68,.42,1.35), position:[0,1.45,0] }], main),
+        combineSemanticShapes([{ shape: makeEllipsoidShape(.42,.48,.38), position:[0,2.55,0] }], skin),
+        combineSemanticShapes([{ shape: makeEllipsoidShape(.45,.18,.4), position:[0,2.92,0] }], dark),
+        combineSemanticShapes([{ shape: makeFrustumShape(.16,.16,.2,.2,1.15), position:[-.72,1.45,0], rotation:[0,0,-.16] }, { shape: makeFrustumShape(.16,.16,.2,.2,1.15), position:[.72,1.45,0], rotation:[0,0,.16] }], skin),
+        combineSemanticShapes([{ shape: makeFrustumShape(.22,.22,.27,.27,1.25), position:[-.3,.1,0] }, { shape: makeFrustumShape(.22,.22,.27,.27,1.25), position:[.3,.1,0] }], dark),
+        combineSemanticShapes([{ shape: makeBoxShape(.42,.18,.7), position:[-.3,-.58,.13] }, { shape: makeBoxShape(.42,.18,.7), position:[.3,-.58,.13] }], dark),
+      ];
+    }
+    if (kind === 'house' || kind === 'casa') {
+      return [
+        combineSemanticShapes([{ shape: makeBoxShape(2.5,2.0,2.1), position:[0,1.0,0] }], '#bd7048'),
+        combineSemanticShapes([{ shape: makeTriPrismShape(2.9,1.2,2.35), position:[0,2.0,0], rotation:[0,0,0] }], '#8f3c35'),
+        combineSemanticShapes([{ shape: makeBoxShape(.62,1.1,.12), position:[0,.55,1.08] }], dark),
+        combineSemanticShapes([{ shape: makeBoxShape(.45,.45,.12), position:[-.72,1.25,1.08] }, { shape: makeBoxShape(.45,.45,.12), position:[.72,1.25,1.08] }], white),
+        combineSemanticShapes([{ shape: makeBoxShape(.32,.85,.32), position:[.72,2.55,-.38] }], '#6f5142'),
+      ];
+    }
+    if (kind === 'car' || kind === 'auto' || kind === 'vehiculo') {
+      return [
+        combineSemanticShapes([{ shape: makeBoxShape(2.8,.65,1.45), position:[0,.72,0] }], main),
+        combineSemanticShapes([{ shape: makeBoxShape(1.45,.72,1.2), position:[0,1.34,-.05] }], '#4f7565'),
+        combineSemanticShapes([
+          { shape: makeEllipsoidShape(.32,.32,.16), position:[-1.0,.32,.72], rotation:[Math.PI/2,0,0] }, { shape: makeEllipsoidShape(.32,.32,.16), position:[1.0,.32,.72], rotation:[Math.PI/2,0,0] },
+          { shape: makeEllipsoidShape(.32,.32,.16), position:[-1.0,.32,-.72], rotation:[Math.PI/2,0,0] }, { shape: makeEllipsoidShape(.32,.32,.16), position:[1.0,.32,-.72], rotation:[Math.PI/2,0,0] },
+        ], dark),
+      ];
+    }
+    if (kind === 'tree' || kind === 'arbol') {
+      return [combineSemanticShapes([{ shape: makeFrustumShape(.28,.28,.38,.38,1.8), position:[0,.9,0] }], '#70452f'), combineSemanticShapes([{ shape: makeEllipsoidShape(1.0,1.1,1.0), position:[0,2.3,0] }, { shape: makeEllipsoidShape(.7,.8,.7), position:[-.7,2.1,.1] }, { shape: makeEllipsoidShape(.7,.8,.7), position:[.7,2.1,.1] }], '#3f9b4c')];
+    }
+    return [combineSemanticShapes([{ shape: makeEllipsoidShape(.8,.8,.8) }], main)];
+  }
+
+  function validateSemanticModel(kind, parts) {
+    const minimumParts = { cat: 7, person: 6, house: 5, car: 3, tree: 2 };
+    if (!Array.isArray(parts) || parts.length < (minimumParts[kind] || 1)) throw new Error(`Modelo ${kind} incompleto: faltan partes reconocibles.`);
+    parts.forEach((part, index) => {
+      const vertices = normalizeLowPolyVertices(part.vertices);
+      const faces = normalizeLowPolyFaces(part.faces, vertices.length / 3);
+      if (part.geometry !== 'lowpoly' || vertices.length < 9 || faces.length < 3) throw new Error(`Submalla ${index + 1} inválida para ${kind}.`);
+    });
+    return parts;
+  }
+
+  function semanticKindFromText(text) {
+    const value = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/\b(gato|gatito|cat|felino)\b/.test(value)) return 'cat';
+    if (/\b(persona|personaje humano|humano|human|person)\b/.test(value)) return 'person';
+    if (/\b(casa|casita|house|hogar)\b/.test(value)) return 'house';
+    if (/\b(auto|coche|carro|vehiculo|vehículo|car)\b/.test(value)) return 'car';
+    if (/\b(arbol|árbol|tree)\b/.test(value)) return 'tree';
+    return null;
+  }
+
   function buildLowPolyMesh(part) {
     const vertexValues = normalizeLowPolyVertices(part.vertices);
     const vertexCount = vertexValues.length / 3;
@@ -213,26 +380,36 @@
     addObject(meta) {
       if (state.objects.size >= MAX_OBJECTS) throw new Error('Límite de objetos alcanzado (' + MAX_OBJECTS + ').');
       const id = meta.id || genId();
-      const group = new THREE.Group();
-      const pos = clampVec(meta.position || [0,0,0]);
+            const group = new THREE.Group();
+      const pos = suggestedScenePosition(meta.position);
+      const rotation = Array.isArray(meta.rotation) ? meta.rotation.map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4)) : [0,0,0];
+      const scale = Array.isArray(meta.scale) ? meta.scale.map(n => clamp(Number(n), 0.1, 5)) : [1,1,1];
       group.position.set(pos[0], pos[1], pos[2]);
+      group.rotation.set(rotation[0] || 0, rotation[1] || 0, rotation[2] || 0);
+      group.scale.set(scale[0] || 1, scale[1] || 1, scale[2] || 1);
+      group.userData.sbxObjectId = id;
 
       if (meta.type === 'text') group.add(buildTextSprite(meta.text, meta.color));
+
       else (meta.parts || []).slice(0, 12).forEach(p => group.add(buildPartMesh(p)));
 
       scene.add(group);
       state.objects.set(id, {
-        id, name: meta.name || meta.text || id, type: meta.type || 'primitive_group',
+                id, name: meta.name || meta.text || id, type: meta.type || 'primitive_group',
         parts: meta.parts || null, text: meta.text || null, position: pos,
-        color: meta.color || null, mesh: group,
+        rotation, scale, color: meta.color || null, mesh: group,
+
       });
       return id;
     },
     updateObject(id, patch) {
       const rec = state.objects.get(id);
       if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      if (patch.position) { const p = clampVec(patch.position); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; }
+            if (patch.position) { const p = clampVec(patch.position); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; }
+      if (Array.isArray(patch.rotation)) { rec.mesh.rotation.set(...patch.rotation.map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4))); rec.rotation = patch.rotation.slice(0,3); }
+      if (Array.isArray(patch.scale)) { const s = patch.scale.map(n => clamp(Number(n), 0.1, 5)); rec.mesh.scale.set(s[0],s[1],s[2]); rec.scale = s; }
       if (Array.isArray(patch.parts)) {
+
         while (rec.mesh.children.length) rec.mesh.remove(rec.mesh.children[0]);
         patch.parts.slice(0,12).forEach(p => rec.mesh.add(buildPartMesh(p)));
         rec.parts = patch.parts;
@@ -249,17 +426,20 @@
     moveObject(id, position, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
       const target = clampVec(position);
-      return this._tween(rec.mesh.position, target, duration, () => { rec.position = target; });
+            return this._tween(rec.mesh.position, target, duration, () => { rec.position = target; });
+
     },
     rotateObject(id, rotation, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      const target = (rotation||[0,0,0]).map(n => clamp(n, -Math.PI*4, Math.PI*4));
-      return this._tween(rec.mesh.rotation, target, duration);
+            const target = (rotation||[0,0,0]).map(n => clamp(Number(n), -Math.PI*4, Math.PI*4));
+      return this._tween(rec.mesh.rotation, target, duration, () => { rec.rotation = target; });
+
     },
     scaleObject(id, scaleArr, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      const target = (scaleArr||[1,1,1]).map(n => clamp(n, 0.1, 5));
-      return this._tween(rec.mesh.scale, target, duration);
+            const target = (scaleArr||[1,1,1]).map(n => clamp(Number(n), 0.1, 5));
+      return this._tween(rec.mesh.scale, target, duration, () => { rec.scale = target; });
+
     },
     _tween(vecLike, target, duration, onDone) {
       const dur = clamp(duration || 1, 0.1, 5) * 1000;
@@ -276,7 +456,7 @@
       requestAnimationFrame(step);
       return true;
     },
-    changeAppearance(id, { color, opacity, wireframe }) {
+        changeAppearance(id, { color, opacity, wireframe }) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
       rec.mesh.traverse(child => {
         if (child.isMesh) {
@@ -288,21 +468,183 @@
       if (safeColor(color)) rec.color = color;
       return true;
     },
+    getObject(id) { return state.objects.get(id) || null; },
+    duplicateObject(id) {
+      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
+      const copy = JSON.parse(JSON.stringify(this.serialize().find(o => o.id === id)));
+      copy.id = genId();
+      copy.name = `${rec.name || 'Objeto'} copia`;
+      copy.position = [rec.mesh.position.x + 0.9, rec.mesh.position.y, rec.mesh.position.z + 0.9];
+      const newId = this.addObject(copy);
+      logAction(`Objeto duplicado: ${rec.name || id}`);
+      return newId;
+    },
     clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); },
+
     inspect() {
       return { objectCount: state.objects.size, objects: Array.from(state.objects.values())
         .map(o => ({ id: o.id, name: o.name, type: o.type, position: o.position, color: o.color })) };
     },
     serialize() {
-      return Array.from(state.objects.values()).map(o => ({
-        id: o.id, name: o.name, type: o.type, parts: o.parts, text: o.text, position: o.position, color: o.color,
+            return Array.from(state.objects.values()).map(o => ({
+        id: o.id, name: o.name, type: o.type, parts: o.parts, text: o.text,
+        position: [o.mesh.position.x, o.mesh.position.y, o.mesh.position.z],
+        rotation: [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
+        scale: [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
       }));
+
     },
     hydrate(list) { this.clear(); (list || []).slice(0, MAX_OBJECTS).forEach(o => this.addObject(o)); },
   };
 
+    // ============================================================
+  //  MODO EDITOR — edición directa de la escena
+  // ============================================================
+  function findObjectIdFromHit(hit) {
+    let node = hit?.object || null;
+    while (node) {
+      if (node.userData && node.userData.sbxObjectId) return node.userData.sbxObjectId;
+      node = node.parent;
+    }
+    return null;
+  }
+
+  function setObjectHighlight(rec, active) {
+    if (!rec?.mesh) return;
+    rec.mesh.traverse(child => {
+      if (!child.isMesh || !child.material || Array.isArray(child.material)) return;
+      if (active) {
+        if (!child.userData.editorSavedEmissive) {
+          child.userData.editorSavedEmissive = { hex: child.material.emissive?.getHex?.() || 0, intensity: child.material.emissiveIntensity || 0 };
+        }
+        if (child.material.emissive) child.material.emissive.set(0x55ff99);
+        child.material.emissiveIntensity = 0.9;
+      } else if (child.userData.editorSavedEmissive) {
+        const saved = child.userData.editorSavedEmissive;
+        if (child.material.emissive) child.material.emissive.setHex(saved.hex);
+        child.material.emissiveIntensity = saved.intensity;
+        delete child.userData.editorSavedEmissive;
+      }
+    });
+  }
+
+  function editorInputValue(id, fallback) {
+    const el = $(id); const value = Number(el?.value);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function renderEditorUI() {
+    const button = $('sandbox-editor-btn');
+    const toolbar = $('sandbox-editor-toolbar');
+    const selectedLabel = $('sandbox-editor-selected');
+    const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+    if (button) {
+      button.classList.toggle('active', !!state.editorMode);
+      button.textContent = state.editorMode ? '✎ Editor activo' : '✎ Modo Editor';
+    }
+    if (toolbar) toolbar.hidden = !state.editorMode;
+    if (selectedLabel) selectedLabel.textContent = rec ? `Seleccionado: ${rec.name}` : 'Seleccioná un objeto';
+    const fields = {
+      'sandbox-editor-x': rec?.mesh.position.x ?? 0,
+      'sandbox-editor-y': rec?.mesh.position.y ?? 0,
+      'sandbox-editor-z': rec?.mesh.position.z ?? 0,
+      'sandbox-editor-rx': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.x) : 0,
+      'sandbox-editor-ry': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.y) : 0,
+      'sandbox-editor-rz': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.z) : 0,
+      'sandbox-editor-scale': rec?.mesh.scale.x ?? 1,
+      'sandbox-editor-color': rec?.color || '#33ff77',
+    };
+    Object.entries(fields).forEach(([id, value]) => { const el = $(id); if (el && document.activeElement !== el) el.value = value; });
+    ['sandbox-editor-apply','sandbox-editor-duplicate','sandbox-editor-delete','sandbox-editor-focus'].forEach(id => { const el=$(id); if(el) el.disabled=!rec; });
+  }
+
+  const Editor = {
+    toggle() {
+      state.editorMode = !state.editorMode;
+      if (!state.editorMode) {
+        editorDrag = null;
+        if (controls) controls.enabled = true;
+        this.select(null);
+      }
+      renderEditorUI();
+      scheduleSave();
+    },
+    select(id) {
+      if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), false);
+      state.selectedObjectId = id && SceneManager.getObject(id) ? id : null;
+      if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
+      renderEditorUI();
+    },
+    applyFields() {
+      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+      if (!rec) return;
+      const position = ['sandbox-editor-x','sandbox-editor-y','sandbox-editor-z'].map((id, i) => editorInputValue(id, rec.mesh.position.toArray()[i]));
+      const rotation = ['sandbox-editor-rx','sandbox-editor-ry','sandbox-editor-rz'].map((id, i) => THREE.MathUtils.degToRad(editorInputValue(id, 0)));
+      const s = clamp(editorInputValue('sandbox-editor-scale', 1), 0.1, 5);
+      SceneManager.updateObject(rec.id, { position, rotation, scale: [s,s,s] });
+      const color = $('sandbox-editor-color')?.value;
+      if (safeColor(color)) SceneManager.changeAppearance(rec.id, { color });
+      logAction(`Editor: actualizado ${rec.name}`);
+      renderEditorUI(); scheduleSave();
+    },
+    duplicate() {
+      if (!state.selectedObjectId) return;
+      const id = SceneManager.duplicateObject(state.selectedObjectId);
+      this.select(id); scheduleSave();
+    },
+    remove() {
+      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+      if (!rec) return;
+      SceneManager.deleteObject(rec.id); state.selectedObjectId = null;
+      logAction(`Editor: eliminado ${rec.name}`); renderEditorUI(); scheduleSave();
+    },
+    focus() {
+      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+      if (!rec || !camera || !controls) return;
+      const target = rec.mesh.position.clone();
+      controls.target.copy(target); camera.position.copy(target.clone().add(new THREE.Vector3(5,4,5))); controls.update();
+    },
+  };
+
+  function bindEditorCanvas(canvas) {
+    if (!canvas || canvas.dataset.editorBound) return;
+    canvas.dataset.editorBound = '1';
+    canvas.addEventListener('pointerdown', event => {
+      if (!state.editorMode || !raycaster || !camera) return;
+      const rect = canvas.getBoundingClientRect();
+      const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(pointer, camera);
+      const roots = Array.from(state.objects.values()).map(o => o.mesh);
+      const hit = raycaster.intersectObjects(roots, true)[0];
+      const id = findObjectIdFromHit(hit);
+      if (!id) { Editor.select(null); return; }
+      Editor.select(id);
+      editorDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: SceneManager.getObject(id).mesh.position.clone(), moved: false };
+      controls.enabled = false;
+      canvas.setPointerCapture?.(event.pointerId);
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (!editorDrag || editorDrag.pointerId !== event.pointerId) return;
+      const rec = SceneManager.getObject(state.selectedObjectId); if (!rec) return;
+      const dx = (event.clientX - editorDrag.startX) / 42;
+      const dz = (event.clientY - editorDrag.startY) / 42;
+      const next = [editorDrag.origin.x + dx, editorDrag.origin.y, editorDrag.origin.z + dz];
+      const p = clampVec(next); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; editorDrag.moved = true;
+      renderEditorUI();
+    });
+    const finishDrag = event => {
+      if (!editorDrag || editorDrag.pointerId !== event.pointerId) return;
+      controls.enabled = true; canvas.releasePointerCapture?.(event.pointerId);
+      if (editorDrag.moved) { logAction(`Editor: movido ${state.selectedObjectId}`); scheduleSave(); }
+      editorDrag = null;
+    };
+    canvas.addEventListener('pointerup', finishDrag);
+    canvas.addEventListener('pointercancel', finishDrag);
+  }
+
   // ============================================================
   //  TOOL REGISTRY — únicas acciones que el agente puede ejecutar
+
   // ============================================================
   function sanitizeText(t, max) { return String(t == null ? '' : t).slice(0, max || 400); }
 
@@ -313,17 +655,20 @@
       const id = SceneManager.addObject({ name: sanitizeText(name, 40), parts, position });
       logAction(`Creado objeto: ${sanitizeText(name,40)}`); return { ok: true, id };
     },
-    create_lowpoly_object: ({ name, meshes, position }) => {
-      if (!Array.isArray(meshes) || !meshes.length) throw new Error('meshes requerido');
-      const parts = meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true }));
+    create_lowpoly_object: ({ name, semanticType, meshes, position, color }) => {
+      const kind = semanticKindFromText(`${semanticType || ''} ${name || ''}`);
+      const parts = kind ? validateSemanticModel(kind, semanticModelMeshes(kind, color)) : (Array.isArray(meshes) ? meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true })) : []);
+      if (!parts.length) throw new Error('Para un objeto low-poly personalizado se requieren meshes; para animales y objetos conocidos usá semanticType.');
       const id = SceneManager.addObject({ name: sanitizeText(name, 40), type: 'lowpoly_mesh', parts, position });
-      logAction(`Creada malla low-poly: ${sanitizeText(name,40)}`); return { ok: true, id, vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0) };
+      logAction(`Creada malla low-poly reconocible: ${sanitizeText(name,40)}`); return { ok: true, id, semanticType: kind || 'custom', vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0) };
     },
-    update_lowpoly_object: ({ id, meshes, position }) => {
-      if (!Array.isArray(meshes) || !meshes.length) throw new Error('meshes requerido');
-      const parts = meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true }));
+    update_lowpoly_object: ({ id, semanticType, meshes, position, color }) => {
+      const rec = SceneManager.getObject(id);
+      const kind = semanticKindFromText(`${semanticType || ''} ${rec?.name || ''}`);
+      const parts = kind ? validateSemanticModel(kind, semanticModelMeshes(kind, color || rec?.color)) : (Array.isArray(meshes) ? meshes.slice(0, 8).map(mesh => ({ ...mesh, geometry: 'lowpoly', flatShading: true })) : []);
+      if (!parts.length) throw new Error('Para actualizar una malla personalizada se requieren meshes.');
       SceneManager.updateObject(id, { parts, position });
-      logAction(`Malla low-poly modificada: ${id}`); return { ok: true, id };
+      logAction(`Malla low-poly modificada: ${id}`); return { ok: true, id, semanticType: kind || 'custom' };
     },
     update_3d_object: ({ id, parts, position }) => {
       SceneManager.updateObject(id, { parts, position }); logAction(`Objeto modificado: ${id}`); return { ok: true };
@@ -674,6 +1019,8 @@
         memory: state.memory,
         actionLog: state.actionLog.slice(-80).map(a => a.text + '|' + a.ts),
         scene: SceneManager.serialize(),
+        editorMode: state.editorMode,
+        selectedObjectId: state.selectedObjectId,
         autonomyEnabled: state.autonomyEnabled,
         apiUsage: state.apiUsage,
       }, { merge: true });
@@ -705,7 +1052,8 @@
     const { doc, setDoc } = window.firestore;
     const ref = doc(sandboxCollection());
     const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], editorMode: false, selectedObjectId: null, autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+
     await loadSandboxList();
     await openSandboxById(ref.id);
   }
@@ -721,6 +1069,8 @@
     state.memory = data.memory || {};
     state.actionLog = (data.actionLog || []).map(s => { const [text,ts]=String(s).split('|'); return { text, ts:+ts||Date.now() }; });
     state.apiUsage = data.apiUsage || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null };
+    state.editorMode = data.editorMode === true;
+    state.selectedObjectId = null;
     renderUsageHUD();
     state.autonomyEnabled = false;
 
@@ -731,8 +1081,11 @@
       line.textContent = `[${new Date(a.ts).toLocaleTimeString('es-AR')}] ${a.text}`; logEl.appendChild(line);
     }); }
 
-    SceneManager.hydrate(data.scene || []);
-    setStatus('idle'); updateAutonomyUI(); renderAgentStateHUD(); renderSandboxList();
+        SceneManager.hydrate(data.scene || []);
+    state.selectedObjectId = data.selectedObjectId && SceneManager.getObject(data.selectedObjectId) ? data.selectedObjectId : null;
+    if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
+    setStatus('idle'); updateAutonomyUI(); renderAgentStateHUD(); renderEditorUI(); renderSandboxList();
+
   }
 
   async function removeSandbox(id) {
@@ -787,8 +1140,21 @@
     $('sandbox-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendUserMessage(); } });
     $('sandbox-autonomy-toggle')?.addEventListener('click', () => state.autonomyEnabled ? stopAutonomy('Desactivado por el usuario') : startAutonomy());
     $('sandbox-pause-btn')?.addEventListener('click', () => state.paused ? resumeAutonomy() : pauseAutonomy());
-    $('sandbox-step-btn')?.addEventListener('click', stepOnce);
+        $('sandbox-step-btn')?.addEventListener('click', stepOnce);
+    $('sandbox-editor-btn')?.addEventListener('click', () => Editor.toggle());
+    $('sandbox-editor-apply')?.addEventListener('click', () => Editor.applyFields());
+    $('sandbox-editor-duplicate')?.addEventListener('click', () => Editor.duplicate());
+    $('sandbox-editor-delete')?.addEventListener('click', () => Editor.remove());
+    $('sandbox-editor-focus')?.addEventListener('click', () => Editor.focus());
+    $('sandbox-editor-color')?.addEventListener('input', () => { if (state.editorMode && state.selectedObjectId) Editor.applyFields(); });
+    document.addEventListener('keydown', event => {
+      if (!state.editorMode || !state.selectedObjectId || ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return;
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); Editor.remove(); }
+      if (event.key === 'Escape') Editor.select(null);
+    });
+    renderEditorUI();
     $('sandbox-tab-chat')?.addEventListener('click', () => switchMobileTab('chat'));
+
     $('sandbox-tab-scene')?.addEventListener('click', () => switchMobileTab('scene'));
   }
   function switchMobileTab(tab) {
