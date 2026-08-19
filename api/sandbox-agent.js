@@ -12,7 +12,7 @@
 //       · autonomyEnabled / maxCyclesPerSandbox / minIntervalSeconds
 //       · maxGlobalCallsPerHour
 //       · disabledTools (filtra las tools ofrecidas al modelo)
-//       · sandboxModel (fuerza un modelo específico)
+//       · sandboxModel (solo se aplica si WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE=true)
 //       · systemPromptAddition (instrucciones extra del admin)
 //
 //  IMPORTANTE: para que el tope por-sandbox y el "adminOnly"
@@ -21,10 +21,17 @@
 //  Ver ADMIN_PANEL_PATCH.md para el detalle exacto.
 // ============================================================
 
-import { callWorkspaceModel } from "./workspace-model-client.js";
+import {
+    callWorkspaceModel,
+    WORKSPACE_MODEL_NAME,
+    WORKSPACE_MODEL_FALLBACK,
+} from "./workspace-model-client.js";
 
-const PRIMARY_MODEL  = "z-ai/glm-5.2:free";
-const FALLBACK_MODEL = "cohere/north-mini-code:free";
+// La fuente única de modelos es el cliente OpenRouter del Sandbox.
+// Así se evita que este agente vuelva accidentalmente a modelos :free.
+const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
+const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
+const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
 // ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
@@ -37,7 +44,7 @@ const ALL_TOOLS = [
       }, required: ["text"] } } },
   { type: "function", function: {
       name: "create_3d_object",
-      description: "Crear un objeto 3D nuevo compuesto por primitivas geométricas (esferas, cubos, cilindros, conos, toroides, planos). Combiná varias piezas para representar cosas complejas (ej: un gato = cabeza+orejas+cuerpo+patas+cola, todo con primitivas).",
+      description: "Crear un objeto 3D simple compuesto por primitivas geométricas. Usá esta tool solo para formas básicas o cuando el usuario NO pida low-poly. Para animales, personajes, vehículos u objetos detallados, usá create_lowpoly_object.",
       parameters: { type: "object", properties: {
           name: { type: "string", description: "Nombre semántico, ej: 'gato', 'idea_curiosidad'." },
           parts: {
@@ -55,7 +62,29 @@ const ALL_TOOLS = [
           position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" },
       }, required: ["name", "parts"] } } },
   { type: "function", function: {
-      name: "update_3d_object", description: "Reemplazar las piezas y/o posición base de un objeto existente.",
+      name: "create_lowpoly_object",
+      description: "Crear una malla 3D low-poly real usando vértices y caras trianguladas. No uses primitivas para simular la silueta: construí una malla reconocible con 1 a 8 submallas, entre 6 y 96 vértices por submalla y caras cerradas o casi cerradas.",
+      parameters: { type: "object", properties: {
+          name: { type: "string", description: "Nombre semántico, ej: gato_lowpoly." },
+          meshes: { type: "array", description: "1 a 8 submallas low-poly.", items: { type: "object", properties: {
+              vertices: { type: "array", description: "Vértices como [[x,y,z], ...].", items: { type: "array", items: { type: "number" } } },
+              faces: { type: "array", description: "Caras como índices de 3 o más vértices; se triangulan automáticamente.", items: { type: "array", items: { type: "integer" } } },
+              position: { type: "array", items: { type: "number" } }, rotation: { type: "array", items: { type: "number" } }, scale: { type: "array", items: { type: "number" } },
+              color: { type: "string", description: "Color hex, ej: #33ff77" }, wireframe: { type: "boolean" }
+          }, required: ["vertices", "faces"] } },
+          position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
+      }, required: ["name", "meshes"] } } },
+  { type: "function", function: {
+      name: "update_lowpoly_object", description: "Reemplazar la malla low-poly de un objeto existente usando vértices y caras.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, meshes: { type: "array", items: { type: "object", properties: {
+              vertices: { type: "array", items: { type: "array", items: { type: "number" } } }, faces: { type: "array", items: { type: "array", items: { type: "integer" } } },
+              position: { type: "array", items: { type: "number" } }, color: { type: "string" }, wireframe: { type: "boolean" }
+          }, required: ["vertices", "faces"] } },
+          position: { type: "array", items: { type: "number" } }
+      }, required: ["id", "meshes"] } } },
+  { type: "function", function: {
+      name: "update_3d_object", description: "Reemplazar las piezas primitivas y/o posición base de un objeto existente. Para mallas low-poly usá update_lowpoly_object.",
       parameters: { type: "object", properties: {
           id: { type: "string" }, parts: { type: "array", items: { type: "object" } },
           position: { type: "array", items: { type: "number" } },
@@ -158,12 +187,18 @@ const ALL_TOOLS = [
 const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
 Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código real (HTML/CSS/JS) con preview en vivo. Podés crear, leer, modificar, renombrar y borrar archivos, ejecutar el proyecto y leer los errores de ejecución para autocorregirte. Si el usuario te pide "construir" algo con código, usá las tools de archivos; si te pide algo puramente visual en el espacio 3D, usá las tools de objetos 3D. Podés combinar ambas: un archivo del Workspace puede llamar a window.CutReal3D.createObject(...) para aparecer también en la escena 3D.
 
-Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas geométricas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
+Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
 
 Reglas:
 - Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
 - Si no tenés nada útil que hacer todavía, usá "wait".
-- Si el usuario te pide algo concreto ("imaginá un gato"), construilo combinando varias primitivas (nunca una sola pieza).
+- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object con vértices y caras; no lo simules con esferas, conos o cilindros.
+- Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object.
+- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, entre 24 y 96 vértices por submalla cuando el objeto lo necesite, caras trianguladas, sombreado plano y rasgos distintivos. Un animal no debe ser solo una esfera con conos: separá cuerpo, cabeza, patas, orejas/cola y detalles mediante mallas coherentes.
+- Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
+- No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
+- Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
+- Si una tool devuelve error, leé el mensaje, corregí los argumentos o el archivo y reintentá de forma acotada; no inventes que la operación funcionó.
 - set_agent_state es solo una etiqueta que elegís vos para comunicar actividad, no una afirmación de conciencia real.
 - Máximo 1 a 3 tool calls por paso.
 - No inventes ids de objetos nuevos; para crear, el sistema asigna el id. Para modificar/mover/borrar, usá los ids reales que te paso en el contexto.
@@ -333,8 +368,15 @@ export default async function handler(req, res) {
         `Últimas acciones: ${JSON.stringify(lastActions.slice(-6))}`,
     ];
     if (workspace) {
-        contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1500)}`);
+        contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1800)}`);
         contextParts.push(`Workspace — archivo activo: ${workspace.activeFile || "ninguno"}`);
+        if (workspace.activeContent) {
+            contextParts.push(`Workspace — contenido del archivo activo (${workspace.activeFile}):\n${String(workspace.activeContent).slice(0, 14000)}`);
+        }
+        if (Array.isArray(workspace.relevantFiles) && workspace.relevantFiles.length) {
+            const snippets = workspace.relevantFiles.map(f => `--- ${f.path} ---\n${String(f.content || '').slice(0, 4500)}`).join("\n");
+            contextParts.push(`Workspace — archivos relevantes:\n${snippets.slice(0, 15000)}`);
+        }
         if (workspace.lastErrors && workspace.lastErrors.length) {
             contextParts.push(`Workspace — últimos errores de ejecución: ${JSON.stringify(workspace.lastErrors)}`);
         }
@@ -351,9 +393,13 @@ export default async function handler(req, res) {
     // Una única solicitud evita gastar dos llamadas desde la aplicación.
     // OpenRouter prueba `models` en orden cuando el primero está caído,
     // rate-limited o no puede responder.
-    const modelsToTry = config.sandboxModel
-        ? [config.sandboxModel]
-        : [PRIMARY_MODEL, FALLBACK_MODEL];
+        const configuredPrimary = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxModel
+            ? config.sandboxModel : PRIMARY_MODEL;
+        const configuredFallback = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxFallbackModel
+            ? config.sandboxFallbackModel : FALLBACK_MODEL;
+    const modelsToTry = configuredFallback && configuredFallback !== configuredPrimary
+        ? [configuredPrimary, configuredFallback]
+        : [configuredPrimary];
     const requestedModel = modelsToTry[0];
 
     try {
@@ -395,7 +441,11 @@ export default async function handler(req, res) {
                 id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
             })),
             model: data.model || requestedModel,
+            provider: data.provider || null,
+            generationId: data.id || null,
             usage: data.usage || null,
+            cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
+            requestedModels: modelsToTry,
             cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
             cyclesMax: config.maxCyclesPerSandbox,
         });
