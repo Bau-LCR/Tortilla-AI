@@ -31,7 +31,14 @@ import {
 // Así se evita que este agente vuelva accidentalmente a modelos :free.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260819-5001";
+const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260819-5002";
+// OpenRouter informó que la cuenta actual puede financiar aproximadamente 3123
+// tokens en esta solicitud. El tope local evita pedir más y recibir un rechazo
+// antes de que el modelo pueda responder. Se aplica también al reintento.
+const SANDBOX_MAX_OUTPUT_TOKENS = Math.min(
+    3000,
+    Math.max(1200, Number(process.env.WORKSPACE_MAX_OUTPUT_TOKENS || 3000))
+);
 const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
@@ -471,7 +478,7 @@ async function handleSandboxRequest(req, res) {
             tools: TOOLS,
             tool_choice: toolChoice,
             temperature: 0.7,
-            max_tokens: 6000,
+            max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
         });
 
         if (result.limited) {
@@ -498,7 +505,7 @@ async function handleSandboxRequest(req, res) {
                 tools: TOOLS,
                 tool_choice: toolChoice,
                 temperature: 0.55,
-                max_tokens: 6000,
+                max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
             });
             if (!retryResult.limited && retryResult.response?.ok) {
                 const firstUsage = data?.usage || {};
