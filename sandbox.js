@@ -892,7 +892,8 @@
       const baseMessage = (data && data.error) || ('El agente no respondió (HTTP ' + res.status + ')');
       const detail = data && data.detail ? ` — ${data.detail}` : '';
       const code = data && data.code ? ` [${data.code}]` : '';
-      throw new Error(`${baseMessage}${detail}${code}`);
+      const build = data && data.build ? ` {build ${data.build}}` : '';
+      throw new Error(`${baseMessage}${detail}${code}${build}`);
     }
 
     return data;
@@ -939,6 +940,10 @@
     }
         state.consecutiveErrors = 0;
     if (decision && (decision.model || decision.usage || decision.generationId)) recordModelUsage(decision);
+    if (decision?.build && state.lastSandboxBuild !== decision.build) {
+      state.lastSandboxBuild = decision.build;
+      logAction(`Backend Sandbox activo: ${decision.build}`);
+    }
 
     // El servidor puede "saltear" este paso sin haber llamado a OpenRouter:
     // cooldown propio, tope de ciclos del admin, o límite global.
