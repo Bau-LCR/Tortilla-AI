@@ -177,7 +177,7 @@ export async function callWorkspaceModel(payload) {
 
   // Normalizar el payload por proveedor. Gemini usa la forma OpenAI para
   // tools, pero no acepta los campos de fallback/router de OpenRouter.
-  const { models: requestedModels, reasoning, parallel_tool_calls, ...providerPayload } = payload || {};
+  const { models: requestedModels, reasoning, parallel_tool_calls, transport, ...providerPayload } = payload || {};
   const requestedModel = typeof providerPayload.model === "string" ? providerPayload.model : MODEL_NAME;
   const safeRequestedModel = PROVIDER === "gemini" && requestedModel.startsWith("openrouter/")
     ? MODEL_NAME
@@ -209,8 +209,22 @@ export async function callWorkspaceModel(payload) {
   }
 
   let response;
+  let data;
   try {
-    response = await fetch(PRESET.baseURL, { method: "POST", headers, body: JSON.stringify(body) });
+    if (PROVIDER === "gemini" && transport === "gemini-interactions" && Array.isArray(body.tools) && body.tools.length) {
+      const nativeResult = await callGeminiInteractions({
+        apiKey: apiKeyValue,
+        model: safeRequestedModel,
+        messages: body.messages,
+        tools: body.tools,
+        maxOutputTokens: body.max_tokens,
+      });
+      response = nativeResult.response;
+      data = nativeResult.data;
+    } else {
+      response = await fetch(PRESET.baseURL, { method: "POST", headers, body: JSON.stringify(body) });
+      data = await response.json().catch(() => ({}));
+    }
   } catch (networkErr) {
     const err = new Error(`No se pudo contactar al modelo del Workspace (${PROVIDER}): ${networkErr.message}`);
     err.code = "NETWORK_ERROR";
@@ -220,7 +234,6 @@ export async function callWorkspaceModel(payload) {
   if (response.status === 429) {
     const retryAfterHeader = response.headers?.get?.("retry-after");
     const retryAfterSeconds = Number(retryAfterHeader);
-    const data = await response.json().catch(() => ({}));
     const upstreamMessage = data?.error?.message || `${PROVIDER} devolvió HTTP 429.`;
     const looksDaily = /daily|per day|por d[ií]a|day limit|cuota diaria/i.test(upstreamMessage);
     const retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
@@ -237,8 +250,6 @@ export async function callWorkspaceModel(payload) {
     };
   }
 
-  const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     // Errores como 401/402/404 no son un rate limit: se devuelven
     // al agente para que muestre el motivo real y no quede esperando.
@@ -250,7 +261,98 @@ export async function callWorkspaceModel(payload) {
   return { response, data };
 }
 
-/** Info de diagnóstico (proveedor/modelo/keys activas), sin exponer las keys. */
+function nativeGeminiText(messages) {
+  return (Array.isArray(messages) ? messages : [])
+    .filter(m => m && m.role !== "system")
+    .map(m => `${String(m.role || "user").toUpperCase()}: ${String(m.content ?? "")}`)
+    .join("\n\n")
+    .trim();
+}
+
+function nativeGeminiSystemInstruction(messages) {
+  return (Array.isArray(messages) ? messages : [])
+    .filter(m => m && m.role === "system")
+    .map(m => String(m.content ?? ""))
+    .join("\n\n")
+    .trim();
+}
+
+function nativeGeminiTools(tools) {
+  return (Array.isArray(tools) ? tools : []).map(tool => ({
+    type: "function",
+    name: tool?.function?.name,
+    description: tool?.function?.description || "",
+    parameters: tool?.function?.parameters || { type: "object", properties: {} },
+  })).filter(tool => tool.name);
+}
+
+function normalizeGeminiInteractionResponse(raw, model) {
+  const steps = Array.isArray(raw?.steps) ? raw.steps : [];
+  const toolCalls = steps
+    .filter(step => step && (step.type === "function_call" || step.type === "tool_call"))
+    .map((step, index) => ({
+      id: step.id || step.call_id || `gemini-function-call-${index + 1}`,
+      type: "function",
+      function: {
+        name: step.name || step.function?.name,
+        arguments: typeof step.arguments === "string"
+          ? step.arguments
+          : JSON.stringify(step.arguments || step.function?.arguments || {}),
+      },
+    }))
+    .filter(call => call.function.name);
+  const outputText = raw?.output_text || steps
+    .filter(step => step && (step.type === "model_output" || step.type === "text"))
+    .map(step => typeof step.text === "string" ? step.text : step.content?.[0]?.text || "")
+    .filter(Boolean)
+    .join("\n") || null;
+  const usage = raw?.usage || raw?.usage_metadata || null;
+  return {
+    id: raw?.id || null,
+    model: raw?.model || model,
+    choices: [{
+      message: { role: "assistant", content: outputText, tool_calls: toolCalls },
+      finish_reason: toolCalls.length ? "tool_calls" : "stop",
+    }],
+    usage,
+    nativeSteps: steps,
+  };
+}
+
+function normalizeGeminiInteractionError(raw, status) {
+  const candidate = raw?.error?.message || raw?.message || raw?.detail || raw?.error;
+  const detail = typeof candidate === "string" ? candidate : JSON.stringify(candidate || raw || `HTTP ${status}`);
+  return { error: { message: detail }, nativeError: raw };
+}
+
+async function callGeminiInteractions({ apiKey, model, messages, tools, maxOutputTokens }) {
+  const nativeTools = nativeGeminiTools(tools);
+  const requestBody = {
+    model,
+    input: nativeGeminiText(messages) || "Generá la respuesta solicitada.",
+    system_instruction: nativeGeminiSystemInstruction(messages) || undefined,
+    tools: nativeTools,
+    tool_choice: nativeTools.length ? "any" : "none",
+    generation_config: {
+      max_output_tokens: Math.max(256, Number(maxOutputTokens) || 1400),
+      thinking_level: "low",
+    },
+    store: false,
+  };
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+  });
+  const raw = await response.json().catch(() => ({}));
+  return {
+    response,
+    data: response.ok ? normalizeGeminiInteractionResponse(raw, model) : normalizeGeminiInteractionError(raw, response.status),
+    requestBody,
+  };
+}
+
+/** Info de diagnóstico (proveedor/modelo/keys activas, sin exponer las keys). */
 export function workspaceModelInfo() {
   return {
     provider: PROVIDER, model: MODEL_NAME, fallbackModel: FALLBACK_MODEL,
