@@ -1,1237 +1,743 @@
 // ============================================================
-//  sandbox.js — Cut-real AI · SANDBOX
-//  Agente autónomo con herramientas controladas + mundo 3D en
-//  tiempo real (Three.js). Chat y persistencia independientes
-//  del chat normal. Reusa window.auth / window.db / window.firestore
-//  ya inicializados en index.html — no crea una segunda config
-//  de Firebase.
+//  api/sandbox-agent.js — Cut-real AI · SANDBOX
+//  Un "paso" del agente autónomo. Devuelve la decisión del modelo
+//  (mensaje y/o tool calls) SIN ejecutar nada — la ejecución real
+//  ocurre en sandbox.js, que conoce el estado real de la escena 3D.
 //
-//  CAMBIOS EN ESTA VERSIÓN (integración con api/sandbox-agent.js):
-//   - Cada request al agente manda userId, sandboxId e isAdmin,
-//     para que el servidor pueda aplicar límites por-sandbox y
-//     el modo "solo administradores" configurado desde el Admin.
-//   - Maneja las respuestas nuevas del servidor:
-//       · { skipped: true, reason: 'cooldown', waitMs }
-//       · { skipped: true, reason: 'max_cycles_reached' }
-//       · { skipped: true, reason: 'global_rate_limit' }
-//       · HTTP 423/403/503 → Sandbox bloqueado por un admin
-//         (desactivado, solo-admin, mantenimiento o emergencia)
-//     En NINGUNO de estos casos se cuenta como "error de conexión"
-//     ni dispara reintentos agresivos: el límite del admin gana
-//     siempre, tal como pediste.
-//   - Los límites locales (MAX_STEPS_PER_RUN, MIN_COOLDOWN_MS,
-//     MAX_CONSECUTIVE_ERRORS) siguen existiendo como piso de
-//     seguridad del propio cliente, independientes de lo que
-//     diga el admin — si el admin es más permisivo, estos siguen
-//     aplicando; si el admin es más estricto, el servidor corta
-//     antes de que estos entren en juego.
+//  NUEVO en esta versión:
+//   - Usa api/workspace-model-client.js (Gemini exclusivo, rotación dinámica de keys)
+//   - Lee config/sandbox_control desde Firestore (vía REST, sin
+//     necesitar Firebase Admin SDK) para aplicar en el SERVIDOR:
+//       · enabled / adminOnly / maintenanceOnly / emergencyStop
+//       · autonomyEnabled / maxCyclesPerSandbox / minIntervalSeconds
+//       · maxGlobalCallsPerHour
+//       · disabledTools (filtra las tools ofrecidas al modelo)
+//       · sandboxModel (solo se aplica si WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE=true)
+//       · systemPromptAddition (instrucciones extra del admin)
+//
+//  IMPORTANTE: para que el tope por-sandbox y el "adminOnly"
+//  funcionen bien, sandbox.js (cliente) debe enviar en el body:
+//    { ..., userId, sandboxId, isAdmin }
+//  Ver ADMIN_PANEL_PATCH.md para el detalle exacto.
 // ============================================================
-(function () {
-  'use strict';
 
-  // ---------- CONFIG / LÍMITES DE SEGURIDAD ----------
-  const MAX_OBJECTS            = 40;
-  const MAX_STEPS_PER_RUN      = 25;   // tope de pasos autónomos consecutivos (piso local)
-  const MIN_COOLDOWN_MS        = 3000; // frecuencia mínima entre pasos autónomos (piso local)
-  const MAX_CONSECUTIVE_ERRORS = 3;    // corta la autonomía si falla seguido
-  const SAVE_DEBOUNCE_MS       = 1500;
-  const WORLD_BOUND            = 12;   // clamp de coordenadas
-  const RATE_LIMIT_RETRY_MS    = 20000; // espera al pegar contra un límite de consumo del admin
+import {
+    callWorkspaceModel,
+    WORKSPACE_MODEL_NAME,
+    WORKSPACE_MODEL_FALLBACK,
+    WORKSPACE_MODEL_PROVIDER,
+} from "./workspace-model-client.js";
 
-  let currentUser = null;
-  let sandboxId   = null;
-  let agentRequestInFlight = false;
+// La fuente única de modelos es el cliente del proveedor configurado para el
+// Sandbox. Actualmente es Gemini; no se comparte proveedor ni configuración
+// con el chat normal de Groq.
+const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
+const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
+const SANDBOX_AGENT_BUILD = "gemini3-lowpoly-quality-20260821-5009";
+// La cuota gratuita puede variar entre solicitudes. Un límite conservador
+// evita que el proveedor rechace una llamada antes de responder.
+// El valor seguro por defecto es 1400; solo se acepta un override explícito
+// entre 1200 y 3000. Valores antiguos como 6000 vuelven al default.
+const configuredOutputTokens = Number(process.env.WORKSPACE_MAX_OUTPUT_TOKENS);
+const SANDBOX_MAX_OUTPUT_TOKENS = Number.isFinite(configuredOutputTokens) && configuredOutputTokens >= 1200 && configuredOutputTokens <= 3000
+    ? Math.trunc(configuredOutputTokens)
+    : 1400;
+const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
-  const state = {
-    objects: new Map(),
-    memory: {},
-    actionLog: [],
-    messages: [],
-    autonomyEnabled: false,
-    paused: false,
-    consecutiveSteps: 0,
-    consecutiveErrors: 0,
-    status: 'idle',                                   // idle|thinking|acting|waiting|paused|error
-    agentState: { label: 'inactivo', color: '#33ff77' },
-    apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null },
-    editorMode: false,
-    selectedObjectId: null,
-  };
+// Para solicitudes visuales explícitas no dejamos que el modelo consuma el
+// turno solamente en set_agent_state o send_message: debe devolver la tool
+// que genera la geometría. Esto no crea ninguna plantilla; solo fija la tool
+// cuyo argumento meshes todavía debe ser generado por el modelo.
+const DIRECT_LOWPOLY_INTENT_RE = /\b(gato|gatito|perro|animal|felino|canino|persona|humano|personaje|robot|auto|coche|veh[ií]culo|casa|[aá]rbol|drag[oó]n|monstruo|criatura|low[ -]?poly|malla 3d|modelo 3d)\b/i;
+function isDirectLowPolyRequest(text) {
+    return typeof text === "string" && DIRECT_LOWPOLY_INTENT_RE.test(text);
+}
 
-    let scene, camera, renderer, controls, animFrame, threeReady = false;
-  let raycaster = null;
-  let editorDrag = null;
+function isWorkspaceRequest(text) {
+    return typeof text === "string" && /archivo|código|codigo|html|css|javascript|javascript|programa|proyecto|workspace|carpeta|ejecutá|ejecuta|run_project/i.test(text);
+}
 
-  let sandboxListCache = [];
-
-  // ---------- UTIL ----------
-  const $ = (id) => document.getElementById(id);
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : a));
-  const clampVec = (arr) => Array.isArray(arr) ? [0,1,2].map(i => clamp(arr[i], -WORLD_BOUND, WORLD_BOUND)) : [0,0,0];
-    const genId = () => 'obj_' + Math.random().toString(36).slice(2, 9);
-  function suggestedScenePosition(position) {
-    if (Array.isArray(position) && position.length >= 3 && position.every(n => Number.isFinite(Number(n)))) return clampVec(position);
-    const slots = [[0,0,0],[3.4,0,0],[-3.4,0,0],[0,0,3.4],[0,0,-3.4],[3.4,0,3.4],[-3.4,0,-3.4]];
-    return slots[state.objects.size % slots.length];
-  }
-
-  const escapeHtml = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const safeColor = (hex) => (typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) ? hex : null;
-  // Presupuesto por submalla: suficiente para animales reconocibles sin
-  // permitir payloads gigantes en un dispositivo móvil.
-  const MAX_LOWPOLY_VERTICES = 192;
-  const MAX_LOWPOLY_FACES = 320;
-  const MAX_LOWPOLY_PARTS = 12;
-  const MIN_LOWPOLY_PARTS = 4;
-  const MIN_LOWPOLY_TOTAL_VERTICES = 24;
-  const MIN_LOWPOLY_TOTAL_FACES = 24;
-
-  function debounce(fn, ms) {
-    let t = null;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-  }
-
-  // ============================================================
-  //  THREE.JS — motor 3D
-  // ============================================================
-  function initThree(canvas) {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-
-    camera = new THREE.PerspectiveCamera(55, (canvas.clientWidth||300)/(canvas.clientHeight||300), 0.1, 200);
-    camera.position.set(9, 7, 9);
-
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    resizeRenderer();
-
-    const grid = new THREE.GridHelper(24, 24, 0xffffff, 0x1a3322);
-    grid.material.opacity = 0.28; grid.material.transparent = true;
-    scene.add(grid);
-
-    scene.add(new THREE.AmbientLight(0x224422, 1.1));
-    const p1 = new THREE.PointLight(0x33ff77, 1.4, 60); p1.position.set(6,10,6); scene.add(p1);
-    const p2 = new THREE.PointLight(0x2266ff, 0.5, 60); p2.position.set(-8,6,-6); scene.add(p2);
-
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; controls.dampingFactor = 0.08;
-    controls.minDistance = 3; controls.maxDistance = 40;
-    raycaster = new THREE.Raycaster();
-    bindEditorCanvas(renderer.domElement);
-
-    window.addEventListener('resize', resizeRenderer);
-
-    animate();
-  }
-
-  function resizeRenderer() {
-    if (!renderer || !camera) return;
-    const c = renderer.domElement;
-    const w = c.clientWidth || 300, h = c.clientHeight || 300;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
-  }
-
-  function animate() {
-    animFrame = requestAnimationFrame(animate);
-    if (controls) controls.update();
-        if (!state.editorMode) state.objects.forEach(o => { if (o.mesh) o.mesh.rotation.y += 0.0022; });
-
-    if (renderer && scene && camera) renderer.render(scene, camera);
-  }
-
-  const GEOMS = {
-    sphere:   () => new THREE.SphereGeometry(0.5, 20, 16),
-    box:      () => new THREE.BoxGeometry(1, 1, 1),
-    cylinder: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 20),
-    cone:     () => new THREE.ConeGeometry(0.5, 1, 20),
-    torus:    () => new THREE.TorusGeometry(0.5, 0.18, 12, 24),
-    plane:    () => new THREE.PlaneGeometry(1, 1),
-  };
-
-  function buildMaterial(part, flatShading) {
-    return new THREE.MeshStandardMaterial({
-      color: safeColor(part.color) || 0x33ff77,
-      wireframe: !!part.wireframe,
-      flatShading: !!flatShading || !!part.flatShading,
-      transparent: part.opacity != null,
-      opacity: part.opacity != null ? clamp(part.opacity, 0.05, 1) : 1,
-      emissive: 0x0a2a14, emissiveIntensity: 0.25,
-      metalness: 0.15, roughness: 0.55,
-    });
-  }
-
-  function applyPartTransform(mesh, part) {
-    const pos = clampVec(part.position || [0,0,0]);
-    mesh.position.set(pos[0], pos[1], pos[2]);
-    if (Array.isArray(part.rotation)) mesh.rotation.set(part.rotation[0]||0, part.rotation[1]||0, part.rotation[2]||0);
-    if (Array.isArray(part.scale)) {
-      const s = part.scale.map(n => clamp(n, 0.05, 6));
-      mesh.scale.set(s[0]||1, s[1]||1, s[2]||1);
+function selectToolsForRequest(text, autonomous) {
+    const basic = new Set(["send_message", "set_agent_state", "wait"]);
+    if (autonomous) return ALL_TOOLS;
+    if (isDirectLowPolyRequest(text)) {
+        // En una creación 3D manual no enviamos set_agent_state, wait ni
+        // send_message: el único resultado válido del turno es la malla.
+        // La descripción completa de la tool se conserva, pero el prompt
+        // directo de abajo mantiene el contexto suficientemente pequeño para
+        // que Qwen termine los argumentos vertices/faces.
+        return ALL_TOOLS.filter(t => t.function.name === "create_lowpoly_object");
     }
-    return mesh;
-  }
+    if (isWorkspaceRequest(text)) {
+        const workspaceNames = new Set(["create_file", "read_file", "update_file", "delete_file", "rename_file", "create_folder", "list_files", "run_project", "get_runtime_errors", "get_project_structure"]);
+        return ALL_TOOLS.filter(t => basic.has(t.function.name) || workspaceNames.has(t.function.name));
+    }
+    if (typeof text === "string" && /escena|objeto|figura|primitiva|cubo|esfera|texto 3d|mover|rotar|escalar|color|eliminá|elimina/i.test(text)) {
+        const sceneNames = new Set(["create_3d_object", "create_3d_text", "update_3d_object", "delete_3d_object", "move_object", "rotate_object", "scale_object", "change_object_appearance", "inspect_scene"]);
+        return ALL_TOOLS.filter(t => basic.has(t.function.name) || sceneNames.has(t.function.name));
+    }
+    // Para mensajes conversacionales como “hola”, enviar solo las tres tools
+    // mínimas evita pagar el esquema completo del Workspace y del mundo 3D.
+    return ALL_TOOLS.filter(t => basic.has(t.function.name));
+}
 
-  function normalizeLowPolyVertices(vertices) {
-    const rows = Array.isArray(vertices) ? vertices.slice(0, MAX_LOWPOLY_VERTICES) : [];
-    const flat = rows.length && Array.isArray(rows[0])
-      ? rows.flatMap(v => [v?.[0], v?.[1], v?.[2]])
-      : rows;
-    const out = flat.slice(0, MAX_LOWPOLY_VERTICES * 3).map(n => clamp(Number(n), -WORLD_BOUND, WORLD_BOUND));
-    if (out.length < 9 || out.length % 3 !== 0) throw new Error('Una malla low-poly necesita al menos 3 vértices [x,y,z].');
+// ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
+const ALL_TOOLS = [
+  { type: "function", function: {
+      name: "send_message",
+      description: "Enviar un mensaje de texto visible al usuario en el chat del Sandbox.",
+      parameters: { type: "object", properties: {
+          text: { type: "string", description: "Mensaje a mostrar, máx 400 caracteres." },
+      }, required: ["text"] } } },
+  { type: "function", function: {
+      name: "create_3d_object",
+      description: "Crear un objeto 3D simple compuesto por primitivas geométricas. Usá esta tool solo para formas básicas o cuando el usuario NO pida low-poly. Para animales, personajes, vehículos u objetos detallados, usá create_lowpoly_object.",
+      parameters: { type: "object", properties: {
+          name: { type: "string", description: "Nombre semántico, ej: 'gato', 'idea_curiosidad'." },
+          parts: {
+            type: "array", description: "1 a 12 piezas.",
+            items: { type: "object", properties: {
+                geometry: { type: "string", enum: ["sphere","box","cylinder","cone","torus","plane"] },
+                position: { type: "array", items: { type: "number" } },
+                rotation: { type: "array", items: { type: "number" } },
+                scale:    { type: "array", items: { type: "number" } },
+                color:    { type: "string", description: "Color hex, ej: #33ff77" },
+                wireframe:{ type: "boolean" },
+                opacity:  { type: "number" },
+            }, required: ["geometry"] },
+          },
+          position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" },
+      }, required: ["name", "parts"] } } },
+  { type: "function", function: {
+      name: "create_lowpoly_object",
+      description: "Crear una malla 3D low-poly generada por la IA. Debés enviar siempre meshes con vértices y caras creados por vos. semanticType es solo una etiqueta descriptiva y nunca activa una plantilla ni genera geometría automáticamente. No uses primitivas para simular la silueta.",
+      parameters: { type: "object", properties: {
+          name: { type: "string", description: "Nombre del objeto, ej: gato low-poly." },
+          semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Etiqueta opcional para describir lo que generaste; no reemplaza meshes." },
+          color: { type: "string", description: "Color base hex, ej: #33ff77." },
+          meshes: { type: "array", minItems: 4, maxItems: 12, description: "Obligatorio: 4 a 12 submallas creadas por la IA. Para un humanoide articulado usá 10-12 partes, aproximadamente 160-240 vértices y 300-450 triángulos totales; separá torso, pelvis, cabeza, cuello, brazos segmentados, manos, piernas segmentadas y pies. Cada parte debe tener un role anatómico reconocible, volumen propio, vertices y faces trianguladas. No repitas el mismo cubo para todas las partes.", items: { type: "object", properties: {
+              role: { type: "string", description: "Parte creada por la IA, ej: body, head, muzzle, leg_front_left, ear_left, tail_segment_1, eye_left." },
+              vertices: { type: "array", minItems: 6, description: "Vértices creados por la IA como [[x,y,z], ...], con coordenadas 3D reales y forma volumétrica, no solo una caja repetida.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } },
+              faces: { type: "array", minItems: 8, description: "Al menos 8 caras triangulares creadas por la IA como índices [a,b,c], formando un volumen cerrado o casi cerrado.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
+              position: { type: "array", items: { type: "number" } }, rotation: { type: "array", items: { type: "number" } }, scale: { type: "array", items: { type: "number" } },
+              color: { type: "string", description: "Color hex de esta parte." }, wireframe: { type: "boolean" }
+          }, required: ["role", "vertices", "faces"] } },
+          position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
+      }, required: ["name", "meshes"] } } },
+  { type: "function", function: {
+      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente con vertices y faces generados por la IA. Para humanoides conservá una topología articulada de 10-12 partes y aproximadamente 160-240 vértices y 300-450 triángulos totales. semanticType solo describe el resultado y nunca reconstruye una plantilla.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", minItems: 4, maxItems: 12, items: { type: "object", properties: {
+              role: { type: "string" }, vertices: { type: "array", minItems: 6, items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } }, faces: { type: "array", minItems: 8, items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
+              position: { type: "array", items: { type: "number" } }, color: { type: "string" }, wireframe: { type: "boolean" }
+          }, required: ["role", "vertices", "faces"] } },
+          position: { type: "array", items: { type: "number" } }
+      }, required: ["id", "meshes"] } } },
+  { type: "function", function: {
+      name: "update_3d_object", description: "Reemplazar las piezas primitivas y/o posición base de un objeto existente. Para mallas low-poly usá update_lowpoly_object.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, parts: { type: "array", items: { type: "object" } },
+          position: { type: "array", items: { type: "number" } },
+      }, required: ["id"] } } },
+  { type: "function", function: {
+      name: "delete_3d_object", description: "Eliminar un objeto de la escena por su id.",
+      parameters: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } } },
+  { type: "function", function: {
+      name: "create_3d_text", description: "Crear un texto flotante en el espacio 3D.",
+      parameters: { type: "object", properties: {
+          text: { type: "string" }, position: { type: "array", items: { type: "number" } },
+          color: { type: "string" },
+      }, required: ["text"] } } },
+  { type: "function", function: {
+      name: "move_object", description: "Mover un objeto a una nueva posición con transición suave.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, position: { type: "array", items: { type: "number" } },
+          duration: { type: "number", description: "Segundos, 0.1 a 5" },
+      }, required: ["id", "position"] } } },
+  { type: "function", function: {
+      name: "rotate_object", description: "Rotar un objeto (radianes).",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, rotation: { type: "array", items: { type: "number" } },
+          duration: { type: "number" },
+      }, required: ["id", "rotation"] } } },
+  { type: "function", function: {
+      name: "scale_object", description: "Escalar un objeto.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, scale: { type: "array", items: { type: "number" } },
+          duration: { type: "number" },
+      }, required: ["id", "scale"] } } },
+  { type: "function", function: {
+      name: "change_object_appearance", description: "Cambiar color, opacidad o modo wireframe de un objeto.",
+      parameters: { type: "object", properties: {
+          id: { type: "string" }, color: { type: "string" }, opacity: { type: "number" }, wireframe: { type: "boolean" },
+      }, required: ["id"] } } },
+  { type: "function", function: {
+      name: "inspect_scene", description: "Pedir el estado actual completo de la escena para razonar sobre él.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "save_memory", description: "Guardar un dato persistente en la memoria del Sandbox (clave/valor).",
+      parameters: { type: "object", properties: {
+          key: { type: "string" }, value: { type: "string" },
+      }, required: ["key", "value"] } } },
+  { type: "function", function: {
+      name: "retrieve_memory", description: "Leer un dato previamente guardado en la memoria del Sandbox.",
+      parameters: { type: "object", properties: { key: { type: "string" } }, required: ["key"] } } },
+  { type: "function", function: {
+      name: "wait", description: "No hacer nada por ahora y esperar antes de volver a evaluar la situación.",
+      parameters: { type: "object", properties: { seconds: { type: "number" } } } } },
+  { type: "function", function: {
+      name: "clear_scene", description: "Vaciar completamente la escena 3D.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "set_agent_state",
+      description: "Comunicar el estado visual actual del agente (etiqueta libre, ej: 'curioso', 'creando', 'analizando') y opcionalmente un color. No implica conciencia real, es solo una señal visual para el usuario.",
+      parameters: { type: "object", properties: {
+          state: { type: "string" }, color: { type: "string" },
+      }, required: ["state"] } } },
+  { type: "function", function: {
+      name: "create_file",
+      description: "Crear un archivo de código en el Workspace (HTML/CSS/JS/JSON/etc).",
+      parameters: { type: "object", properties: {
+          path: { type: "string", description: "Ruta relativa, ej: 'index.html' o 'components/card.js'." },
+          content: { type: "string" },
+      }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "read_file", description: "Leer el contenido actual de un archivo del Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "update_file", description: "Reemplazar el contenido completo de un archivo existente del Workspace.",
+      parameters: { type: "object", properties: {
+          path: { type: "string" }, content: { type: "string" },
+      }, required: ["path", "content"] } } },
+  { type: "function", function: {
+      name: "delete_file", description: "Eliminar un archivo del Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "rename_file", description: "Renombrar o mover un archivo del Workspace.",
+      parameters: { type: "object", properties: {
+          path: { type: "string" }, newPath: { type: "string" },
+      }, required: ["path", "newPath"] } } },
+  { type: "function", function: {
+      name: "create_folder", description: "Crear una carpeta (virtual) en el Workspace.",
+      parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } } },
+  { type: "function", function: {
+      name: "list_files", description: "Listar todos los archivos actuales del Workspace.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "run_project", description: "Ejecutar el proyecto del Workspace y refrescar el preview.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "get_runtime_errors", description: "Obtener los últimos errores de ejecución capturados en el preview del Workspace.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "get_project_structure", description: "Obtener la estructura completa de archivos/carpetas del Workspace.",
+      parameters: { type: "object", properties: {} } } },
+];
+
+const DIRECT_LOWPOLY_SYSTEM_PROMPT = `Sos un generador de mallas low-poly para Cut-real AI.
+
+Respondé EXCLUSIVAMENTE con una llamada completa a create_lowpoly_object. No escribas explicaciones, no llames set_agent_state, no llames send_message y no uses primitivas. La llamada debe incluir name y meshes; cada mesh debe incluir role, vertices y faces reales. Terminá todos los arrays JSON antes de finalizar.
+
+Usá entre 6 y 8 submallas compactas pero reconocibles. Cada submalla debe tener 6-12 vértices y 8-18 triángulos, con volumen cerrado o casi cerrado. Para un gato usá como mínimo body, head, muzzle, dos patas delanteras, dos patas traseras y tail; agregá orejas si el presupuesto lo permite. Para un humanoide usá torso, pelvis, cabeza, brazos y piernas segmentados. Las extremidades no deben ser cubos idénticos: afiná sus extremos y cambiá su dirección en las articulaciones.
+
+Escala: 1 unidad equivale aproximadamente a 1 metro; mantené las coordenadas entre -12 y 12. Las caras son índices triangulares desde cero: [a,b,c]. Usá colores por parte y flatShading=true cuando esté disponible. La geometría debe ser generada por vos: semanticType solo describe el resultado y nunca reemplaza meshes.
+
+Priorizá completar una malla válida y reconocible antes que agregar texto o partes incompletas.`;
+
+const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
+Además del mundo 3D, tenés un WORKSPACE:
+
+CALIDAD 3D OBLIGATORIA: cuando el pedido sea un animal, personaje, vehículo u objeto detallado, no entregues una colección de cajas verdes ni una figura formada por cubos repetidos. Generá una silueta reconocible desde las vistas frontal, lateral y superior, con proporciones y volúmenes propios. La referencia objetivo es un modelo low-poly de videojuego con topología visible: aproximadamente 160-240 vértices y 300-450 triángulos totales para un humanoide, flatShading, piezas articuladas y entre 10 y 12 submallas anatómicas.
+
+Para un humanoide, separá como mínimo: torso con pecho y cintura, pelvis, cuello, cabeza, brazo superior izquierdo, antebrazo izquierdo, mano izquierda, brazo superior derecho, antebrazo derecho, mano derecha, muslo izquierdo, pantorrilla izquierda, pie izquierdo, muslo derecho, pantorrilla derecha y pie derecho. Si el límite de 12 submallas obliga a combinar piezas, combiná únicamente segmentos contiguos y conservá roles claros. Cada extremidad debe ser un volumen afinado con dos o más secciones, no una caja rectangular; las articulaciones deben mostrar cambios de diámetro y ángulo. El torso debe tener una sección de hombros más ancha que la cintura, la pelvis debe sobresalir, el cuello debe ser estrecho, la cabeza debe tener mandíbula y volumen facial, las manos deben terminar en una cuña o dedos sugeridos y los pies deben proyectarse hacia adelante. Las caras deben seguir la forma de cada segmento y no cruzarse.
+
+Para animales, usá el mismo principio: cuerpo, cabeza, hocico, patas separadas, orejas, cola segmentada y rasgos distintivos. Las patas deben ser prismas o volúmenes afinados con articulación visible; la cabeza debe diferenciarse del torso; las orejas deben ser prismas triangulares; el hocico debe sobresalir; la cola debe tener 2 o 3 segmentos con cambios de dirección; los ojos y otros rasgos deben ser piezas pequeñas separadas. Para un gato, orientá +Y hacia arriba, +Z hacia el frente, colocá el cuerpo cerca de Y=0.55, la cabeza cerca de Z=0.35 y las cuatro patas debajo del cuerpo, con las orejas arriba y la cola hacia atrás. Usá colores distintos para cuerpo, rasgos y ojos. Evitá que todas las partes tengan exactamente 8 vértices alineados y 12 triángulos con la misma forma. Todas las submallas deben tener por lo menos 6 vértices y 8 triángulos, y un humanoide detallado debe superar 160 vértices y 280 triángulos totales. Si no podés producir ese nivel de detalle, informá el error; no sustituyas la malla por primitivas.
+
+Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código real (HTML/CSS/JS) con preview en vivo. Podés crear, leer, modificar, renombrar y borrar archivos, ejecutar el proyecto y leer los errores de ejecución para autocorregirte. Si el usuario te pide "construir" algo con código, usá las tools de archivos; si te pide algo puramente visual en el espacio 3D, usá las tools de objetos 3D. Podés combinar ambas: un archivo del Workspace puede llamar a window.CutReal3D.createObject(...) para aparecer también en la escena 3D.
+
+Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
+
+Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, vertices es una lista de puntos [x,y,z] y faces es una lista de triángulos [a,b,c] que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]] y doce caras como [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como body, head, muzzle, leg_front_left, leg_front_right, leg_back_left, leg_back_right, ear_left, ear_right, tail_segment_1, tail_segment_2, eye_left y eye_right. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 12 y 40 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí flatShading=true para el aspecto low-poly. Para un humanoide articulado, apuntá a 160-240 vértices totales y 300-450 triángulos totales; para un animal detallado, apuntá a 80-180 vértices y 120-300 triángulos. No superes los límites del Sandbox y no uses una única caja para representar una extremidad completa.
+
+Reglas:
+- Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
+- Si no tenés nada útil que hacer todavía, usá "wait".
+- Si el usuario pide low-poly, una malla, un animal, personaje, vehículo u objeto detallado, usá create_lowpoly_object. Debés generar vos mismo meshes: cada submalla debe incluir role, vertices y faces trianguladas. semanticType es solo una etiqueta; nunca le pidas al motor que invente o complete la geometría.
+- Si el usuario pide algo simple o explícitamente pide primitivas, usá create_3d_object. No uses primitivas para solicitudes low-poly.
+- Antes de crear un objeto complejo, usá inspect_scene para conocer los objetos existentes. Conservá la escena salvo que el usuario pida limpiarla, pero elegí una posición libre para que el objeto nuevo no quede superpuesto ni oculto detrás de pruebas anteriores.
+- Para una solicitud singular como “hacé un gato”, realizá una sola create_lowpoly_object con name=Gato, semanticType=cat y meshes completos generados por vos. Creá partes separadas con roles body, head, muzzle, cuatro patas, dos orejas, cola articulada en 2 o 3 segmentos y dos ojos. Las coordenadas y caras deben ser tuyas; no esperes que el Sandbox agregue ninguna parte.
+- Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila generando una nueva malla completa con update_lowpoly_object o moviéndola con move_object antes de responder.
+- Si la tool responde que faltan meshes, vertices o faces, no cambies a create_3d_object ni inventes que funcionó: generá los datos geométricos completos y reintentá.
+- Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
+- No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
+- Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
+- Si una tool devuelve error, leé el mensaje, corregí los argumentos o el archivo y reintentá de forma acotada; no inventes que la operación funcionó.
+- set_agent_state es solo una etiqueta que elegís vos para comunicar actividad, no una afirmación de conciencia real.
+- Máximo 1 a 3 tool calls por paso.
+- No inventes ids de objetos nuevos; para crear, el sistema asigna el id. Para modificar/mover/borrar, usá los ids reales que te paso en el contexto.
+- Sé conciso en send_message (una o dos oraciones).`;
+
+// ── CONFIG DE ADMIN (Firestore REST, sin Admin SDK) ─────────
+// config/sandbox_control debe ser LEGIBLE PÚBLICAMENTE (regla
+// específica para ese documento) y ESCRIBIBLE solo por admins.
+// Ver firestore.rules.
+function parseFirestoreFields(fields) {
+    if (!fields) return {};
+    const out = {};
+    for (const [k, v] of Object.entries(fields)) {
+        if (v.stringValue !== undefined) out[k] = v.stringValue;
+        else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
+        else if (v.doubleValue !== undefined) out[k] = v.doubleValue;
+        else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
+        else if (v.arrayValue !== undefined) out[k] = (v.arrayValue.values || []).map(x => parseFirestoreFields({ t: x }).t);
+    }
     return out;
-  }
+}
 
-  function normalizeLowPolyFaces(faces, vertexCount) {
-    const out = [];
-    for (const face of (Array.isArray(faces) ? faces : []).slice(0, MAX_LOWPOLY_FACES)) {
-      if (!Array.isArray(face) || face.length < 3) continue;
-      const ids = face.slice(0, 8).map(n => Math.trunc(Number(n)));
-      if (ids.some(n => !Number.isInteger(n) || n < 0 || n >= vertexCount)) continue;
-      for (let i = 1; i < ids.length - 1 && out.length < MAX_LOWPOLY_FACES * 3; i++) {
-        out.push(ids[0], ids[i], ids[i + 1]);
-      }
-    }
-    if (out.length < 9) throw new Error('Una malla low-poly necesita al menos 3 caras válidas.');
-    return out;
-  }
-
-  function rotateLocalPoint(v, rotation) {
-    const [rx, ry, rz] = rotation || [0,0,0];
-    let [x,y,z] = v;
-    let c = Math.cos(rx), s = Math.sin(rx); [y,z] = [y*c - z*s, y*s + z*c];
-    c = Math.cos(ry); s = Math.sin(ry); [x,z] = [x*c + z*s, -x*s + z*c];
-    c = Math.cos(rz); s = Math.sin(rz); [x,y] = [x*c - y*s, x*s + y*c];
-    return [x,y,z];
-  }
-
-  // LEGACY DISABLED: estas funciones se conservan por compatibilidad histórica,
-  // pero no participan en ninguna tool de generación low-poly.
-  function makeEllipsoidShape(rx, ry, rz, segments = 8, rings = 4) {
-    const vertices = [[0, ry, 0]];
-    for (let r = 1; r < rings; r++) {
-      const phi = Math.PI * r / rings;
-      for (let s = 0; s < segments; s++) {
-        const theta = Math.PI * 2 * s / segments;
-        vertices.push([Math.sin(phi) * rx * Math.cos(theta), Math.cos(phi) * ry, Math.sin(phi) * rz * Math.sin(theta)]);
-      }
-    }
-    const bottom = vertices.length; vertices.push([0, -ry, 0]);
-    const faces = [];
-    for (let s = 0; s < segments; s++) faces.push([0, 1+s, 1+(s+1)%segments]);
-    for (let r = 0; r < rings - 2; r++) {
-      const a = 1 + r * segments, b = a + segments;
-      for (let s = 0; s < segments; s++) {
-        const n = (s+1)%segments;
-        faces.push([a+s,b+s,a+n], [a+n,b+s,b+n]);
-      }
-    }
-    const last = 1 + (rings - 2) * segments;
-    for (let s = 0; s < segments; s++) faces.push([last+s,bottom,last+(s+1)%segments]);
-    return { vertices, faces };
-  }
-
-  function makeFrustumShape(rxTop, rzTop, rxBottom, rzBottom, height, segments = 6) {
-    const vertices = [];
-    for (const [y, rx, rz] of [[height/2, rxTop, rzTop], [-height/2, rxBottom, rzBottom]]) {
-      for (let s = 0; s < segments; s++) {
-        const theta = Math.PI * 2 * s / segments;
-        vertices.push([rx * Math.cos(theta), y, rz * Math.sin(theta)]);
-      }
-    }
-    const faces = [[...Array(segments).keys()].reverse(), [...Array(segments).keys()].map(i => segments+i)];
-    for (let s = 0; s < segments; s++) {
-      const n = (s+1)%segments;
-      faces.push([s,n,segments+s], [n,segments+n,segments+s]);
-    }
-    return { vertices, faces };
-  }
-
-  function makeBoxShape(sx, sy, sz) {
-    const x=sx/2, y=sy/2, z=sz/2;
-    return { vertices:[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]], faces:[[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[1,5,6],[1,6,2],[2,6,7],[2,7,3],[4,0,3],[4,3,7]] };
-  }
-
-  function makeTriPrismShape(width, height, depth) {
-    const w=width/2, d=depth/2;
-    return { vertices:[[-w,0,-d],[w,0,-d],[0,height,-d],[-w,0,d],[w,0,d],[0,height,d]], faces:[[0,1,2],[3,5,4],[0,3,4],[0,4,1],[1,4,5],[1,5,2],[2,5,3],[2,3,0]] };
-  }
-
-  function combineSemanticShapes(shapes, color) {
-    const vertices = [], faces = [];
-    for (const spec of shapes) {
-      const offset = vertices.length;
-      const pos = spec.position || [0,0,0], scale = spec.scale || [1,1,1], rotation = spec.rotation || [0,0,0];
-      for (const vertex of spec.shape.vertices) {
-        const rotated = rotateLocalPoint([vertex[0]*scale[0], vertex[1]*scale[1], vertex[2]*scale[2]], rotation);
-        vertices.push([rotated[0]+pos[0], rotated[1]+pos[1], rotated[2]+pos[2]]);
-      }
-      for (const face of spec.shape.faces) faces.push(face.map(index => index + offset));
-    }
-    return { geometry: 'lowpoly', vertices, faces, color, flatShading: true };
-  }
-
-  // LEGACY DISABLED: no llamar desde tools; la IA debe suministrar meshes reales.
-  function semanticModelMeshes(kind, color) {
-    const main = safeColor(color) || '#33ff77';
-    const dark = '#18251d';
-    const skin = '#c98f72';
-    const white = '#f4f4e8';
-    if (kind === 'cat' || kind === 'gato') {
-      return [
-        combineSemanticShapes([{ shape: makeEllipsoidShape(1.0,.75,1.25), position:[0,1.35,0] }], main),
-        combineSemanticShapes([{ shape: makeEllipsoidShape(.72,.68,.7), position:[0,2.62,.62] }], main),
-        combineSemanticShapes([{ shape: makeEllipsoidShape(.32,.22,.28), position:[0,2.38,1.18] }], '#d99a85'),
-        combineSemanticShapes([
-          { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[-.56,.55,.62] }, { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[.56,.55,.62] },
-          { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[-.56,.55,-.62] }, { shape: makeFrustumShape(.19,.19,.25,.25,.9), position:[.56,.55,-.62] },
-        ], main),
-        combineSemanticShapes([{ shape: makeTriPrismShape(.42,.72,.34), position:[-.4,3.12,.62] }, { shape: makeTriPrismShape(.42,.72,.34), position:[.4,3.12,.62] }], main),
-        combineSemanticShapes([
-          { shape: makeEllipsoidShape(.23,.23,.55), position:[1.05,1.65,-.55], rotation:[0,.35,-.3] },
-          { shape: makeEllipsoidShape(.2,.2,.5), position:[1.42,2.0,-.7], rotation:[0,.25,-.45] },
-          { shape: makeEllipsoidShape(.16,.16,.42), position:[1.55,2.35,-.62], rotation:[0,.1,-.1] },
-        ], main),
-        combineSemanticShapes([{ shape: makeEllipsoidShape(.1,.1,.07), position:[-.27,2.76,1.2] }, { shape: makeEllipsoidShape(.1,.1,.07), position:[.27,2.76,1.2] }], dark),
-      ];
-    }
-    if (kind === 'person' || kind === 'persona') {
-      return [
-        combineSemanticShapes([{ shape: makeFrustumShape(.52,.3,.68,.42,1.35), position:[0,1.45,0] }], main),
-        combineSemanticShapes([{ shape: makeEllipsoidShape(.42,.48,.38), position:[0,2.55,0] }], skin),
-        combineSemanticShapes([{ shape: makeEllipsoidShape(.45,.18,.4), position:[0,2.92,0] }], dark),
-        combineSemanticShapes([{ shape: makeFrustumShape(.16,.16,.2,.2,1.15), position:[-.72,1.45,0], rotation:[0,0,-.16] }, { shape: makeFrustumShape(.16,.16,.2,.2,1.15), position:[.72,1.45,0], rotation:[0,0,.16] }], skin),
-        combineSemanticShapes([{ shape: makeFrustumShape(.22,.22,.27,.27,1.25), position:[-.3,.1,0] }, { shape: makeFrustumShape(.22,.22,.27,.27,1.25), position:[.3,.1,0] }], dark),
-        combineSemanticShapes([{ shape: makeBoxShape(.42,.18,.7), position:[-.3,-.58,.13] }, { shape: makeBoxShape(.42,.18,.7), position:[.3,-.58,.13] }], dark),
-      ];
-    }
-    if (kind === 'house' || kind === 'casa') {
-      return [
-        combineSemanticShapes([{ shape: makeBoxShape(2.5,2.0,2.1), position:[0,1.0,0] }], '#bd7048'),
-        combineSemanticShapes([{ shape: makeTriPrismShape(2.9,1.2,2.35), position:[0,2.0,0], rotation:[0,0,0] }], '#8f3c35'),
-        combineSemanticShapes([{ shape: makeBoxShape(.62,1.1,.12), position:[0,.55,1.08] }], dark),
-        combineSemanticShapes([{ shape: makeBoxShape(.45,.45,.12), position:[-.72,1.25,1.08] }, { shape: makeBoxShape(.45,.45,.12), position:[.72,1.25,1.08] }], white),
-        combineSemanticShapes([{ shape: makeBoxShape(.32,.85,.32), position:[.72,2.55,-.38] }], '#6f5142'),
-      ];
-    }
-    if (kind === 'car' || kind === 'auto' || kind === 'vehiculo') {
-      return [
-        combineSemanticShapes([{ shape: makeBoxShape(2.8,.65,1.45), position:[0,.72,0] }], main),
-        combineSemanticShapes([{ shape: makeBoxShape(1.45,.72,1.2), position:[0,1.34,-.05] }], '#4f7565'),
-        combineSemanticShapes([
-          { shape: makeEllipsoidShape(.32,.32,.16), position:[-1.0,.32,.72], rotation:[Math.PI/2,0,0] }, { shape: makeEllipsoidShape(.32,.32,.16), position:[1.0,.32,.72], rotation:[Math.PI/2,0,0] },
-          { shape: makeEllipsoidShape(.32,.32,.16), position:[-1.0,.32,-.72], rotation:[Math.PI/2,0,0] }, { shape: makeEllipsoidShape(.32,.32,.16), position:[1.0,.32,-.72], rotation:[Math.PI/2,0,0] },
-        ], dark),
-      ];
-    }
-    if (kind === 'tree' || kind === 'arbol') {
-      return [combineSemanticShapes([{ shape: makeFrustumShape(.28,.28,.38,.38,1.8), position:[0,.9,0] }], '#70452f'), combineSemanticShapes([{ shape: makeEllipsoidShape(1.0,1.1,1.0), position:[0,2.3,0] }, { shape: makeEllipsoidShape(.7,.8,.7), position:[-.7,2.1,.1] }, { shape: makeEllipsoidShape(.7,.8,.7), position:[.7,2.1,.1] }], '#3f9b4c')];
-    }
-    return [combineSemanticShapes([{ shape: makeEllipsoidShape(.8,.8,.8) }], main)];
-  }
-
-  // La geometría low-poly debe venir del modelo. Esta validación no interpreta
-  // nombres, semanticType ni roles para construir piezas: solo verifica y
-  // prepara los datos que el modelo ya generó.
-  function validateGeneratedLowPolyMeshes(meshes, fallbackColor) {
-    if (!Array.isArray(meshes) || meshes.length === 0) {
-      throw new Error('create_lowpoly_object requiere meshes generados por la IA con vertices y faces reales. No se usan plantillas automáticas.');
-    }
-    const parts = meshes.slice(0, MAX_LOWPOLY_PARTS).map((part, index) => {
-      if (!part || typeof part !== 'object') throw new Error(`La submalla ${index + 1} no es un objeto válido.`);
-      if (!Array.isArray(part.vertices) || !Array.isArray(part.faces)) {
-        throw new Error(`La submalla ${index + 1} debe incluir vertices y faces generados por la IA.`);
-      }
-      if (part.role != null && typeof part.role !== 'string') {
-        throw new Error(`El role de la submalla ${index + 1} debe ser texto.`);
-      }
-      const vertices = normalizeLowPolyVertices(part.vertices);
-      const faces = normalizeLowPolyFaces(part.faces, vertices.length / 3);
-      if (vertices.length < 9 || faces.length < 9) {
-        throw new Error(`La submalla ${index + 1} necesita al menos 3 vértices y 3 caras válidas.`);
-      }
-      const color = safeColor(part.color) || safeColor(fallbackColor) || '#33ff77';
-      return { ...part, geometry: 'lowpoly', flatShading: true, color };
-    });
-    const totalVertices = parts.reduce((sum, part) => sum + part.vertices.length / 3, 0);
-    const totalFaces = parts.reduce((sum, part) => sum + part.faces.length / 3, 0);
-    if (parts.length < MIN_LOWPOLY_PARTS || totalVertices < MIN_LOWPOLY_TOTAL_VERTICES || totalFaces < MIN_LOWPOLY_TOTAL_FACES) {
-      throw new Error(`La malla low-poly es demasiado simple: requiere al menos ${MIN_LOWPOLY_PARTS} submallas, ${MIN_LOWPOLY_TOTAL_VERTICES} vértices y ${MIN_LOWPOLY_TOTAL_FACES} triángulos generados por la IA.`);
-    }
-    return parts;
-  }
-
-  // LEGACY DISABLED: semanticType nunca se infiere desde el nombre del objeto.
-  function semanticKindFromText(text) {
-    const value = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (/\b(gato|gatito|cat|felino)\b/.test(value)) return 'cat';
-    if (/\b(persona|personaje humano|humano|human|person)\b/.test(value)) return 'person';
-    if (/\b(casa|casita|house|hogar)\b/.test(value)) return 'house';
-    if (/\b(auto|coche|carro|vehiculo|vehículo|car)\b/.test(value)) return 'car';
-    if (/\b(arbol|árbol|tree)\b/.test(value)) return 'tree';
-    return null;
-  }
-
-  function buildLowPolyMesh(part) {
-    const vertexValues = normalizeLowPolyVertices(part.vertices);
-    const vertexCount = vertexValues.length / 3;
-    const indices = normalizeLowPolyFaces(part.faces, vertexCount);
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertexValues, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    geometry.computeBoundingSphere();
-    return applyPartTransform(new THREE.Mesh(geometry, buildMaterial(part, true)), part);
-  }
-
-  function buildPartMesh(part) {
-    if (part && (part.geometry === 'lowpoly' || part.geometry === 'mesh')) return buildLowPolyMesh(part);
-    const geomFn = GEOMS[part.geometry] || GEOMS.box;
-    return applyPartTransform(new THREE.Mesh(geomFn(), buildMaterial(part, false)), part);
-  }
-
-  function buildTextSprite(text, color) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    ctx.font = '700 46px Inter, sans-serif';
-    ctx.fillStyle = safeColor(color) || '#33ff77';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 18;
-    ctx.fillText(String(text).slice(0, 40), 256, 64);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true }));
-    sprite.scale.set(3.4, 0.85, 1);
-    return sprite;
-  }
-
-  // ============================================================
-  //  SCENE MANAGER — estado semántico <-> objetos Three.js
-  // ============================================================
-  const SceneManager = {
-    addObject(meta) {
-      if (state.objects.size >= MAX_OBJECTS) throw new Error('Límite de objetos alcanzado (' + MAX_OBJECTS + ').');
-      const id = meta.id || genId();
-            const group = new THREE.Group();
-      const pos = suggestedScenePosition(meta.position);
-      const rotation = Array.isArray(meta.rotation) ? meta.rotation.map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4)) : [0,0,0];
-      const scale = Array.isArray(meta.scale) ? meta.scale.map(n => clamp(Number(n), 0.1, 5)) : [1,1,1];
-      group.position.set(pos[0], pos[1], pos[2]);
-      group.rotation.set(rotation[0] || 0, rotation[1] || 0, rotation[2] || 0);
-      group.scale.set(scale[0] || 1, scale[1] || 1, scale[2] || 1);
-      group.userData.sbxObjectId = id;
-
-      if (meta.type === 'text') group.add(buildTextSprite(meta.text, meta.color));
-
-      else (meta.parts || []).slice(0, 12).forEach(p => group.add(buildPartMesh(p)));
-
-      scene.add(group);
-      state.objects.set(id, {
-                id, name: meta.name || meta.text || id, type: meta.type || 'primitive_group',
-        parts: meta.parts || null, text: meta.text || null, position: pos,
-        rotation, scale, color: meta.color || null, mesh: group,
-
-      });
-      return id;
-    },
-    updateObject(id, patch) {
-      const rec = state.objects.get(id);
-      if (!rec) throw new Error('Objeto no encontrado: ' + id);
-            if (patch.position) { const p = clampVec(patch.position); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; }
-      if (Array.isArray(patch.rotation)) { rec.mesh.rotation.set(...patch.rotation.map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4))); rec.rotation = patch.rotation.slice(0,3); }
-      if (Array.isArray(patch.scale)) { const s = patch.scale.map(n => clamp(Number(n), 0.1, 5)); rec.mesh.scale.set(s[0],s[1],s[2]); rec.scale = s; }
-      if (Array.isArray(patch.parts)) {
-
-        while (rec.mesh.children.length) rec.mesh.remove(rec.mesh.children[0]);
-        patch.parts.slice(0,12).forEach(p => rec.mesh.add(buildPartMesh(p)));
-        rec.parts = patch.parts;
-      }
-      return true;
-    },
-    deleteObject(id) {
-      const rec = state.objects.get(id);
-      if (!rec) return false;
-      scene.remove(rec.mesh);
-      state.objects.delete(id);
-      return true;
-    },
-    moveObject(id, position, duration) {
-      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      const target = clampVec(position);
-            return this._tween(rec.mesh.position, target, duration, () => { rec.position = target; });
-
-    },
-    rotateObject(id, rotation, duration) {
-      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-            const target = (rotation||[0,0,0]).map(n => clamp(Number(n), -Math.PI*4, Math.PI*4));
-      return this._tween(rec.mesh.rotation, target, duration, () => { rec.rotation = target; });
-
-    },
-    scaleObject(id, scaleArr, duration) {
-      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-            const target = (scaleArr||[1,1,1]).map(n => clamp(Number(n), 0.1, 5));
-      return this._tween(rec.mesh.scale, target, duration, () => { rec.scale = target; });
-
-    },
-    _tween(vecLike, target, duration, onDone) {
-      const dur = clamp(duration || 1, 0.1, 5) * 1000;
-      const start = { x: vecLike.x, y: vecLike.y, z: vecLike.z };
-      const t0 = performance.now();
-      function step(now) {
-        const p = clamp((now - t0) / dur, 0, 1);
-        const e = 1 - Math.pow(1 - p, 3);
-        vecLike.x = start.x + (target[0]-start.x) * e;
-        vecLike.y = start.y + (target[1]-start.y) * e;
-        vecLike.z = start.z + (target[2]-start.z) * e;
-        if (p < 1) requestAnimationFrame(step); else if (onDone) onDone();
-      }
-      requestAnimationFrame(step);
-      return true;
-    },
-        changeAppearance(id, { color, opacity, wireframe }) {
-      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      rec.mesh.traverse(child => {
-        if (child.isMesh) {
-          if (safeColor(color)) child.material.color.set(color);
-          if (opacity != null) { child.material.transparent = true; child.material.opacity = clamp(opacity,0.05,1); }
-          if (wireframe != null) child.material.wireframe = !!wireframe;
-        }
-      });
-      if (safeColor(color)) rec.color = color;
-      return true;
-    },
-    getObject(id) { return state.objects.get(id) || null; },
-    duplicateObject(id) {
-      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
-      const copy = JSON.parse(JSON.stringify(this.serialize().find(o => o.id === id)));
-      copy.id = genId();
-      copy.name = `${rec.name || 'Objeto'} copia`;
-      copy.position = [rec.mesh.position.x + 0.9, rec.mesh.position.y, rec.mesh.position.z + 0.9];
-      const newId = this.addObject(copy);
-      logAction(`Objeto duplicado: ${rec.name || id}`);
-      return newId;
-    },
-    clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); },
-
-    inspect() {
-      return { objectCount: state.objects.size, objects: Array.from(state.objects.values())
-        .map(o => ({ id: o.id, name: o.name, type: o.type, position: o.position, color: o.color })) };
-    },
-    serialize() {
-            return Array.from(state.objects.values()).map(o => ({
-        id: o.id, name: o.name, type: o.type, parts: o.parts, text: o.text,
-        position: [o.mesh.position.x, o.mesh.position.y, o.mesh.position.z],
-        rotation: [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
-        scale: [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
-      }));
-
-    },
-    hydrate(list) { this.clear(); (list || []).slice(0, MAX_OBJECTS).forEach(o => this.addObject(o)); },
-  };
-
-    // ============================================================
-  //  MODO EDITOR — edición directa de la escena
-  // ============================================================
-  function findObjectIdFromHit(hit) {
-    let node = hit?.object || null;
-    while (node) {
-      if (node.userData && node.userData.sbxObjectId) return node.userData.sbxObjectId;
-      node = node.parent;
-    }
-    return null;
-  }
-
-  function setObjectHighlight(rec, active) {
-    if (!rec?.mesh) return;
-    rec.mesh.traverse(child => {
-      if (!child.isMesh || !child.material || Array.isArray(child.material)) return;
-      if (active) {
-        if (!child.userData.editorSavedEmissive) {
-          child.userData.editorSavedEmissive = { hex: child.material.emissive?.getHex?.() || 0, intensity: child.material.emissiveIntensity || 0 };
-        }
-        if (child.material.emissive) child.material.emissive.set(0x55ff99);
-        child.material.emissiveIntensity = 0.9;
-      } else if (child.userData.editorSavedEmissive) {
-        const saved = child.userData.editorSavedEmissive;
-        if (child.material.emissive) child.material.emissive.setHex(saved.hex);
-        child.material.emissiveIntensity = saved.intensity;
-        delete child.userData.editorSavedEmissive;
-      }
-    });
-  }
-
-  function editorInputValue(id, fallback) {
-    const el = $(id); const value = Number(el?.value);
-    return Number.isFinite(value) ? value : fallback;
-  }
-
-  function renderEditorUI() {
-    const button = $('sandbox-editor-btn');
-    const toolbar = $('sandbox-editor-toolbar');
-    const selectedLabel = $('sandbox-editor-selected');
-    const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
-    if (button) {
-      button.classList.toggle('active', !!state.editorMode);
-      button.textContent = state.editorMode ? '✎ Editor activo' : '✎ Modo Editor';
-    }
-    if (toolbar) toolbar.hidden = !state.editorMode;
-    if (selectedLabel) selectedLabel.textContent = rec ? `Seleccionado: ${rec.name}` : 'Seleccioná un objeto';
-    const fields = {
-      'sandbox-editor-x': rec?.mesh.position.x ?? 0,
-      'sandbox-editor-y': rec?.mesh.position.y ?? 0,
-      'sandbox-editor-z': rec?.mesh.position.z ?? 0,
-      'sandbox-editor-rx': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.x) : 0,
-      'sandbox-editor-ry': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.y) : 0,
-      'sandbox-editor-rz': rec ? THREE.MathUtils.radToDeg(rec.mesh.rotation.z) : 0,
-      'sandbox-editor-scale': rec?.mesh.scale.x ?? 1,
-      'sandbox-editor-color': rec?.color || '#33ff77',
+async function fetchSandboxConfig() {
+    const defaults = {
+        enabled: true,
+        adminOnly: false,
+        maintenanceOnly: false,
+        emergencyStop: false,
+        autonomyEnabled: true,
+        maxCyclesPerSandbox: 30,
+        minIntervalSeconds: 6,
+        maxGlobalCallsPerHour: 300,
+        disabledTools: [],
+        sandboxModel: null,
+        systemPromptAddition: "",
     };
-    Object.entries(fields).forEach(([id, value]) => { const el = $(id); if (el && document.activeElement !== el) el.value = value; });
-    ['sandbox-editor-apply','sandbox-editor-duplicate','sandbox-editor-delete','sandbox-editor-focus'].forEach(id => { const el=$(id); if(el) el.disabled=!rec; });
-  }
-
-  const Editor = {
-    toggle() {
-      state.editorMode = !state.editorMode;
-      if (!state.editorMode) {
-        editorDrag = null;
-        if (controls) controls.enabled = true;
-        this.select(null);
-      }
-      renderEditorUI();
-      scheduleSave();
-    },
-    select(id) {
-      if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), false);
-      state.selectedObjectId = id && SceneManager.getObject(id) ? id : null;
-      if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
-      renderEditorUI();
-    },
-    applyFields() {
-      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
-      if (!rec) return;
-      const position = ['sandbox-editor-x','sandbox-editor-y','sandbox-editor-z'].map((id, i) => editorInputValue(id, rec.mesh.position.toArray()[i]));
-      const rotation = ['sandbox-editor-rx','sandbox-editor-ry','sandbox-editor-rz'].map((id, i) => THREE.MathUtils.degToRad(editorInputValue(id, 0)));
-      const s = clamp(editorInputValue('sandbox-editor-scale', 1), 0.1, 5);
-      SceneManager.updateObject(rec.id, { position, rotation, scale: [s,s,s] });
-      const color = $('sandbox-editor-color')?.value;
-      if (safeColor(color)) SceneManager.changeAppearance(rec.id, { color });
-      logAction(`Editor: actualizado ${rec.name}`);
-      renderEditorUI(); scheduleSave();
-    },
-    duplicate() {
-      if (!state.selectedObjectId) return;
-      const id = SceneManager.duplicateObject(state.selectedObjectId);
-      this.select(id); scheduleSave();
-    },
-    remove() {
-      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
-      if (!rec) return;
-      SceneManager.deleteObject(rec.id); state.selectedObjectId = null;
-      logAction(`Editor: eliminado ${rec.name}`); renderEditorUI(); scheduleSave();
-    },
-    focus() {
-      const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
-      if (!rec || !camera || !controls) return;
-      const target = rec.mesh.position.clone();
-      controls.target.copy(target); camera.position.copy(target.clone().add(new THREE.Vector3(5,4,5))); controls.update();
-    },
-  };
-
-  function bindEditorCanvas(canvas) {
-    if (!canvas || canvas.dataset.editorBound) return;
-    canvas.dataset.editorBound = '1';
-    canvas.addEventListener('pointerdown', event => {
-      if (!state.editorMode || !raycaster || !camera) return;
-      const rect = canvas.getBoundingClientRect();
-      const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-      raycaster.setFromCamera(pointer, camera);
-      const roots = Array.from(state.objects.values()).map(o => o.mesh);
-      const hit = raycaster.intersectObjects(roots, true)[0];
-      const id = findObjectIdFromHit(hit);
-      if (!id) { Editor.select(null); return; }
-      Editor.select(id);
-      editorDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: SceneManager.getObject(id).mesh.position.clone(), moved: false };
-      controls.enabled = false;
-      canvas.setPointerCapture?.(event.pointerId);
-    });
-    canvas.addEventListener('pointermove', event => {
-      if (!editorDrag || editorDrag.pointerId !== event.pointerId) return;
-      const rec = SceneManager.getObject(state.selectedObjectId); if (!rec) return;
-      const dx = (event.clientX - editorDrag.startX) / 42;
-      const dz = (event.clientY - editorDrag.startY) / 42;
-      const next = [editorDrag.origin.x + dx, editorDrag.origin.y, editorDrag.origin.z + dz];
-      const p = clampVec(next); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; editorDrag.moved = true;
-      renderEditorUI();
-    });
-    const finishDrag = event => {
-      if (!editorDrag || editorDrag.pointerId !== event.pointerId) return;
-      controls.enabled = true; canvas.releasePointerCapture?.(event.pointerId);
-      if (editorDrag.moved) { logAction(`Editor: movido ${state.selectedObjectId}`); scheduleSave(); }
-      editorDrag = null;
-    };
-    canvas.addEventListener('pointerup', finishDrag);
-    canvas.addEventListener('pointercancel', finishDrag);
-  }
-
-  // ============================================================
-  //  TOOL REGISTRY — únicas acciones que el agente puede ejecutar
-
-  // ============================================================
-  function sanitizeText(t, max) { return String(t == null ? '' : t).slice(0, max || 400); }
-
-  const TOOLS = {
-    send_message: ({ text }) => { pushMessage('agent', sanitizeText(text, 400)); return { ok: true }; },
-    create_3d_object: ({ name, parts, position }) => {
-      if (!Array.isArray(parts) || !parts.length) throw new Error('parts requerido');
-      const id = SceneManager.addObject({ name: sanitizeText(name, 40), parts, position });
-      logAction(`Creado objeto: ${sanitizeText(name,40)}`); return { ok: true, id };
-    },
-    create_lowpoly_object: ({ name, semanticType, meshes, position, color }) => {
-      const parts = validateGeneratedLowPolyMeshes(meshes, color);
-      const id = SceneManager.addObject({ name: sanitizeText(name, 40), type: 'lowpoly_mesh', parts, position });
-      logAction(`Creada malla low-poly generada por IA: ${sanitizeText(name,40)}`);
-      return { ok: true, id, semanticType: semanticType || 'custom', vertices: parts.reduce((n, p) => n + (Array.isArray(p.vertices) ? p.vertices.length : 0), 0), parts: parts.length };
-    },
-    update_lowpoly_object: ({ id, semanticType, meshes, position, color }) => {
-      const rec = SceneManager.getObject(id);
-      if (!rec) throw new Error(`No existe el objeto low-poly ${id}.`);
-      const parts = validateGeneratedLowPolyMeshes(meshes, color || rec?.color);
-      SceneManager.updateObject(id, { parts, position });
-      logAction(`Malla low-poly generada por IA modificada: ${id}`);
-      return { ok: true, id, semanticType: semanticType || 'custom', parts: parts.length };
-    },
-    update_3d_object: ({ id, parts, position }) => {
-      SceneManager.updateObject(id, { parts, position }); logAction(`Objeto modificado: ${id}`); return { ok: true };
-    },
-    delete_3d_object: ({ id }) => {
-      const ok = SceneManager.deleteObject(id); logAction(`Objeto eliminado: ${id}`); return { ok };
-    },
-    create_3d_text: ({ id, text, position, color }) => {
-      const oid = SceneManager.addObject({ id, type: 'text', text: sanitizeText(text, 40), position, color, name: sanitizeText(text,40) });
-      logAction(`Texto creado: "${sanitizeText(text,40)}"`); return { ok: true, id: oid };
-    },
-    move_object: ({ id, position, duration }) => { SceneManager.moveObject(id, position, duration); logAction(`Moviendo ${id}`); return { ok: true }; },
-    rotate_object: ({ id, rotation, duration }) => { SceneManager.rotateObject(id, rotation, duration); logAction(`Rotando ${id}`); return { ok: true }; },
-    scale_object: ({ id, scale, duration }) => { SceneManager.scaleObject(id, scale, duration); logAction(`Escalando ${id}`); return { ok: true }; },
-    change_object_appearance: ({ id, color, opacity, wireframe }) => { SceneManager.changeAppearance(id, { color, opacity, wireframe }); logAction(`Apariencia de ${id} actualizada`); return { ok: true }; },
-    inspect_scene: () => SceneManager.inspect(),
-    save_memory: ({ key, value }) => {
-      if (!key) throw new Error('key requerido');
-      if (Object.keys(state.memory).length >= 40 && !(key in state.memory)) throw new Error('Memoria llena');
-      state.memory[String(key).slice(0,60)] = sanitizeText(value, 500);
-      logAction(`Memoria guardada: ${key}`); return { ok: true };
-    },
-    retrieve_memory: ({ key }) => ({ value: state.memory[key] ?? null }),
-    wait: ({ seconds }) => { logAction(`Esperando ${clamp(seconds||3,1,20)}s`); return { ok: true }; },
-    clear_scene: () => { SceneManager.clear(); logAction('Escena vaciada'); return { ok: true }; },
-    set_agent_state: ({ state: label, color }) => {
-      state.agentState = { label: sanitizeText(label, 24), color: safeColor(color) || state.agentState.color };
-      renderAgentStateHUD(); return { ok: true };
-    },
-  };
-
-  function executeTool(name, args) {
-    const fn = TOOLS[name];
-    if (!fn) throw new Error('Herramienta no permitida: ' + name);
-    return fn(args || {});
-  }
-    // ── Extensión externa del Tool Registry (usada por workspace.js) ──
-  function registerExternalTool(name, fn) {
-    if (typeof fn === 'function') TOOLS[name] = fn;
-  }
-
-  // API de puente controlada: el Workspace NUNCA toca SceneManager
-  // directamente, solo estas funciones explícitas.
-  const WorkspaceBridge = {
-    createObject: (meta) => SceneManager.addObject(meta),
-    deleteObject: (id) => SceneManager.deleteObject(id),
-    moveObject: (id, position, duration) => SceneManager.moveObject(id, position, duration),
-    rotateObject: (id, rotation, duration) => SceneManager.rotateObject(id, rotation, duration),
-    scaleObject: (id, scale, duration) => SceneManager.scaleObject(id, scale, duration),
-    setColor: (id, color) => SceneManager.changeAppearance(id, { color }),
-    createText: (text, position, color) => SceneManager.addObject({ type: 'text', text, position, color }),
-    getSceneState: () => SceneManager.inspect(),
-  };
-
-  // ============================================================
-  //  CHAT / LOG UI
-  // ============================================================
-  function logAction(text) {
-    state.actionLog.push({ text, ts: Date.now() });
-    if (state.actionLog.length > 80) state.actionLog.shift();
-    const el = $('sandbox-action-log');
-    if (el) {
-      const line = document.createElement('div');
-      line.className = 'sbx-log-line';
-      const time = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      line.innerHTML = `<span class="sbx-log-time">[${time}]</span> ${escapeHtml(text)}`;
-      el.appendChild(line); el.scrollTop = el.scrollHeight;
-    }
-    scheduleSave();
-  }
-
-  function pushMessage(role, text) {
-    state.messages.push({ role, text, ts: Date.now() });
-    if (state.messages.length > 120) state.messages.shift();
-    renderMessage(role, text);
-    scheduleSave();
-  }
-
-  function renderMessage(role, text) {
-    const chat = $('sandbox-chat'); if (!chat) return;
-    const div = document.createElement('div');
-    div.className = role === 'user' ? 'user' : 'ai';
-    div.innerHTML = role === 'user' ? `<b>Tú:</b> ${escapeHtml(text)}` : `<b>🤖 Agente:</b> ${escapeHtml(text)}`;
-    chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
-  }
-
-  function renderAgentStateHUD() {
-    const el = $('sandbox-agent-state'); if (!el) return;
-    el.textContent = state.agentState.label;
-    el.style.color = state.agentState.color;
-    el.style.textShadow = `0 0 10px ${state.agentState.color}88`;
-  }
-
-  function renderUsageHUD() {
-    const el = $('sandbox-openrouter-usage'); if (!el) return;
-    const u = state.apiUsage || {};
-    const cost = Number(u.reportedCost || 0);
-    const model = u.last?.model ? ` · ${u.last.model}` : '';
-    el.textContent = `OpenRouter · ${Number(u.totalTokens || 0)} tokens · $${cost.toFixed(6)}${model}`;
-    el.title = u.last?.generationId ? `Generation: ${u.last.generationId}` : 'Uso de la API exclusiva del Sandbox';
-  }
-
-  function recordModelUsage(decision) {
-    const usage = decision?.usage || {};
-    const promptTokens = Number(usage.prompt_tokens || usage.input_tokens || 0);
-    const completionTokens = Number(usage.completion_tokens || usage.output_tokens || 0);
-    const totalTokens = Number(usage.total_tokens || promptTokens + completionTokens);
-    const rawCost = decision?.cost ?? usage.cost ?? usage.cost_details?.upstream_inference_cost;
-    const reportedCost = rawCost == null || rawCost === '' ? null : Number(rawCost);
-    state.apiUsage.requests += 1;
-    state.apiUsage.promptTokens += promptTokens;
-    state.apiUsage.completionTokens += completionTokens;
-    state.apiUsage.totalTokens += totalTokens;
-    if (Number.isFinite(reportedCost)) state.apiUsage.reportedCost += reportedCost;
-    state.apiUsage.last = {
-      at: Date.now(), model: decision?.model || 'desconocido', provider: decision?.provider || 'Gemini',
-      generationId: decision?.generationId || null, promptTokens, completionTokens, totalTokens,
-      reportedCost: Number.isFinite(reportedCost) ? reportedCost : null,
-    };
-    const costText = Number.isFinite(reportedCost) ? `$${reportedCost.toFixed(6)}` : 'no informado';
-    renderUsageHUD();
-    logAction(`${state.apiUsage.last.provider} | ${state.apiUsage.last.model} | ${totalTokens} tokens | costo reportado: ${costText}`);
-  }
-
-  function setStatus(s) {
-    state.status = s;
-    const el = $('sandbox-status-pill'); if (!el) return;
-    const labels = { idle:'Inactivo', thinking:'Pensando…', acting:'Actuando…', waiting:'Esperando…', paused:'Pausado', error:'Error' };
-    el.textContent = labels[s] || s;
-    el.className = 'sbx-status-pill sbx-status-' + s;
-  }
-
-  // Muestra, si existe el elemento opcional #sandbox-cycles-info,
-  // cuántos ciclos autónomos lleva usados el Sandbox actual sobre
-  // el máximo configurado por el admin. No falla si el elemento
-  // no existe en tu HTML — es puramente informativo.
-  function updateCyclesHUD(used, max) {
-    const el = $('sandbox-cycles-info');
-    if (!el) return;
-    el.textContent = `⚙ ${used}/${max} ciclos`;
-    el.style.color = used >= max * 0.8 ? '#ffaa44' : '#6a6';
-  }
-
-  // ============================================================
-  //  AGENT LOOP
-  // ============================================================
-  async function requestAgentDecision(userText) {
-    const payload = {
-      messages: state.messages.slice(-16).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
-      scene: { objects: SceneManager.inspect().objects },
-      memoryKeys: Object.keys(state.memory),
-      lastActions: state.actionLog.slice(-6).map(a => a.text),
-      autonomous: !userText,
-      userText: userText || null,
-      // ── NUEVO: necesarios para que el servidor pueda aplicar límites
-      //    por-sandbox y el modo "solo administradores" del panel Admin ──
-      userId: currentUser?.uid || 'anon',
-      sandboxId: sandboxId || 'default',
-      isAdmin: window.__isAdminFlag === true,
-      workspace: (window.CutRealWorkspace && typeof window.CutRealWorkspace.getContextForAgent === 'function')
-        ? window.CutRealWorkspace.getContextForAgent() : null,
-    };
-
-    const res = await fetch('/api/sandbox-agent', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* respuesta sin body, se maneja abajo */ }
-
-    // 423 / 403 / 503 → el Sandbox está bloqueado por un admin
-    // (desactivado, solo-admin, mantenimiento o emergencia global).
-    if (res.status === 423 || res.status === 403 || res.status === 503) {
-      const err = new Error((data && data.error) || 'El Sandbox no está disponible ahora mismo.');
-      err.blocked = true;
-      err.code = (data && data.code) || 'BLOCKED';
-      throw err;
-    }
-
-    // 429 → límite de Gemini o límite global del admin.
-    // Conservamos el Retry-After enviado por el servidor para no
-    // reintentar cada 20 segundos cuando el límite es más largo.
-    if (res.status === 429) {
-      const err = new Error((data && (data.message || data.error)) || 'Gemini está limitando temporalmente el Sandbox.');
-      err.rateLimited = true;
-      err.retryAfterMs = Number(data && data.retryAfterMs) || RATE_LIMIT_RETRY_MS;
-      err.code = (data && data.code) || 'RATE_LIMITED';
-      throw err;
-    }
-
-    if (!res.ok) {
-      const baseMessage = (data && data.error) || ('El agente no respondió (HTTP ' + res.status + ')');
-      const detail = data && data.detail ? ` — ${data.detail}` : '';
-      const code = data && data.code ? ` [${data.code}]` : '';
-      const build = data && data.build ? ` {build ${data.build}}` : '';
-      throw new Error(`${baseMessage}${detail}${code}${build}`);
-    }
-
-    return data;
-  }
-
-  async function runOneStep(userText) {
-    if (agentRequestInFlight) {
-      if (userText) showToastSafe('El agente ya está procesando una solicitud.', '#ffaa33');
-      return;
-    }
-    agentRequestInFlight = true;
     try {
-      return await runOneStepInternal(userText);
-    } finally {
-      agentRequestInFlight = false;
+        const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/config/sandbox_control`;
+        const res = await fetch(url);
+        if (!res.ok) return defaults; // doc no existe todavía → valores por defecto
+        const doc = await res.json();
+        return { ...defaults, ...parseFirestoreFields(doc.fields) };
+    } catch {
+        return defaults; // fail-open: si Firestore no responde, el sandbox sigue andando con defaults sanos
     }
-  }
+}
 
-  async function runOneStepInternal(userText) {
-    setStatus('thinking');
-    let decision;
+// ── ESTADO EN MEMORIA PARA CONTROL DE CONSUMO ───────────────
+// (vive mientras la instancia serverless esté caliente, igual que el
+// contador de keys — no es persistencia real entre despliegues, pero
+// sí frena loops dentro de una misma sesión activa, que es el problema real)
+if (!global._sandboxAgentState) {
+    global._sandboxAgentState = {
+        perSandbox: new Map(),   // sandboxId -> { lastAutonomousAt, autonomousStreak }
+        globalCallTimestamps: [], // rolling window para el límite global/hora
+    };
+}
+const AGENT_STATE = global._sandboxAgentState;
+
+function getSandboxState(sandboxId) {
+    if (!AGENT_STATE.perSandbox.has(sandboxId)) {
+        AGENT_STATE.perSandbox.set(sandboxId, { lastAutonomousAt: 0, autonomousStreak: 0 });
+    }
+    return AGENT_STATE.perSandbox.get(sandboxId);
+}
+
+function checkGlobalRateLimit(maxPerHour) {
+    const now = Date.now();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    AGENT_STATE.globalCallTimestamps = AGENT_STATE.globalCallTimestamps.filter(t => t > oneHourAgo);
+    if (AGENT_STATE.globalCallTimestamps.length >= maxPerHour) return false;
+    AGENT_STATE.globalCallTimestamps.push(now);
+    return true;
+}
+
+// ── HANDLER PRINCIPAL ────────────────────────────────────────
+export default async function handler(req, res) {
     try {
-      decision = await requestAgentDecision(userText);
+        return await handleSandboxRequest(req, res);
     } catch (e) {
-      // Bloqueado por un admin: se corta la autonomía del todo, sin
-      // reintentar solo — el usuario tiene que reactivarla a mano
-      // (o esperar a que el admin la reactive/desbloquee).
-      if (e.blocked) {
-        logAction('🛑 ' + e.message);
-        setStatus('paused');
-        stopAutonomy(e.message);
-        showToastSafe(e.message, '#ff4444');
-        return;
-      }
-      // Límite de consumo: una consulta manual debe terminar en error
-      // visible; solo la autonomía se programa para reintentar.
-      if (e.rateLimited) {
-        const retryMs = Math.max(3000, Number(e.retryAfterMs) || RATE_LIMIT_RETRY_MS);
-        const retrySeconds = Math.ceil(retryMs / 1000);
-        const message = `${e.message} Reintento recomendado en ${retrySeconds}s.`;
-        logAction('⚡ ' + message);
-        if (userText) {
-          setStatus('error');
-          showToastSafe(message, '#ffaa33');
-        } else {
-          setStatus('waiting');
-          if (state.autonomyEnabled && !state.paused) scheduleNextTick(retryMs);
+        console.error("[sandbox-agent] Error no controlado:", e);
+        return res.status(500).json({
+            error: "Error interno del agente Sandbox.",
+            detail: e?.message || "Error desconocido",
+            code: e?.code || "SANDBOX_AGENT_INTERNAL_ERROR",
+            build: SANDBOX_AGENT_BUILD,
+        });
+    }
+}
+
+async function handleSandboxRequest(req, res) {
+    if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+
+    const {
+        messages = [], scene = {}, memoryKeys = [],
+        lastActions = [], autonomous = false, userText = null,
+        userId = "anon", sandboxId = "default", isAdmin = false,
+        workspace = null,
+    } = req.body || {};
+
+    if (!Array.isArray(messages))
+        return res.status(400).json({ error: "'messages' inválido." });
+
+    // El cliente actual envía arrays y objetos completos, pero estos valores se
+    // normalizan para que una sesión antigua o un payload parcial no genere una
+    // excepción antes del manejo de errores del proveedor.
+    const safeScene = scene && typeof scene === "object" ? scene : {};
+    const safeSceneObjects = Array.isArray(safeScene.objects)
+        ? safeScene.objects.filter(o => o && typeof o === "object")
+        : [];
+    const safeMemoryKeys = Array.isArray(memoryKeys) ? memoryKeys : [];
+    const safeLastActions = Array.isArray(lastActions) ? lastActions : [];
+
+    const config = await fetchSandboxConfig();
+
+    // ── 1) BOTÓN DE EMERGENCIA — máxima prioridad ────────
+    if (config.emergencyStop) {
+        return res.status(423).json({
+            error: "🛑 Autonomía detenida globalmente por un administrador.",
+            code: "EMERGENCY_STOP",
+        });
+    }
+
+    // ── 2) SANDBOX DESHABILITADO / SOLO-ADMIN / MANTENIMIENTO ──
+    if (config.enabled === false) {
+        return res.status(423).json({ error: "El Sandbox está desactivado por un administrador.", code: "SANDBOX_DISABLED" });
+    }
+    if (config.adminOnly && !isAdmin) {
+        return res.status(403).json({ error: "El Sandbox está disponible solo para administradores por ahora.", code: "ADMIN_ONLY" });
+    }
+    if (config.maintenanceOnly && !isAdmin) {
+        return res.status(503).json({ error: "El Sandbox está en mantenimiento.", code: "MAINTENANCE" });
+    }
+
+    // ── 3) LÍMITES DE AUTONOMÍA (esto es lo que evita el gasto descontrolado) ──
+    if (autonomous) {
+        if (config.autonomyEnabled === false) {
+            return res.status(423).json({ error: "La autonomía está desactivada globalmente.", code: "AUTONOMY_DISABLED" });
         }
-        return;
-      }
-      // Error real (red, servidor caído, etc.)
-      state.consecutiveErrors++;
-      logAction('⚠️ Error consultando al agente: ' + e.message);
-      setStatus('error');
-      if (state.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) stopAutonomy('Demasiados errores seguidos.');
-      return;
-    }
-        state.consecutiveErrors = 0;
-    if (decision && (decision.model || decision.usage || decision.generationId)) recordModelUsage(decision);
-    if (decision?.build && state.lastSandboxBuild !== decision.build) {
-      state.lastSandboxBuild = decision.build;
-      logAction(`Backend Sandbox activo: ${decision.build}`);
-    }
 
-    // El servidor puede "saltear" este paso sin haber llamado a Gemini:
-    // cooldown propio, tope de ciclos del admin, o límite global.
-    // En todos los casos, el límite del admin gana — no reintentamos
-    // agresivamente ni lo tratamos como error.
-    if (decision && decision.skipped) {
-      if (decision.reason === 'cooldown') {
-        setStatus('waiting');
-        if (state.autonomyEnabled && !state.paused) {
-          scheduleNextTick(Math.max(decision.waitMs || MIN_COOLDOWN_MS, 500));
+        const state = getSandboxState(sandboxId);
+        const now = Date.now();
+        const minIntervalMs = Math.max(1, config.minIntervalSeconds) * 1000;
+
+        if (now - state.lastAutonomousAt < minIntervalMs) {
+            // No es un error: le decimos al cliente que espere, SIN llamar a Gemini.
+            return res.status(200).json({
+                skipped: true,
+                reason: "cooldown",
+                waitMs: minIntervalMs - (now - state.lastAutonomousAt),
+            });
         }
-        return;
-      }
-      if (decision.reason === 'max_cycles_reached') {
-        logAction('⏹ ' + (decision.message || 'Máximo de ciclos autónomos alcanzado (límite del admin).'));
-        stopAutonomy(decision.message || 'Máximo de ciclos alcanzado.');
-        return;
-      }
-      if (decision.reason === 'global_rate_limit') {
-        logAction('⚡ ' + (decision.message || 'Límite global de consumo del Sandbox alcanzado.'));
-        setStatus('waiting');
-        if (state.autonomyEnabled && !state.paused) scheduleNextTick(RATE_LIMIT_RETRY_MS);
-        return;
-      }
-      setStatus('idle');
-      return;
+
+        if (state.autonomousStreak >= config.maxCyclesPerSandbox) {
+            return res.status(200).json({
+                skipped: true,
+                reason: "max_cycles_reached",
+                message: `Se alcanzó el máximo de ${config.maxCyclesPerSandbox} ciclos autónomos seguidos. Escribile algo al agente para reactivarlo.`,
+            });
+        }
+
+        if (!checkGlobalRateLimit(config.maxGlobalCallsPerHour)) {
+            return res.status(429).json({
+                skipped: true,
+                reason: "global_rate_limit",
+                message: "Se alcanzó el límite global de llamadas del Sandbox para esta hora (configurado por un admin).",
+            });
+        }
+
+        state.lastAutonomousAt = now;
+        state.autonomousStreak += 1;
+    } else if (userText) {
+        // Un mensaje real del usuario resetea el contador de ciclos autónomos
+        const state = getSandboxState(sandboxId);
+        state.autonomousStreak = 0;
     }
 
-    if (decision.assistantText) pushMessage('agent', decision.assistantText);
+    const effectiveUserText = userText || (messages.length && messages[messages.length - 1]?.content) || "";
+    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(effectiveUserText);
 
-    setStatus('acting');
-    const toolCalls = (decision.toolCalls || []).slice(0, 4);
-    if (toolCalls.length) {
-      logAction(`Tools recibidas: ${toolCalls.map(call => call.name || 'desconocida').join(', ')}`);
-    } else if (userText && !decision.assistantText) {
-      logAction('⚠️ El modelo respondió sin texto ni tools; se reintentará con la tool visual forzada si corresponde.');
+    // ── 4) FILTRAR HERRAMIENTAS DESHABILITADAS ───────────
+    const disabled = new Set(
+        (Array.isArray(config.disabledTools) ? config.disabledTools : [])
+            .filter(name => typeof name === "string")
+    );
+    const TOOLS = selectToolsForRequest(effectiveUserText, autonomous)
+        .filter(t => !disabled.has(t.function.name));
+
+    // ── 5) ARMAR CONTEXTO Y SYSTEM PROMPT ────────────────
+    const selectedBasePrompt = directLowPolyRequest ? DIRECT_LOWPOLY_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT;
+    const systemPrompt = config.systemPromptAddition
+        ? `${selectedBasePrompt}\n\nInstrucciones adicionales del administrador:\n${config.systemPromptAddition}`
+        : selectedBasePrompt;
+
+    const contextParts = directLowPolyRequest
+        ? [
+            `Solicitud 3D directa: ${String(effectiveUserText).slice(0, 500)}`,
+            `Objetos existentes: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 700)}`,
+          ]
+        : [
+            `Modo: ${autonomous ? "ciclo autónomo (nadie te habló, decidí vos qué hacer)" : "respondiendo a un mensaje del usuario"}`,
+            `Objetos actuales en escena: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
+            `Claves de memoria disponibles: ${JSON.stringify(safeMemoryKeys).slice(0, 500)}`,
+            `Últimas acciones: ${JSON.stringify(safeLastActions.slice(-6))}`,
+          ];
+    if (workspace && !directLowPolyRequest) {
+        contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1800)}`);
+        contextParts.push(`Workspace — archivo activo: ${workspace.activeFile || "ninguno"}`);
+        if (workspace.activeContent) {
+            contextParts.push(`Workspace — contenido del archivo activo (${workspace.activeFile}):\n${String(workspace.activeContent).slice(0, 14000)}`);
+        }
+        if (Array.isArray(workspace.relevantFiles) && workspace.relevantFiles.length) {
+            const snippets = workspace.relevantFiles
+                .filter(f => f && typeof f === "object")
+                .map(f => `--- ${f.path || "archivo"} ---\n${String(f.content || '').slice(0, 4500)}`)
+                .join("\n");
+            contextParts.push(`Workspace — archivos relevantes:\n${snippets.slice(0, 15000)}`);
+        }
+        if (Array.isArray(workspace.lastErrors) && workspace.lastErrors.length) {
+            contextParts.push(`Workspace — últimos errores de ejecución: ${JSON.stringify(workspace.lastErrors)}`);
+        }
     }
-    for (const call of toolCalls) {
-      const toolEl = $('sandbox-current-tool');
-      if (toolEl) toolEl.textContent = '⚙ ' + call.name;
-      try { executeTool(call.name, call.args); }
-      catch (e) { logAction(`⚠️ Herramienta "${call.name}" falló: ${e.message}`); }
+    const latestMessage = messages[messages.length - 1];
+    const latestContent = latestMessage && typeof latestMessage === "object"
+        ? String(latestMessage.content ?? latestMessage.text ?? "")
+        : "";
+    if (userText && latestContent.trim() !== String(userText).trim()) {
+        contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
     }
-    const toolEl = $('sandbox-current-tool'); if (toolEl) toolEl.textContent = '';
 
-    if (decision.cyclesUsed != null && decision.cyclesMax != null) {
-      updateCyclesHUD(decision.cyclesUsed, decision.cyclesMax);
-    }
-    scheduleSave();
-    if (userText) setStatus('idle');
-  }
+    const compactMessages = directLowPolyRequest
+        ? [{ role: "user", content: String(effectiveUserText).slice(0, 700) }]
+        : messages
+            .slice(-6)
+            .filter(m => m && (m.role === "user" || m.role === "assistant"))
+            .map(m => ({
+                role: m.role,
+                content: String(m.content ?? m.text ?? "").slice(0, 900),
+            }))
+            .filter(m => m.content);
+    const fullMessages = [
+        { role: "system", content: systemPrompt },
+        { role: "system", content: contextParts.join("\n") },
+        ...compactMessages,
+    ];
 
-  let autonomyTimer = null;
-  function startAutonomy() {
-    if (!sandboxId) return;
-    state.autonomyEnabled = true; state.paused = false; state.consecutiveSteps = 0;
-    updateAutonomyUI(); scheduleNextTick(300);
-  }
-  function pauseAutonomy() {
-    state.paused = true; setStatus('paused'); updateAutonomyUI();
-    if (autonomyTimer) clearTimeout(autonomyTimer);
-  }
-  function resumeAutonomy() {
-    if (!state.autonomyEnabled) return;
-    state.paused = false; updateAutonomyUI(); scheduleNextTick(300);
-  }
-  function stopAutonomy(reason) {
-    state.autonomyEnabled = false; state.paused = false;
-    if (autonomyTimer) clearTimeout(autonomyTimer);
-    setStatus('idle'); updateAutonomyUI();
-    if (reason) logAction('⏹ Autonomía detenida: ' + reason);
-    persistSandbox(true);
-  }
-  function scheduleNextTick(delay) {
-    if (autonomyTimer) clearTimeout(autonomyTimer);
-    autonomyTimer = setTimeout(async () => {
-      if (!state.autonomyEnabled || state.paused) return;
-      if (state.consecutiveSteps >= MAX_STEPS_PER_RUN) { stopAutonomy('Límite de pasos alcanzado (piso local).'); return; }
-      state.consecutiveSteps++;
-      await runOneStep(null);
-      if (state.autonomyEnabled && !state.paused) { setStatus('waiting'); scheduleNextTick(MIN_COOLDOWN_MS); }
-    }, delay);
-  }
-  async function stepOnce() {
-    if (!sandboxId) return;
-    await runOneStep(null);
-    setStatus('idle');
-  }
+    // ── 6) MODELO Y FALLBACK DEL PROVEEDOR ───────────────────
+    // El cliente conserva `models` solo para proveedores que soportan fallback
+    // nativo; Gemini recibe un único modelo válido y no recibe ese campo.
+        const configuredPrimary = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxModel
+            ? config.sandboxModel : PRIMARY_MODEL;
+        const configuredFallback = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxFallbackModel
+            ? config.sandboxFallbackModel : FALLBACK_MODEL;
+    const modelsToTry = configuredFallback && configuredFallback !== configuredPrimary
+        ? [configuredPrimary, configuredFallback]
+        : [configuredPrimary];
+    let requestedModel = modelsToTry[0];
+    const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
+    const toolChoice = directLowPolyRequest && lowPolyToolEnabled
+        ? { type: "function", function: { name: "create_lowpoly_object" } }
+        : "auto";
 
-  function updateAutonomyUI() {
-    $('sandbox-autonomy-toggle')?.classList.toggle('active', state.autonomyEnabled && !state.paused);
-    const pauseBtn = $('sandbox-pause-btn');
-    if (pauseBtn) pauseBtn.textContent = state.paused ? '▶ Reanudar' : '⏸ Pausar';
-  }
-
-  // ============================================================
-  //  PERSISTENCIA FIREBASE — chats/{uid}/sandboxes/{id}
-  // ============================================================
-  function sandboxCollection() {
-    const { collection } = window.firestore;
-    return collection(window.db, 'chats', currentUser.uid, 'sandboxes');
-  }
-  function sandboxDoc(id) {
-    const { doc } = window.firestore;
-    return doc(window.db, 'chats', currentUser.uid, 'sandboxes', id);
-  }
-
-  const scheduleSave = debounce(() => persistSandbox(false), SAVE_DEBOUNCE_MS);
-
-  async function persistSandbox() {
-    if (!currentUser || !sandboxId) return;
     try {
-      const { setDoc } = window.firestore;
-      await setDoc(sandboxDoc(sandboxId), {
-        updatedAt: Date.now(),
-        messages: state.messages.slice(-120),
-        memory: state.memory,
-        actionLog: state.actionLog.slice(-80).map(a => a.text + '|' + a.ts),
-        scene: SceneManager.serialize(),
-        editorMode: state.editorMode,
-        selectedObjectId: state.selectedObjectId,
-        autonomyEnabled: state.autonomyEnabled,
-        apiUsage: state.apiUsage,
-      }, { merge: true });
-    } catch (e) { console.warn('[Sandbox] Error guardando:', e); }
-  }
+        const result = await callWorkspaceModel({
+            model: requestedModel,
+            models: modelsToTry,
+            messages: fullMessages,
+            tools: TOOLS,
+            tool_choice: toolChoice,
+            temperature: directLowPolyRequest ? 0.25 : 0.7,
+            max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+            parallel_tool_calls: false,
+            ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
+        });
 
-  async function loadSandboxList() {
-    const { getDocs, query, orderBy } = window.firestore;
-    try {
-      const snap = await getDocs(query(sandboxCollection(), orderBy('updatedAt', 'desc')));
-      sandboxListCache = [];
-      snap.forEach(d => sandboxListCache.push({ id: d.id, ...d.data() }));
-    } catch (e) { sandboxListCache = []; }
-    renderSandboxList();
-  }
+        if (result.limited) {
+            return res.status(429).json({
+                error: result.message || `El proveedor ${WORKSPACE_MODEL_PROVIDER} está limitando temporalmente el Sandbox.`,
+                retryAfterMs: result.retryAfterMs || 60000,
+                code: "SANDBOX_PROVIDER_RATE_LIMITED",
+            });
+        }
 
-  function renderSandboxList() {
-    const el = $('sandbox-list'); if (!el) return;
-    if (!sandboxListCache.length) { el.innerHTML = '<div class="sbx-empty">Todavía no creaste ningún Sandbox.</div>'; return; }
-    el.innerHTML = sandboxListCache.map(s => `
-      <div class="sbx-item ${s.id === sandboxId ? 'active' : ''}" onclick="CutRealSandbox.open('${s.id}')">
-        <span class="sbx-item-name">${escapeHtml(s.name || 'Sandbox')}</span>
-        <button class="sbx-item-del" onclick="event.stopPropagation();CutRealSandbox.remove('${s.id}')" title="Eliminar">🗑️</button>
-      </div>`).join('');
-  }
+        let response = result.response;
+        let data = result.data;
 
-  async function createSandbox() {
-    if (!currentUser) return;
-    const { doc, setDoc } = window.firestore;
-    const ref = doc(sandboxCollection());
-    const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], editorMode: false, selectedObjectId: null, autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+        // Un proyecto Gemini puede no tener habilitado el modelo principal.
+        // Si Google devuelve 404 y hay un fallback distinto, hacemos un único
+        // intento con ese modelo; nunca se cambia a OpenRouter ni a un modelo
+        // de pago automáticamente.
+        if (response && response.status === 404 && modelsToTry.length > 1) {
+            const fallbackModel = modelsToTry[1];
+            const fallbackResult = await callWorkspaceModel({
+                model: fallbackModel,
+                models: [fallbackModel],
+                messages: fullMessages,
+                tools: TOOLS,
+                tool_choice: toolChoice,
+                temperature: directLowPolyRequest ? 0.25 : 0.7,
+                max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                parallel_tool_calls: false,
+                ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
+            });
+            if (!fallbackResult.limited && fallbackResult.response?.ok) {
+                requestedModel = fallbackModel;
+                response = fallbackResult.response;
+                data = fallbackResult.data;
+            }
+        }
 
-    await loadSandboxList();
-    await openSandboxById(ref.id);
-  }
+        let qualityRetry = false;
+        let qualityFeedback = directLowPolyRequest ? lowPolyQualityFeedback(data) : null;
+        // Con el saldo actual no es seguro pagar dos generaciones completas.
+        // El modelo recibe el contrato detallado en la primera llamada; el
+        // reintento solo se habilita si el presupuesto configurado es amplio.
+        const qualityRetryAllowed = SANDBOX_MAX_OUTPUT_TOKENS >= 2400
+            && process.env.SANDBOX_ENABLE_QUALITY_RETRY !== "false";
+        if (qualityFeedback && qualityRetryAllowed) {
+            const retryMessages = [
+                ...fullMessages,
+                { role: "user", content: `La primera propuesta de malla fue rechazada por baja calidad: ${qualityFeedback}. Generá ahora una única create_lowpoly_object completa y diferente, con la cantidad de partes, vértices, triángulos y silueta anatómica solicitadas. No uses primitivas ni describas el resultado: enviá la tool call con meshes reales.` },
+            ];
+            const retryResult = await callWorkspaceModel({
+                model: requestedModel,
+                models: modelsToTry,
+                messages: retryMessages,
+                tools: TOOLS,
+                tool_choice: toolChoice,
+                temperature: 0.2,
+                max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                parallel_tool_calls: false,
+                reasoning: { effort: "none", exclude: true },
+            });
+            if (!retryResult.limited && retryResult.response?.ok) {
+                const firstUsage = data?.usage || {};
+                const secondData = retryResult.data || {};
+                const secondUsage = secondData.usage || {};
+                data = {
+                    ...secondData,
+                    usage: {
+                        ...secondUsage,
+                        prompt_tokens: Number(firstUsage.prompt_tokens || 0) + Number(secondUsage.prompt_tokens || 0),
+                        completion_tokens: Number(firstUsage.completion_tokens || 0) + Number(secondUsage.completion_tokens || 0),
+                        total_tokens: Number(firstUsage.total_tokens || 0) + Number(secondUsage.total_tokens || 0),
+                        cost: Number(firstUsage.cost || data?.cost || 0) + Number(secondUsage.cost || secondData.cost || 0),
+                    },
+                };
+                response = retryResult.response;
+                qualityRetry = true;
+                qualityFeedback = lowPolyQualityFeedback(data);
+            }
+        }
+        if (!response?.ok) {
+            const upstreamStatus = response?.status || 502;
+            const detail = data?.error?.message || `HTTP ${upstreamStatus}`;
+            const insufficientCredits = upstreamStatus === 402
+                || /requires more credits|can only afford|requested up to|insufficient credits|saldo insuficiente/i.test(String(detail));
+            if (insufficientCredits) {
+                return res.status(402).json({
+                    error: `El proveedor ${WORKSPACE_MODEL_PROVIDER} rechazó la solicitud por saldo o crédito insuficiente. En el nivel gratuito de Gemini no se requiere saldo monetario; verificá que GEMINI_API_KEY pertenezca a un proyecto activo y que no se esté enviando un modelo de pago. La solicitud necesita hasta ${SANDBOX_MAX_OUTPUT_TOKENS} tokens; no se generará una plantilla local.`,
+                    code: "SANDBOX_PROVIDER_INSUFFICIENT_CREDITS",
+                    upstreamStatus,
+                    requestedMaxTokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                    providerDetail: detail,
+                    build: SANDBOX_AGENT_BUILD,
+                });
+            }
+            // No convertir errores de autenticación, modelo o proveedor en un
+            // bloqueo administrativo del Sandbox.
+            return res.status(502).json({
+                error: `${WORKSPACE_MODEL_PROVIDER} no pudo responder: ${detail}`,
+                detail,
+                providerDetail: detail,
+                code: "SANDBOX_PROVIDER_REQUEST_FAILED",
+                upstreamStatus,
+                requestedModel,
+                build: SANDBOX_AGENT_BUILD,
+            });
+        }
 
-  async function openSandboxById(id) {
-    stopAutonomy();
-    sandboxId = id;
-    const { getDoc } = window.firestore;
-    const snap = await getDoc(sandboxDoc(id));
-    if (!snap.exists()) { showToastSafe('Ese Sandbox ya no existe', '#ff4444'); return; }
-    const data = snap.data();
-    state.messages = data.messages || [];
-    state.memory = data.memory || {};
-    state.actionLog = (data.actionLog || []).map(s => { const [text,ts]=String(s).split('|'); return { text, ts:+ts||Date.now() }; });
-    state.apiUsage = data.apiUsage || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null };
-    state.editorMode = data.editorMode === true;
-    state.selectedObjectId = null;
-    renderUsageHUD();
-    state.autonomyEnabled = false;
+        const msg = data.choices?.[0]?.message || {};
+        const toolCalls = (msg.tool_calls || []).map(tc => ({
+            id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
+        }));
+        if (directLowPolyRequest && !toolCalls.some(tc => tc.name === "create_lowpoly_object")) {
+            const finishReason = data?.choices?.[0]?.finish_reason || null;
+            return res.status(422).json({
+                error: finishReason === "length"
+                        ? `${WORKSPACE_MODEL_PROVIDER} truncó la llamada antes de completar meshes. Reducí el tamaño de la malla o verificá el límite de salida del proyecto para generar el modelo.`
+                        : "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
+                code: "LOWPOLY_TOOL_NOT_RETURNED",
+                model: data.model || requestedModel,
+                usage: data.usage || null,
+                cost: data.usage?.cost ?? data.cost ?? null,
+                build: SANDBOX_AGENT_BUILD,
+            });
+        }
+        return res.status(200).json({
+            assistantText: msg.content || null,
+            toolCalls,
+            model: data.model || requestedModel,
+            provider: data.provider || null,
+            generationId: data.id || null,
+            usage: data.usage || null,
+            cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
+            requestedModels: modelsToTry,
+            forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
+            availableTools: TOOLS.map(t => t.function.name),
+            qualityRetry,
+            qualityWarning: qualityFeedback,
+            qualityRetrySkipped: Boolean(qualityFeedback && !qualityRetryAllowed),
+            maxOutputTokens: SANDBOX_MAX_OUTPUT_TOKENS,
+            cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
+            cyclesMax: config.maxCyclesPerSandbox,
+            build: SANDBOX_AGENT_BUILD,
+        });
+    } catch (e) {
+        if (e.code === "NO_KEYS") {
+            return res.status(502).json({
+                error: `El Sandbox no tiene ${WORKSPACE_MODEL_PROVIDER === "gemini" ? "GEMINI_API_KEY" : "la clave del proveedor"} configurada.`,
+                code: "SANDBOX_PROVIDER_NOT_CONFIGURED",
+            });
+        }
+        return res.status(502).json({
+            error: "No se pudo obtener una decisión del agente.",
+                detail: e.message,
+                code: e.code || "SANDBOX_PROVIDER_REQUEST_FAILED",
+                build: SANDBOX_AGENT_BUILD,
+            });
+    }
+}
 
-    const chatEl = $('sandbox-chat'); if (chatEl) chatEl.innerHTML = '';
-    state.messages.forEach(m => renderMessage(m.role, m.text));
-    const logEl = $('sandbox-action-log'); if (logEl) { logEl.innerHTML = ''; state.actionLog.forEach(a => {
-      const line = document.createElement('div'); line.className = 'sbx-log-line';
-      line.textContent = `[${new Date(a.ts).toLocaleTimeString('es-AR')}] ${a.text}`; logEl.appendChild(line);
-    }); }
+function safeParseJSON(str) {
+    if (str && typeof str === "object") return str;
+    try { return JSON.parse(str || "{}"); } catch { return {}; }
+}
 
-        SceneManager.hydrate(data.scene || []);
-    state.selectedObjectId = data.selectedObjectId && SceneManager.getObject(data.selectedObjectId) ? data.selectedObjectId : null;
-    if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
-    setStatus('idle'); updateAutonomyUI(); renderAgentStateHUD(); renderEditorUI(); renderSandboxList();
-
-  }
-
-  async function removeSandbox(id) {
-    if (!confirm('¿Eliminar este Sandbox? Esta acción no se puede deshacer.')) return;
-    const { deleteDoc } = window.firestore;
-    await deleteDoc(sandboxDoc(id));
-    if (id === sandboxId) { sandboxId = null; const c=$('sandbox-chat'); if(c) c.innerHTML=''; SceneManager.clear(); }
-    await loadSandboxList();
-  }
-
-  function showToastSafe(msg, color) { if (window.showToast) window.showToast(msg, color); }
-
-  // ============================================================
-  //  ABRIR / CERRAR PANEL
-  // ============================================================
-  async function openSandboxPanel() {
-    if (!currentUser) { showToastSafe('Iniciá sesión para usar el Sandbox', '#ff8844'); return; }
-    const overlay = $('sandbox-overlay'); if (!overlay) return;
-    overlay.style.display = 'flex';
-    if (!threeReady) { initThree($('sandbox-canvas')); threeReady = true; }
-    resizeRenderer();
-    await loadSandboxList();
-    if (!sandboxId && sandboxListCache.length) await openSandboxById(sandboxListCache[0].id);
-  }
-  function closeSandboxPanel() {
-    const overlay = $('sandbox-overlay'); if (overlay) overlay.style.display = 'none';
-    pauseAutonomy();
-    persistSandbox(true);
-  }
-
-  function sendUserMessage() {
-    const input = $('sandbox-input'); if (!input) return;
-    const text = input.value.trim();
-    if (!text || !sandboxId) return;
-    input.value = '';
-    pushMessage('user', text);
-    runOneStep(text);
-  }
-
-  // ============================================================
-  //  AUTH HOOK (llamado desde main.js)
-  // ============================================================
-  function onAuthReady(user) {
-    currentUser = user;
-    if (!user) { sandboxId = null; sandboxListCache = []; }
-  }
-
-  function bindUI() {
-    $('sandbox-close-btn')?.addEventListener('click', closeSandboxPanel);
-    $('sandbox-new-btn')?.addEventListener('click', createSandbox);
-    $('sandbox-send-btn')?.addEventListener('click', sendUserMessage);
-    $('sandbox-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendUserMessage(); } });
-    $('sandbox-autonomy-toggle')?.addEventListener('click', () => state.autonomyEnabled ? stopAutonomy('Desactivado por el usuario') : startAutonomy());
-    $('sandbox-pause-btn')?.addEventListener('click', () => state.paused ? resumeAutonomy() : pauseAutonomy());
-        $('sandbox-step-btn')?.addEventListener('click', stepOnce);
-    $('sandbox-editor-btn')?.addEventListener('click', () => Editor.toggle());
-    $('sandbox-editor-apply')?.addEventListener('click', () => Editor.applyFields());
-    $('sandbox-editor-duplicate')?.addEventListener('click', () => Editor.duplicate());
-    $('sandbox-editor-delete')?.addEventListener('click', () => Editor.remove());
-    $('sandbox-editor-focus')?.addEventListener('click', () => Editor.focus());
-    $('sandbox-editor-color')?.addEventListener('input', () => { if (state.editorMode && state.selectedObjectId) Editor.applyFields(); });
-    document.addEventListener('keydown', event => {
-      if (!state.editorMode || !state.selectedObjectId || ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return;
-      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); Editor.remove(); }
-      if (event.key === 'Escape') Editor.select(null);
-    });
-    renderEditorUI();
-    $('sandbox-tab-chat')?.addEventListener('click', () => switchMobileTab('chat'));
-
-    $('sandbox-tab-scene')?.addEventListener('click', () => switchMobileTab('scene'));
-  }
-  function switchMobileTab(tab) {
-    $('sandbox-overlay')?.classList.toggle('sbx-show-scene', tab === 'scene');
-    $('sandbox-tab-chat')?.classList.toggle('active', tab === 'chat');
-    $('sandbox-tab-scene')?.classList.toggle('active', tab === 'scene');
-  }
-
-  document.addEventListener('DOMContentLoaded', bindUI);
-
-  // ---------- API PÚBLICA ----------
-  window.CutRealSandbox = {
-    open: openSandboxById, remove: removeSandbox, onAuthReady,
-    registerTool: registerExternalTool,
-    bridge: WorkspaceBridge,
-    getCurrentSandboxId: () => sandboxId,
-    getCurrentUser: () => currentUser,
-  };
-  window.openSandbox  = openSandboxPanel;
-  window.closeSandbox = closeSandboxPanel;
-
-})();
+function lowPolyQualityFeedback(data) {
+    const message = data?.choices?.[0]?.message || {};
+    const call = (message.tool_calls || []).find(tc => tc.function?.name === "create_lowpoly_object");
+    if (!call) return null;
+    const args = safeParseJSON(call.function?.arguments);
+    const meshes = Array.isArray(args.meshes) ? args.meshes : [];
+    const parts = meshes.length;
+    const totalVertices = meshes.reduce((sum, part) => sum + (Array.isArray(part?.vertices) ? part.vertices.length : 0), 0);
+    const totalFaces = meshes.reduce((sum, part) => sum + (Array.isArray(part?.faces) ? part.faces.length : 0), 0);
+    const boxLikeParts = meshes.filter(part => Array.isArray(part?.vertices) && Array.isArray(part?.faces) && part.vertices.length === 8 && part.faces.length === 12).length;
+    const roles = new Set(meshes.map(part => String(part?.role || '').trim().toLowerCase()).filter(Boolean));
+    const kind = String(args.semanticType || '').toLowerCase();
+    const issues = [];
+    const requestLabel = `${String(args.name || '')} ${kind}`;
+    const humanoidLike = /person|persona|humano|humanoid|personaje|b[ií]pedo|maniqu[ií]|figura humana|robot/i.test(requestLabel);
+    const animalLike = ['cat','person','robot','custom'].includes(kind) || /gato|perro|animal|felino|canino|criatura|monstruo/i.test(requestLabel);
+    const minimumParts = humanoidLike ? 10 : (animalLike ? 8 : 6);
+    const minimumVertices = humanoidLike ? 160 : (animalLike ? 80 : 56);
+    const minimumFaces = humanoidLike ? 280 : (animalLike ? 120 : 84);
+    if (parts < minimumParts) issues.push(`usa al menos ${minimumParts} submallas anatómicas`);
+    if (totalVertices < minimumVertices) issues.push(`usa al menos ${minimumVertices} vértices totales`);
+    if (totalFaces < minimumFaces) issues.push(`usa al menos ${minimumFaces} triángulos totales`);
+    if (boxLikeParts >= 4 && boxLikeParts >= Math.ceil(Math.max(parts, 1) * 0.6)) issues.push('no repitas cubos de 8 vértices y 12 triángulos; crea volúmenes con siluetas distintas');
+    if ((animalLike || humanoidLike) && roles.size < Math.min(parts, 6)) issues.push('asigna roles anatómicos distintos a las partes');
+    if (humanoidLike) {
+        const articulatedRolePattern = /torso|pelvis|head|head|neck|shoulder|arm|forearm|hand|thigh|leg|shin|foot|pie|brazo|antebrazo|mano|muslo|pantorrilla/i;
+        const articulatedRoles = [...roles].filter(role => articulatedRolePattern.test(role)).length;
+        if (articulatedRoles < 6) issues.push('separa torso, pelvis, cabeza y segmentos articulados de brazos y piernas');
+    }
+    return issues.length ? issues.join('; ') : null;
+}
