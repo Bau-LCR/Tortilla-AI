@@ -31,7 +31,7 @@ import {
 // Así se evita que este agente vuelva accidentalmente a modelos :free.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5004";
+const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5006";
 // El saldo disponible de OpenRouter puede variar entre solicitudes. Un límite
 // conservador evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
@@ -62,6 +62,9 @@ function selectToolsForRequest(text, autonomous) {
     if (isDirectLowPolyRequest(text)) {
         // En una creación 3D manual no enviamos set_agent_state, wait ni
         // send_message: el único resultado válido del turno es la malla.
+        // La descripción completa de la tool se conserva, pero el prompt
+        // directo de abajo mantiene el contexto suficientemente pequeño para
+        // que Qwen termine los argumentos vertices/faces.
         return ALL_TOOLS.filter(t => t.function.name === "create_lowpoly_object");
     }
     if (isWorkspaceRequest(text)) {
@@ -229,6 +232,16 @@ const ALL_TOOLS = [
       name: "get_project_structure", description: "Obtener la estructura completa de archivos/carpetas del Workspace.",
       parameters: { type: "object", properties: {} } } },
 ];
+
+const DIRECT_LOWPOLY_SYSTEM_PROMPT = `Sos un generador de mallas low-poly para Cut-real AI.
+
+Respondé EXCLUSIVAMENTE con una llamada completa a create_lowpoly_object. No escribas explicaciones, no llames set_agent_state, no llames send_message y no uses primitivas. La llamada debe incluir name y meshes; cada mesh debe incluir role, vertices y faces reales. Terminá todos los arrays JSON antes de finalizar.
+
+Usá entre 6 y 8 submallas compactas pero reconocibles. Cada submalla debe tener 6-12 vértices y 8-18 triángulos, con volumen cerrado o casi cerrado. Para un gato usá como mínimo body, head, muzzle, dos patas delanteras, dos patas traseras y tail; agregá orejas si el presupuesto lo permite. Para un humanoide usá torso, pelvis, cabeza, brazos y piernas segmentados. Las extremidades no deben ser cubos idénticos: afiná sus extremos y cambiá su dirección en las articulaciones.
+
+Escala: 1 unidad equivale aproximadamente a 1 metro; mantené las coordenadas entre -12 y 12. Las caras son índices triangulares desde cero: [a,b,c]. Usá colores por parte y flatShading=true cuando esté disponible. La geometría debe ser generada por vos: semanticType solo describe el resultado y nunca reemplaza meshes.
+
+Priorizá completar una malla válida y reconocible antes que agregar texto o partes incompletas.`;
 
 const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
 Además del mundo 3D, tenés un WORKSPACE:
@@ -435,26 +448,35 @@ async function handleSandboxRequest(req, res) {
         state.autonomousStreak = 0;
     }
 
+    const effectiveUserText = userText || (messages.length && messages[messages.length - 1]?.content) || "";
+    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(effectiveUserText);
+
     // ── 4) FILTRAR HERRAMIENTAS DESHABILITADAS ───────────
     const disabled = new Set(
         (Array.isArray(config.disabledTools) ? config.disabledTools : [])
             .filter(name => typeof name === "string")
     );
-    const TOOLS = selectToolsForRequest(userText, autonomous)
+    const TOOLS = selectToolsForRequest(effectiveUserText, autonomous)
         .filter(t => !disabled.has(t.function.name));
 
     // ── 5) ARMAR CONTEXTO Y SYSTEM PROMPT ────────────────
+    const selectedBasePrompt = directLowPolyRequest ? DIRECT_LOWPOLY_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT;
     const systemPrompt = config.systemPromptAddition
-        ? `${BASE_SYSTEM_PROMPT}\n\nInstrucciones adicionales del administrador:\n${config.systemPromptAddition}`
-        : BASE_SYSTEM_PROMPT;
+        ? `${selectedBasePrompt}\n\nInstrucciones adicionales del administrador:\n${config.systemPromptAddition}`
+        : selectedBasePrompt;
 
-    const contextParts = [
-        `Modo: ${autonomous ? "ciclo autónomo (nadie te habló, decidí vos qué hacer)" : "respondiendo a un mensaje del usuario"}`,
-        `Objetos actuales en escena: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
-        `Claves de memoria disponibles: ${JSON.stringify(safeMemoryKeys).slice(0, 500)}`,
-        `Últimas acciones: ${JSON.stringify(safeLastActions.slice(-6))}`,
-    ];
-    if (workspace) {
+    const contextParts = directLowPolyRequest
+        ? [
+            `Solicitud 3D directa: ${String(effectiveUserText).slice(0, 500)}`,
+            `Objetos existentes: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 700)}`,
+          ]
+        : [
+            `Modo: ${autonomous ? "ciclo autónomo (nadie te habló, decidí vos qué hacer)" : "respondiendo a un mensaje del usuario"}`,
+            `Objetos actuales en escena: ${JSON.stringify(safeSceneObjects.map(o => ({ id: o.id, name: o.name, type: o.type }))).slice(0, 2000)}`,
+            `Claves de memoria disponibles: ${JSON.stringify(safeMemoryKeys).slice(0, 500)}`,
+            `Últimas acciones: ${JSON.stringify(safeLastActions.slice(-6))}`,
+          ];
+    if (workspace && !directLowPolyRequest) {
         contextParts.push(`Workspace — archivos: ${JSON.stringify(workspace.files || []).slice(0, 1800)}`);
         contextParts.push(`Workspace — archivo activo: ${workspace.activeFile || "ninguno"}`);
         if (workspace.activeContent) {
@@ -479,14 +501,16 @@ async function handleSandboxRequest(req, res) {
         contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
     }
 
-    const compactMessages = messages
-        .slice(-6)
-        .filter(m => m && (m.role === "user" || m.role === "assistant"))
-        .map(m => ({
-            role: m.role,
-            content: String(m.content ?? m.text ?? "").slice(0, 900),
-        }))
-        .filter(m => m.content);
+    const compactMessages = directLowPolyRequest
+        ? [{ role: "user", content: String(effectiveUserText).slice(0, 700) }]
+        : messages
+            .slice(-6)
+            .filter(m => m && (m.role === "user" || m.role === "assistant"))
+            .map(m => ({
+                role: m.role,
+                content: String(m.content ?? m.text ?? "").slice(0, 900),
+            }))
+            .filter(m => m.content);
     const fullMessages = [
         { role: "system", content: systemPrompt },
         { role: "system", content: contextParts.join("\n") },
@@ -505,8 +529,6 @@ async function handleSandboxRequest(req, res) {
         ? [configuredPrimary, configuredFallback]
         : [configuredPrimary];
     const requestedModel = modelsToTry[0];
-    const effectiveUserText = userText || (messages.length && messages[messages.length - 1]?.content) || "";
-    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(effectiveUserText);
     const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
     const toolChoice = directLowPolyRequest && lowPolyToolEnabled
         ? { type: "function", function: { name: "create_lowpoly_object" } }
@@ -519,8 +541,10 @@ async function handleSandboxRequest(req, res) {
             messages: fullMessages,
             tools: TOOLS,
             tool_choice: toolChoice,
-            temperature: 0.7,
+            temperature: directLowPolyRequest ? 0.25 : 0.7,
             max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+            parallel_tool_calls: false,
+            ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
         });
 
         if (result.limited) {
@@ -551,8 +575,10 @@ async function handleSandboxRequest(req, res) {
                 messages: retryMessages,
                 tools: TOOLS,
                 tool_choice: toolChoice,
-                temperature: 0.55,
+                temperature: 0.2,
                 max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                parallel_tool_calls: false,
+                reasoning: { effort: "none", exclude: true },
             });
             if (!retryResult.limited && retryResult.response?.ok) {
                 const firstUsage = data?.usage || {};
@@ -591,8 +617,11 @@ async function handleSandboxRequest(req, res) {
             id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
         }));
         if (directLowPolyRequest && !toolCalls.some(tc => tc.name === "create_lowpoly_object")) {
+            const finishReason = data?.choices?.[0]?.finish_reason || null;
             return res.status(422).json({
-                error: "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
+                error: finishReason === "length"
+                    ? "OpenRouter truncó la llamada antes de completar meshes. Se necesita más saldo o un modelo sin razonamiento para generar la malla."
+                    : "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
                 code: "LOWPOLY_TOOL_NOT_RETURNED",
                 model: data.model || requestedModel,
                 usage: data.usage || null,
