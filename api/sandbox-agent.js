@@ -31,7 +31,7 @@ import {
 // Así se evita que este agente vuelva accidentalmente a modelos :free.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5003";
+const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5004";
 // El saldo disponible de OpenRouter puede variar entre solicitudes. Un límite
 // conservador evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
@@ -60,7 +60,9 @@ function selectToolsForRequest(text, autonomous) {
     const basic = new Set(["send_message", "set_agent_state", "wait"]);
     if (autonomous) return ALL_TOOLS;
     if (isDirectLowPolyRequest(text)) {
-        return ALL_TOOLS.filter(t => basic.has(t.function.name) || ["create_lowpoly_object", "inspect_scene", "move_object", "update_lowpoly_object"].includes(t.function.name));
+        // En una creación 3D manual no enviamos set_agent_state, wait ni
+        // send_message: el único resultado válido del turno es la malla.
+        return ALL_TOOLS.filter(t => t.function.name === "create_lowpoly_object");
     }
     if (isWorkspaceRequest(text)) {
         const workspaceNames = new Set(["create_file", "read_file", "update_file", "delete_file", "rename_file", "create_folder", "list_files", "run_project", "get_runtime_errors", "get_project_structure"]);
@@ -503,7 +505,8 @@ async function handleSandboxRequest(req, res) {
         ? [configuredPrimary, configuredFallback]
         : [configuredPrimary];
     const requestedModel = modelsToTry[0];
-    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(userText);
+    const effectiveUserText = userText || (messages.length && messages[messages.length - 1]?.content) || "";
+    const directLowPolyRequest = !autonomous && isDirectLowPolyRequest(effectiveUserText);
     const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
     const toolChoice = directLowPolyRequest && lowPolyToolEnabled
         ? { type: "function", function: { name: "create_lowpoly_object" } }
@@ -579,15 +582,27 @@ async function handleSandboxRequest(req, res) {
                 error: `OpenRouter no pudo responder: ${detail}`,
                 code: "OPENROUTER_REQUEST_FAILED",
                 upstreamStatus,
+                build: SANDBOX_AGENT_BUILD,
             });
         }
 
         const msg = data.choices?.[0]?.message || {};
+        const toolCalls = (msg.tool_calls || []).map(tc => ({
+            id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
+        }));
+        if (directLowPolyRequest && !toolCalls.some(tc => tc.name === "create_lowpoly_object")) {
+            return res.status(422).json({
+                error: "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
+                code: "LOWPOLY_TOOL_NOT_RETURNED",
+                model: data.model || requestedModel,
+                usage: data.usage || null,
+                cost: data.usage?.cost ?? data.cost ?? null,
+                build: SANDBOX_AGENT_BUILD,
+            });
+        }
         return res.status(200).json({
             assistantText: msg.content || null,
-            toolCalls: (msg.tool_calls || []).map(tc => ({
-                id: tc.id, name: tc.function?.name, args: safeParseJSON(tc.function?.arguments),
-            })),
+            toolCalls,
             model: data.model || requestedModel,
             provider: data.provider || null,
             generationId: data.id || null,
@@ -595,6 +610,7 @@ async function handleSandboxRequest(req, res) {
             cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
             requestedModels: modelsToTry,
             forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
+            availableTools: TOOLS.map(t => t.function.name),
             qualityRetry,
             qualityWarning: qualityFeedback,
             qualityRetrySkipped: Boolean(qualityFeedback && !qualityRetryAllowed),
@@ -612,9 +628,10 @@ async function handleSandboxRequest(req, res) {
         }
         return res.status(502).json({
             error: "No se pudo obtener una decisión del agente.",
-            detail: e.message,
-            code: e.code || "OPENROUTER_REQUEST_FAILED",
-        });
+                detail: e.message,
+                code: e.code || "OPENROUTER_REQUEST_FAILED",
+                build: SANDBOX_AGENT_BUILD,
+            });
     }
 }
 
