@@ -6,16 +6,16 @@
 //  agente unificado de Sandbox 3D + Workspace (api/sandbox-agent.js),
 //  para que nunca compita por tokens/rate-limit con el chat normal.
 //
-//  El Sandbox actual queda fijado a OpenRouter:
-//   - Usa el endpoint compatible con OpenAI:
-//       https://openrouter.ai/api/v1/chat/completions
+//  El Sandbox queda fijado a Google Gemini, independiente de Groq:
+//   - Usa el endpoint compatible con OpenAI de Google AI Studio:
+//       https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
 //   - Conserva el formato choices[0].message.tool_calls que ya parsea
 //     api/sandbox-agent.js.
-//   - El fallback entre modelos se envía en una única solicitud mediante
-//     el parámetro `models`, sin cambiar el proveedor del chat normal.
+//   - Los campos exclusivos de OpenRouter (por ejemplo `models`,
+//     `reasoning` como objeto y headers HTTP-Referer) no se envían a Gemini.
 //
-//  La variable histórica de proveedor se conserva por compatibilidad documental,
-//  pero el transporte del Sandbox no la utiliza y permanece aislado en OpenRouter.
+//  OpenRouter se conserva como preset histórico de compatibilidad, pero no es
+//  el proveedor activo del Sandbox y nunca se comparte con el chat normal.
 //
 //  Rotación de keys (mismo patrón que groq-client.js):
 //      GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
@@ -32,12 +32,14 @@ const PROVIDER_PRESETS = {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     keyPrefix: "GEMINI_API_KEY",
     defaultModel: "gemini-2.5-flash",
-    fallbackModel: "gemini-2.0-flash",
-    // Límites free tier reales (Google AI Studio, modelos Flash).
-    // Verificalos en ai.google.dev/gemini-api/docs/rate-limits — si
-    // Google los cambia, ajustalos con WORKSPACE_MODEL_RPM/RPD, sin tocar código.
-    rpm: 15,
-    rpd: 1500,
+    fallbackModel: "gemini-2.5-flash-lite",
+    // Guardia local conservadora para el nivel Free. Google aplica los
+    // límites por proyecto y modelo; la cifra activa debe verificarse en
+    // AI Studio y puede cambiar. Ajustá WORKSPACE_MODEL_RPM/RPD si tu panel
+    // muestra otros valores. El RPD del proveedor se reinicia a medianoche
+    // del Pacífico, según la documentación oficial de Google.
+    rpm: 10,
+    rpd: 500,
   },
   openrouter: {
     baseURL: "https://openrouter.ai/api/v1/chat/completions",
@@ -56,15 +58,26 @@ const PROVIDER_PRESETS = {
   },
 };
 
-const PROVIDER = "openrouter";
+// Fijado deliberadamente a Gemini para que el Sandbox no comparta proveedor
+// ni cuota con el chat normal, que continúa usando Groq.
+const PROVIDER = "gemini";
 const PRESET   = PROVIDER_PRESETS[PROVIDER] || PROVIDER_PRESETS.openrouter;
-const MODEL_NAME      = process.env.WORKSPACE_MODEL_NAME || PRESET.defaultModel;
-const FALLBACK_MODEL  = process.env.WORKSPACE_MODEL_FALLBACK || PRESET.fallbackModel || MODEL_NAME;
+const configuredModel = process.env.WORKSPACE_MODEL_NAME;
+const configuredFallbackModel = process.env.WORKSPACE_MODEL_FALLBACK;
+// Ignorar valores antiguos como openrouter/free evita que una variable de
+// Vercel olvidada dirija una petición de Gemini a un modelo inválido.
+const MODEL_NAME = PROVIDER === "gemini" && (!configuredModel || configuredModel.startsWith("openrouter/"))
+  ? PRESET.defaultModel
+  : (configuredModel || PRESET.defaultModel);
+const FALLBACK_MODEL = PROVIDER === "gemini" && (!configuredFallbackModel || configuredFallbackModel.startsWith("openrouter/"))
+  ? (PRESET.fallbackModel || MODEL_NAME)
+  : (configuredFallbackModel || PRESET.fallbackModel || MODEL_NAME);
 const RPM_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPM || "", 10) || PRESET.rpm;
 const RPD_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPD || "", 10) || PRESET.rpd;
 const BLOCK_COOLDOWN_MS = parseInt(process.env.WORKSPACE_MODEL_BLOCK_COOLDOWN_MS || "60000", 10);
 const DAILY_LIMIT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
+export const WORKSPACE_MODEL_PROVIDER = PROVIDER;
 export const WORKSPACE_MODEL_NAME     = MODEL_NAME;
 export const WORKSPACE_MODEL_FALLBACK = FALLBACK_MODEL;
 
@@ -145,7 +158,7 @@ export async function callWorkspaceModel(payload) {
       limited: true,
       provider: PROVIDER,
       retryAfterMs: Math.max(1000, nextRetryAt - Date.now()),
-      message: "OpenRouter está limitando temporalmente las claves configuradas.",
+      message: `El proveedor ${PROVIDER} está limitando temporalmente las claves configuradas.`,
     };
   }
 
@@ -156,9 +169,29 @@ export async function callWorkspaceModel(payload) {
     ...(PRESET.extraHeaders || {}),
   };
 
-  // OpenRouter devuelve usage automáticamente en respuestas no streaming.
-  // No dependemos de usage.include, parámetro deprecado por OpenRouter.
-  const body = { model: MODEL_NAME, ...payload }; // payload.model puede forzar un modelo puntual
+  // Normalizar el payload por proveedor. Gemini usa la forma OpenAI para
+  // tools, pero no acepta los campos de fallback/router de OpenRouter.
+  const { models: requestedModels, reasoning, parallel_tool_calls, ...providerPayload } = payload || {};
+  const requestedModel = typeof providerPayload.model === "string" ? providerPayload.model : MODEL_NAME;
+  const safeRequestedModel = PROVIDER === "gemini" && requestedModel.startsWith("openrouter/")
+    ? MODEL_NAME
+    : requestedModel;
+  const body = { ...providerPayload, model: safeRequestedModel };
+  if (PROVIDER === "openrouter" && Array.isArray(requestedModels) && requestedModels.length) {
+    body.models = requestedModels;
+  }
+  if (PROVIDER === "gemini") {
+    // En los modelos Gemini 2.5, la forma compatible con OpenAI para apagar
+    // el razonamiento es reasoning_effort: "none". El Sandbox ofrece una
+    // única tool en la creación directa, por lo que "required" la fuerza sin
+    // depender de la sintaxis de nombre de función de otro proveedor.
+    if (reasoning?.effort === "none") body.reasoning_effort = "none";
+    if (body.tool_choice && typeof body.tool_choice === "object") body.tool_choice = "required";
+    // parallel_tool_calls no es necesario: la solicitud low-poly ofrece solo
+    // create_lowpoly_object y omitir el campo mejora compatibilidad Gemini.
+  } else if (parallel_tool_calls !== undefined) {
+    body.parallel_tool_calls = parallel_tool_calls;
+  }
 
   let response;
   try {
@@ -173,7 +206,7 @@ export async function callWorkspaceModel(payload) {
     const retryAfterHeader = response.headers?.get?.("retry-after");
     const retryAfterSeconds = Number(retryAfterHeader);
     const data = await response.json().catch(() => ({}));
-    const upstreamMessage = data?.error?.message || "OpenRouter devolvió HTTP 429.";
+    const upstreamMessage = data?.error?.message || `${PROVIDER} devolvió HTTP 429.`;
     const looksDaily = /daily|per day|por d[ií]a|day limit|cuota diaria/i.test(upstreamMessage);
     const retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
       ? retryAfterSeconds * 1000
