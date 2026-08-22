@@ -31,8 +31,8 @@ const PROVIDER_PRESETS = {
   gemini: {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     keyPrefix: "GEMINI_API_KEY",
-    defaultModel: "gemini-2.5-flash",
-    fallbackModel: "gemini-2.5-flash-lite",
+    defaultModel: "gemini-3.7-flash",
+    fallbackModel: "gemini-3.5-flash-lite",
     // Guardia local conservadora para el nivel Free. Google aplica los
     // límites por proyecto y modelo; la cifra activa debe verificarse en
     // AI Studio y puede cambiar. Ajustá WORKSPACE_MODEL_RPM/RPD si tu panel
@@ -64,12 +64,18 @@ const PROVIDER = "gemini";
 const PRESET   = PROVIDER_PRESETS[PROVIDER] || PROVIDER_PRESETS.openrouter;
 const configuredModel = process.env.WORKSPACE_MODEL_NAME;
 const configuredFallbackModel = process.env.WORKSPACE_MODEL_FALLBACK;
-// Ignorar valores antiguos como openrouter/free evita que una variable de
-// Vercel olvidada dirija una petición de Gemini a un modelo inválido.
-const MODEL_NAME = PROVIDER === "gemini" && (!configuredModel || configuredModel.startsWith("openrouter/"))
+// Ignorar valores antiguos como openrouter/free y Gemini 2.5 evita que una
+// variable de Vercel olvidada dirija una petición a un modelo que el proyecto
+// nuevo no tiene habilitado. Los modelos Gemini 3 activos son estables y
+// soportan function calling.
+const isLegacyGeminiModel = (value) => /^gemini-(?:2\.0|2\.5)(?:-|$)/i.test(String(value || ""));
+const shouldUseGeminiDefault = (value) => !value
+  || String(value).startsWith("openrouter/")
+  || isLegacyGeminiModel(value);
+const MODEL_NAME = PROVIDER === "gemini" && shouldUseGeminiDefault(configuredModel)
   ? PRESET.defaultModel
   : (configuredModel || PRESET.defaultModel);
-const FALLBACK_MODEL = PROVIDER === "gemini" && (!configuredFallbackModel || configuredFallbackModel.startsWith("openrouter/"))
+const FALLBACK_MODEL = PROVIDER === "gemini" && shouldUseGeminiDefault(configuredFallbackModel)
   ? (PRESET.fallbackModel || MODEL_NAME)
   : (configuredFallbackModel || PRESET.fallbackModel || MODEL_NAME);
 const RPM_LIMIT       = parseInt(process.env.WORKSPACE_MODEL_RPM || "", 10) || PRESET.rpm;
@@ -185,8 +191,17 @@ export async function callWorkspaceModel(payload) {
     // el razonamiento es reasoning_effort: "none". El Sandbox ofrece una
     // única tool en la creación directa, por lo que "required" la fuerza sin
     // depender de la sintaxis de nombre de función de otro proveedor.
-    if (reasoning?.effort === "none") body.reasoning_effort = "none";
     if (body.tool_choice && typeof body.tool_choice === "object") body.tool_choice = "required";
+    // Gemini 3 no acepta reasoning_effort="none" (solo low/medium/high).
+    // Mantener low reduce el razonamiento oculto sin enviar un campo inválido;
+    // Gemini 2.5 sí conserva la opción none por compatibilidad.
+    if (reasoning?.effort === "none") {
+      if (/^gemini-2\.5(?:-|$)/i.test(safeRequestedModel)) {
+        body.reasoning_effort = "none";
+      } else if (/^gemini-3(?:\.|-|$)/i.test(safeRequestedModel)) {
+        body.reasoning_effort = "low";
+      }
+    }
     // parallel_tool_calls no es necesario: la solicitud low-poly ofrece solo
     // create_lowpoly_object y omitir el campo mejora compatibilidad Gemini.
   } else if (parallel_tool_calls !== undefined) {
