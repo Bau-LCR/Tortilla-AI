@@ -797,7 +797,8 @@
     const u = state.apiUsage || {};
     const cost = Number(u.reportedCost || 0);
     const model = u.last?.model ? ` · ${u.last.model}` : '';
-    el.textContent = `OpenRouter · ${Number(u.totalTokens || 0)} tokens · $${cost.toFixed(6)}${model}`;
+    const provider = u.last?.provider || 'Gemini';
+    el.textContent = `${provider} · ${Number(u.totalTokens || 0)} tokens · $${cost.toFixed(6)}${model}`;
     el.title = u.last?.generationId ? `Generation: ${u.last.generationId}` : 'Uso de la API exclusiva del Sandbox';
   }
 
@@ -869,9 +870,15 @@
     let data = null;
     try { data = await res.json(); } catch (e) { /* respuesta sin body, se maneja abajo */ }
 
-    // 423 / 403 / 503 → el Sandbox está bloqueado por un admin
-    // (desactivado, solo-admin, mantenimiento o emergencia global).
-    if (res.status === 423 || res.status === 403 || res.status === 503) {
+    // 423 / 403 siempre son bloqueos administrativos. Un 503 solo es
+    // bloqueo si trae el código administrativo MAINTENANCE; un 503 sin ese
+    // código debe conservar el detalle del proveedor para poder diagnosticar
+    // una indisponibilidad transitoria de Gemini.
+    const administrative503Codes = new Set(['MAINTENANCE']);
+    const isAdministrativeBlock = res.status === 423
+      || res.status === 403
+      || (res.status === 503 && administrative503Codes.has(data && data.code));
+    if (isAdministrativeBlock) {
       const err = new Error((data && data.error) || 'El Sandbox no está disponible ahora mismo.');
       err.blocked = true;
       err.code = (data && data.code) || 'BLOCKED';
