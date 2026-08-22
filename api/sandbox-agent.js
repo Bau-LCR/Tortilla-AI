@@ -25,15 +25,17 @@ import {
     callWorkspaceModel,
     WORKSPACE_MODEL_NAME,
     WORKSPACE_MODEL_FALLBACK,
+    WORKSPACE_MODEL_PROVIDER,
 } from "./workspace-model-client.js";
 
-// La fuente única de modelos es el cliente OpenRouter del Sandbox.
-// Así se evita que este agente vuelva accidentalmente a modelos :free.
+// La fuente única de modelos es el cliente del proveedor configurado para el
+// Sandbox. Actualmente es Gemini; no se comparte proveedor ni configuración
+// con el chat normal de Groq.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5006";
-// El saldo disponible de OpenRouter puede variar entre solicitudes. Un límite
-// conservador evita que el proveedor rechace una llamada antes de responder.
+const SANDBOX_AGENT_BUILD = "gemini-lowpoly-quality-20260821-5008";
+// La cuota gratuita puede variar entre solicitudes. Un límite conservador
+// evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
 // entre 1200 y 3000. Valores antiguos como 6000 vuelven al default.
 const configuredOutputTokens = Number(process.env.WORKSPACE_MAX_OUTPUT_TOKENS);
@@ -374,9 +376,9 @@ async function handleSandboxRequest(req, res) {
     if (!Array.isArray(messages))
         return res.status(400).json({ error: "'messages' inválido." });
 
-    // El cliente actual envía arrays y objetos completos, pero estos valores
-    // se normalizan para que una sesión antigua o un payload parcial no genere
-    // una excepción antes de llegar al manejo de errores de OpenRouter.
+    // El cliente actual envía arrays y objetos completos, pero estos valores se
+    // normalizan para que una sesión antigua o un payload parcial no genere una
+    // excepción antes del manejo de errores del proveedor.
     const safeScene = scene && typeof scene === "object" ? scene : {};
     const safeSceneObjects = Array.isArray(safeScene.objects)
         ? safeScene.objects.filter(o => o && typeof o === "object")
@@ -517,10 +519,9 @@ async function handleSandboxRequest(req, res) {
         ...compactMessages,
     ];
 
-    // ── 6) MODELO Y FALLBACK NATIVO DE OPENROUTER ─────────
-    // Una única solicitud evita gastar dos llamadas desde la aplicación.
-    // OpenRouter prueba `models` en orden cuando el primero está caído,
-    // rate-limited o no puede responder.
+    // ── 6) MODELO Y FALLBACK DEL PROVEEDOR ───────────────────
+    // El cliente conserva `models` solo para proveedores que soportan fallback
+    // nativo; Gemini recibe un único modelo válido y no recibe ese campo.
         const configuredPrimary = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxModel
             ? config.sandboxModel : PRIMARY_MODEL;
         const configuredFallback = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxFallbackModel
@@ -549,9 +550,9 @@ async function handleSandboxRequest(req, res) {
 
         if (result.limited) {
             return res.status(429).json({
-                error: result.message || "OpenRouter está limitando temporalmente el Sandbox.",
+                error: result.message || `El proveedor ${WORKSPACE_MODEL_PROVIDER} está limitando temporalmente el Sandbox.`,
                 retryAfterMs: result.retryAfterMs || 60000,
-                code: "OPENROUTER_RATE_LIMITED",
+                code: "SANDBOX_PROVIDER_RATE_LIMITED",
             });
         }
 
@@ -602,11 +603,23 @@ async function handleSandboxRequest(req, res) {
         if (!response?.ok) {
             const upstreamStatus = response?.status || 502;
             const detail = data?.error?.message || `HTTP ${upstreamStatus}`;
-            // No convertir errores de autenticación, crédito, modelo o
-            // proveedor en un bloqueo administrativo del Sandbox.
+            const insufficientCredits = upstreamStatus === 402
+                || /requires more credits|can only afford|requested up to|insufficient credits|saldo insuficiente/i.test(String(detail));
+            if (insufficientCredits) {
+                return res.status(402).json({
+                    error: `El proveedor ${WORKSPACE_MODEL_PROVIDER} rechazó la solicitud por saldo o crédito insuficiente. En el nivel gratuito de Gemini no se requiere saldo monetario; verificá que GEMINI_API_KEY pertenezca a un proyecto activo y que no se esté enviando un modelo de pago. La solicitud necesita hasta ${SANDBOX_MAX_OUTPUT_TOKENS} tokens; no se generará una plantilla local.`,
+                    code: "SANDBOX_PROVIDER_INSUFFICIENT_CREDITS",
+                    upstreamStatus,
+                    requestedMaxTokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                    providerDetail: detail,
+                    build: SANDBOX_AGENT_BUILD,
+                });
+            }
+            // No convertir errores de autenticación, modelo o proveedor en un
+            // bloqueo administrativo del Sandbox.
             return res.status(502).json({
-                error: `OpenRouter no pudo responder: ${detail}`,
-                code: "OPENROUTER_REQUEST_FAILED",
+                error: `${WORKSPACE_MODEL_PROVIDER} no pudo responder: ${detail}`,
+                code: "SANDBOX_PROVIDER_REQUEST_FAILED",
                 upstreamStatus,
                 build: SANDBOX_AGENT_BUILD,
             });
@@ -620,8 +633,8 @@ async function handleSandboxRequest(req, res) {
             const finishReason = data?.choices?.[0]?.finish_reason || null;
             return res.status(422).json({
                 error: finishReason === "length"
-                    ? "OpenRouter truncó la llamada antes de completar meshes. Se necesita más saldo o un modelo sin razonamiento para generar la malla."
-                    : "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
+                        ? `${WORKSPACE_MODEL_PROVIDER} truncó la llamada antes de completar meshes. Reducí el tamaño de la malla o verificá el límite de salida del proyecto para generar el modelo.`
+                        : "El modelo no devolvió create_lowpoly_object con meshes para esta solicitud 3D.",
                 code: "LOWPOLY_TOOL_NOT_RETURNED",
                 model: data.model || requestedModel,
                 usage: data.usage || null,
@@ -651,14 +664,14 @@ async function handleSandboxRequest(req, res) {
     } catch (e) {
         if (e.code === "NO_KEYS") {
             return res.status(502).json({
-                error: "El Sandbox no tiene OPENROUTER_API_KEY configurada.",
-                code: "OPENROUTER_NOT_CONFIGURED",
+                error: `El Sandbox no tiene ${WORKSPACE_MODEL_PROVIDER === "gemini" ? "GEMINI_API_KEY" : "la clave del proveedor"} configurada.`,
+                code: "SANDBOX_PROVIDER_NOT_CONFIGURED",
             });
         }
         return res.status(502).json({
             error: "No se pudo obtener una decisión del agente.",
                 detail: e.message,
-                code: e.code || "OPENROUTER_REQUEST_FAILED",
+                code: e.code || "SANDBOX_PROVIDER_REQUEST_FAILED",
                 build: SANDBOX_AGENT_BUILD,
             });
     }
