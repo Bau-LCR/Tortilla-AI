@@ -40,6 +40,7 @@
 
   let currentUser = null;
   let sandboxId   = null;
+  let agentRequestInFlight = false;
 
   const state = {
     objects: new Map(),
@@ -900,6 +901,19 @@
   }
 
   async function runOneStep(userText) {
+    if (agentRequestInFlight) {
+      if (userText) showToastSafe('El agente ya está procesando una solicitud.', '#ffaa33');
+      return;
+    }
+    agentRequestInFlight = true;
+    try {
+      return await runOneStepInternal(userText);
+    } finally {
+      agentRequestInFlight = false;
+    }
+  }
+
+  async function runOneStepInternal(userText) {
     setStatus('thinking');
     let decision;
     try {
