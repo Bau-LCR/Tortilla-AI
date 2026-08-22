@@ -814,13 +814,13 @@
     state.apiUsage.totalTokens += totalTokens;
     if (Number.isFinite(reportedCost)) state.apiUsage.reportedCost += reportedCost;
     state.apiUsage.last = {
-      at: Date.now(), model: decision?.model || 'desconocido', provider: decision?.provider || 'OpenRouter',
+      at: Date.now(), model: decision?.model || 'desconocido', provider: decision?.provider || 'Gemini',
       generationId: decision?.generationId || null, promptTokens, completionTokens, totalTokens,
       reportedCost: Number.isFinite(reportedCost) ? reportedCost : null,
     };
     const costText = Number.isFinite(reportedCost) ? `$${reportedCost.toFixed(6)}` : 'no informado';
     renderUsageHUD();
-    logAction(`OpenRouter | ${state.apiUsage.last.model} | ${totalTokens} tokens | costo reportado: ${costText}`);
+    logAction(`${state.apiUsage.last.provider} | ${state.apiUsage.last.model} | ${totalTokens} tokens | costo reportado: ${costText}`);
   }
 
   function setStatus(s) {
@@ -878,11 +878,11 @@
       throw err;
     }
 
-    // 429 → límite de OpenRouter o límite global del admin.
+    // 429 → límite de Gemini o límite global del admin.
     // Conservamos el Retry-After enviado por el servidor para no
     // reintentar cada 20 segundos cuando el límite es más largo.
     if (res.status === 429) {
-      const err = new Error((data && (data.message || data.error)) || 'OpenRouter está limitando temporalmente el Sandbox.');
+      const err = new Error((data && (data.message || data.error)) || 'Gemini está limitando temporalmente el Sandbox.');
       err.rateLimited = true;
       err.retryAfterMs = Number(data && data.retryAfterMs) || RATE_LIMIT_RETRY_MS;
       err.code = (data && data.code) || 'RATE_LIMITED';
@@ -959,7 +959,7 @@
       logAction(`Backend Sandbox activo: ${decision.build}`);
     }
 
-    // El servidor puede "saltear" este paso sin haber llamado a OpenRouter:
+    // El servidor puede "saltear" este paso sin haber llamado a Gemini:
     // cooldown propio, tope de ciclos del admin, o límite global.
     // En todos los casos, el límite del admin gana — no reintentamos
     // agresivamente ni lo tratamos como error.
