@@ -33,7 +33,7 @@ import {
 // con el chat normal de Groq.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "gemini3-lowpoly-quality-20260821-5009";
+const SANDBOX_AGENT_BUILD = "gemini3-lowpoly-tool-auto-20260822-5010";
 // La cuota gratuita puede variar entre solicitudes. Un límite conservador
 // evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
@@ -531,9 +531,13 @@ async function handleSandboxRequest(req, res) {
         : [configuredPrimary];
     let requestedModel = modelsToTry[0];
     const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
-    const toolChoice = directLowPolyRequest && lowPolyToolEnabled
-        ? { type: "function", function: { name: "create_lowpoly_object" } }
-        : "auto";
+    // Gemini OpenAI-compatible documenta tool_choice="auto". En solicitudes
+    // low-poly solo se ofrece create_lowpoly_object y el prompt exige usarla;
+    // el backend valida después que la tool y meshes realmente hayan llegado.
+    // No enviamos el objeto tool_choice de OpenAI ni "required", porque esa
+    // variante puede provocar 503 en la capa compatible de Gemini.
+    const directLowPolyToolForced = directLowPolyRequest && lowPolyToolEnabled;
+    const toolChoice = "auto";
 
     try {
         const result = await callWorkspaceModel({
@@ -542,7 +546,7 @@ async function handleSandboxRequest(req, res) {
             messages: fullMessages,
             tools: TOOLS,
             tool_choice: toolChoice,
-            temperature: directLowPolyRequest ? 0.25 : 0.7,
+            temperature: directLowPolyRequest ? 1.0 : 0.7,
             max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
             parallel_tool_calls: false,
             ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
@@ -571,7 +575,7 @@ async function handleSandboxRequest(req, res) {
                 messages: fullMessages,
                 tools: TOOLS,
                 tool_choice: toolChoice,
-                temperature: directLowPolyRequest ? 0.25 : 0.7,
+                temperature: directLowPolyRequest ? 1.0 : 0.7,
                 max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
                 parallel_tool_calls: false,
                 ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
@@ -679,7 +683,7 @@ async function handleSandboxRequest(req, res) {
             usage: data.usage || null,
             cost: data.usage?.cost ?? data.cost ?? data.usage?.cost_details?.upstream_inference_cost ?? null,
             requestedModels: modelsToTry,
-            forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
+            forcedTool: directLowPolyToolForced ? "create_lowpoly_object" : null,
             availableTools: TOOLS.map(t => t.function.name),
             qualityRetry,
             qualityWarning: qualityFeedback,
