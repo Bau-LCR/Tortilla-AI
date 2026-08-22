@@ -31,7 +31,15 @@ import {
 // Así se evita que este agente vuelva accidentalmente a modelos :free.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260819-5001";
+const SANDBOX_AGENT_BUILD = "direct-lowpoly-quality-20260821-5003";
+// El saldo disponible de OpenRouter puede variar entre solicitudes. Un límite
+// conservador evita que el proveedor rechace una llamada antes de responder.
+// El valor seguro por defecto es 1400; solo se acepta un override explícito
+// entre 1200 y 3000. Valores antiguos como 6000 vuelven al default.
+const configuredOutputTokens = Number(process.env.WORKSPACE_MAX_OUTPUT_TOKENS);
+const SANDBOX_MAX_OUTPUT_TOKENS = Number.isFinite(configuredOutputTokens) && configuredOutputTokens >= 1200 && configuredOutputTokens <= 3000
+    ? Math.trunc(configuredOutputTokens)
+    : 1400;
 const ALLOW_ADMIN_MODEL_OVERRIDE = process.env.WORKSPACE_ALLOW_ADMIN_MODEL_OVERRIDE === "true";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 
@@ -42,6 +50,29 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "cutreal-ai";
 const DIRECT_LOWPOLY_INTENT_RE = /\b(gato|gatito|perro|animal|felino|canino|persona|humano|personaje|robot|auto|coche|veh[ií]culo|casa|[aá]rbol|drag[oó]n|monstruo|criatura|low[ -]?poly|malla 3d|modelo 3d)\b/i;
 function isDirectLowPolyRequest(text) {
     return typeof text === "string" && DIRECT_LOWPOLY_INTENT_RE.test(text);
+}
+
+function isWorkspaceRequest(text) {
+    return typeof text === "string" && /archivo|código|codigo|html|css|javascript|javascript|programa|proyecto|workspace|carpeta|ejecutá|ejecuta|run_project/i.test(text);
+}
+
+function selectToolsForRequest(text, autonomous) {
+    const basic = new Set(["send_message", "set_agent_state", "wait"]);
+    if (autonomous) return ALL_TOOLS;
+    if (isDirectLowPolyRequest(text)) {
+        return ALL_TOOLS.filter(t => basic.has(t.function.name) || ["create_lowpoly_object", "inspect_scene", "move_object", "update_lowpoly_object"].includes(t.function.name));
+    }
+    if (isWorkspaceRequest(text)) {
+        const workspaceNames = new Set(["create_file", "read_file", "update_file", "delete_file", "rename_file", "create_folder", "list_files", "run_project", "get_runtime_errors", "get_project_structure"]);
+        return ALL_TOOLS.filter(t => basic.has(t.function.name) || workspaceNames.has(t.function.name));
+    }
+    if (typeof text === "string" && /escena|objeto|figura|primitiva|cubo|esfera|texto 3d|mover|rotar|escalar|color|eliminá|elimina/i.test(text)) {
+        const sceneNames = new Set(["create_3d_object", "create_3d_text", "update_3d_object", "delete_3d_object", "move_object", "rotate_object", "scale_object", "change_object_appearance", "inspect_scene"]);
+        return ALL_TOOLS.filter(t => basic.has(t.function.name) || sceneNames.has(t.function.name));
+    }
+    // Para mensajes conversacionales como “hola”, enviar solo las tres tools
+    // mínimas evita pagar el esquema completo del Workspace y del mundo 3D.
+    return ALL_TOOLS.filter(t => basic.has(t.function.name));
 }
 
 // ── DEFINICIÓN DE HERRAMIENTAS (igual que antes) ────────────
@@ -78,7 +109,7 @@ const ALL_TOOLS = [
           name: { type: "string", description: "Nombre del objeto, ej: gato low-poly." },
           semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"], description: "Etiqueta opcional para describir lo que generaste; no reemplaza meshes." },
           color: { type: "string", description: "Color base hex, ej: #33ff77." },
-          meshes: { type: "array", minItems: 4, maxItems: 12, description: "Obligatorio: 4 a 12 submallas creadas por la IA. Cada parte debe tener un role anatómico reconocible, volumen propio, vertices y faces trianguladas. No repitas el mismo cubo para todas las partes.", items: { type: "object", properties: {
+          meshes: { type: "array", minItems: 4, maxItems: 12, description: "Obligatorio: 4 a 12 submallas creadas por la IA. Para un humanoide articulado usá 10-12 partes, aproximadamente 160-240 vértices y 300-450 triángulos totales; separá torso, pelvis, cabeza, cuello, brazos segmentados, manos, piernas segmentadas y pies. Cada parte debe tener un role anatómico reconocible, volumen propio, vertices y faces trianguladas. No repitas el mismo cubo para todas las partes.", items: { type: "object", properties: {
               role: { type: "string", description: "Parte creada por la IA, ej: body, head, muzzle, leg_front_left, ear_left, tail_segment_1, eye_left." },
               vertices: { type: "array", minItems: 6, description: "Vértices creados por la IA como [[x,y,z], ...], con coordenadas 3D reales y forma volumétrica, no solo una caja repetida.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } },
               faces: { type: "array", minItems: 8, description: "Al menos 8 caras triangulares creadas por la IA como índices [a,b,c], formando un volumen cerrado o casi cerrado.", items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
@@ -88,7 +119,7 @@ const ALL_TOOLS = [
           position: { type: "array", items: { type: "number" }, description: "Posición del grupo completo [x,y,z]" }
       }, required: ["name", "meshes"] } } },
   { type: "function", function: {
-      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente con vertices y faces generados por la IA. semanticType solo describe el resultado y nunca reconstruye una plantilla.",
+      name: "update_lowpoly_object", description: "Reemplazar una malla low-poly existente con vertices y faces generados por la IA. Para humanoides conservá una topología articulada de 10-12 partes y aproximadamente 160-240 vértices y 300-450 triángulos totales. semanticType solo describe el resultado y nunca reconstruye una plantilla.",
       parameters: { type: "object", properties: {
           id: { type: "string" }, semanticType: { type: "string", enum: ["cat","person","house","car","tree","robot","custom"] }, color: { type: "string" }, meshes: { type: "array", minItems: 4, maxItems: 12, items: { type: "object", properties: {
               role: { type: "string" }, vertices: { type: "array", minItems: 6, items: { type: "array", minItems: 3, maxItems: 3, items: { type: "number" } } }, faces: { type: "array", minItems: 8, items: { type: "array", minItems: 3, maxItems: 3, items: { type: "integer" } } },
@@ -200,13 +231,17 @@ const ALL_TOOLS = [
 const BASE_SYSTEM_PROMPT = `Sos el agente autónomo del SANDBOX de Cut-real AI, un entorno experimental de laboratorio digital.
 Además del mundo 3D, tenés un WORKSPACE:
 
-CALIDAD 3D OBLIGATORIA: cuando el pedido sea un animal, personaje, vehículo u objeto detallado, no entregues una colección de cajas verdes. Generá una silueta reconocible desde las vistas frontal, lateral y superior. Usá volúmenes con secciones y proporciones diferentes; evitá que todas las partes tengan exactamente 8 vértices alineados y 12 triángulos con la misma forma. Las patas deben ser prismas o volúmenes afinados con articulación y separación visible; la cabeza debe diferenciarse del torso; las orejas deben ser prismas triangulares; el hocico debe sobresalir; la cola debe tener 2 o 3 segmentos con cambios de dirección; los ojos y otros rasgos deben ser piezas pequeñas separadas. Para un gato, orientá +Y hacia arriba, +Z hacia el frente, colocá el cuerpo cerca de Y=0.55, la cabeza cerca de Z=0.35 y las cuatro patas debajo del cuerpo, con las orejas arriba y la cola hacia atrás. Usá colores distintos para cuerpo, rasgos y ojos. Todas las submallas deben tener por lo menos 6 vértices y 8 triángulos, y una solicitud compleja debe superar 24 vértices y 24 triángulos en total. Si no podés producir ese nivel de detalle, informá el error; no sustituyas la malla por primitivas.
+CALIDAD 3D OBLIGATORIA: cuando el pedido sea un animal, personaje, vehículo u objeto detallado, no entregues una colección de cajas verdes ni una figura formada por cubos repetidos. Generá una silueta reconocible desde las vistas frontal, lateral y superior, con proporciones y volúmenes propios. La referencia objetivo es un modelo low-poly de videojuego con topología visible: aproximadamente 160-240 vértices y 300-450 triángulos totales para un humanoide, flatShading, piezas articuladas y entre 10 y 12 submallas anatómicas.
+
+Para un humanoide, separá como mínimo: torso con pecho y cintura, pelvis, cuello, cabeza, brazo superior izquierdo, antebrazo izquierdo, mano izquierda, brazo superior derecho, antebrazo derecho, mano derecha, muslo izquierdo, pantorrilla izquierda, pie izquierdo, muslo derecho, pantorrilla derecha y pie derecho. Si el límite de 12 submallas obliga a combinar piezas, combiná únicamente segmentos contiguos y conservá roles claros. Cada extremidad debe ser un volumen afinado con dos o más secciones, no una caja rectangular; las articulaciones deben mostrar cambios de diámetro y ángulo. El torso debe tener una sección de hombros más ancha que la cintura, la pelvis debe sobresalir, el cuello debe ser estrecho, la cabeza debe tener mandíbula y volumen facial, las manos deben terminar en una cuña o dedos sugeridos y los pies deben proyectarse hacia adelante. Las caras deben seguir la forma de cada segmento y no cruzarse.
+
+Para animales, usá el mismo principio: cuerpo, cabeza, hocico, patas separadas, orejas, cola segmentada y rasgos distintivos. Las patas deben ser prismas o volúmenes afinados con articulación visible; la cabeza debe diferenciarse del torso; las orejas deben ser prismas triangulares; el hocico debe sobresalir; la cola debe tener 2 o 3 segmentos con cambios de dirección; los ojos y otros rasgos deben ser piezas pequeñas separadas. Para un gato, orientá +Y hacia arriba, +Z hacia el frente, colocá el cuerpo cerca de Y=0.55, la cabeza cerca de Z=0.35 y las cuatro patas debajo del cuerpo, con las orejas arriba y la cola hacia atrás. Usá colores distintos para cuerpo, rasgos y ojos. Evitá que todas las partes tengan exactamente 8 vértices alineados y 12 triángulos con la misma forma. Todas las submallas deben tener por lo menos 6 vértices y 8 triángulos, y un humanoide detallado debe superar 160 vértices y 280 triángulos totales. Si no podés producir ese nivel de detalle, informá el error; no sustituyas la malla por primitivas.
 
 Además del mundo 3D, tenés un WORKSPACE: un entorno de archivos de código real (HTML/CSS/JS) con preview en vivo. Podés crear, leer, modificar, renombrar y borrar archivos, ejecutar el proyecto y leer los errores de ejecución para autocorregirte. Si el usuario te pide "construir" algo con código, usá las tools de archivos; si te pide algo puramente visual en el espacio 3D, usá las tools de objetos 3D. Podés combinar ambas: un archivo del Workspace puede llamar a window.CutReal3D.createObject(...) para aparecer también en la escena 3D.
 
 Tenés un espacio 3D (fondo negro, rejilla blanca, estética verde) y herramientas para crear, mover, modificar y eliminar objetos hechos de primitivas o mallas low-poly explícitas (nunca imágenes), crear texto 3D, guardar/leer memoria persistente, hablar con el usuario y comunicar tu estado visual.
 
-Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, vertices es una lista de puntos [x,y,z] y faces es una lista de triángulos [a,b,c] que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]] y doce caras como [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como body, head, muzzle, leg_front_left, leg_front_right, leg_back_left, leg_back_right, ear_left, ear_right, tail_segment_1, tail_segment_2, eye_left y eye_right. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 12 y 40 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí flatShading=true para el aspecto low-poly. Para animales detallados, apuntá a 8-12 submallas, 80-180 vértices totales y 120-300 triángulos totales sin superar los límites del Sandbox.
+Contrato obligatorio de mallas low-poly: el espacio usa aproximadamente 1 unidad = 1 metro y las coordenadas visibles deben mantenerse normalmente entre -12 y 12. Para una malla directa, vertices es una lista de puntos [x,y,z] y faces es una lista de triángulos [a,b,c] que indexan esa lista desde cero. Por ejemplo, un cubo puede usar los ocho vértices [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]] y doce caras como [[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[3,2,6],[3,6,7],[1,5,6],[1,6,2],[0,3,7],[0,7,4]]. Un gato de aproximadamente 0.5 a 1.5 unidades de alto debe dividirse en varias submallas generadas por vos, con colores y roles como body, head, muzzle, leg_front_left, leg_front_right, leg_back_left, leg_back_right, ear_left, ear_right, tail_segment_1, tail_segment_2, eye_left y eye_right. Cada parte necesita sus propios vértices y caras válidos; no alcanza con nombrarla. Usá entre 12 y 40 vértices por parte cuando sea suficiente, conectá volúmenes mediante caras trianguladas y preferí flatShading=true para el aspecto low-poly. Para un humanoide articulado, apuntá a 160-240 vértices totales y 300-450 triángulos totales; para un animal detallado, apuntá a 80-180 vértices y 120-300 triángulos. No superes los límites del Sandbox y no uses una única caja para representar una extremidad completa.
 
 Reglas:
 - Actuá con propósito: cada paso debería acercar la escena o la conversación a algo coherente, no generes ruido porque sí.
@@ -403,7 +438,8 @@ async function handleSandboxRequest(req, res) {
         (Array.isArray(config.disabledTools) ? config.disabledTools : [])
             .filter(name => typeof name === "string")
     );
-    const TOOLS = ALL_TOOLS.filter(t => !disabled.has(t.function.name));
+    const TOOLS = selectToolsForRequest(userText, autonomous)
+        .filter(t => !disabled.has(t.function.name));
 
     // ── 5) ARMAR CONTEXTO Y SYSTEM PROMPT ────────────────
     const systemPrompt = config.systemPromptAddition
@@ -433,12 +469,26 @@ async function handleSandboxRequest(req, res) {
             contextParts.push(`Workspace — últimos errores de ejecución: ${JSON.stringify(workspace.lastErrors)}`);
         }
     }
-    if (userText) contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
+    const latestMessage = messages[messages.length - 1];
+    const latestContent = latestMessage && typeof latestMessage === "object"
+        ? String(latestMessage.content ?? latestMessage.text ?? "")
+        : "";
+    if (userText && latestContent.trim() !== String(userText).trim()) {
+        contextParts.push(`Mensaje nuevo del usuario: "${String(userText).slice(0, 500)}"`);
+    }
 
+    const compactMessages = messages
+        .slice(-6)
+        .filter(m => m && (m.role === "user" || m.role === "assistant"))
+        .map(m => ({
+            role: m.role,
+            content: String(m.content ?? m.text ?? "").slice(0, 900),
+        }))
+        .filter(m => m.content);
     const fullMessages = [
         { role: "system", content: systemPrompt },
         { role: "system", content: contextParts.join("\n") },
-        ...messages.slice(-16),
+        ...compactMessages,
     ];
 
     // ── 6) MODELO Y FALLBACK NATIVO DE OPENROUTER ─────────
@@ -467,7 +517,7 @@ async function handleSandboxRequest(req, res) {
             tools: TOOLS,
             tool_choice: toolChoice,
             temperature: 0.7,
-            max_tokens: 6000,
+            max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
         });
 
         if (result.limited) {
@@ -482,7 +532,12 @@ async function handleSandboxRequest(req, res) {
         let data = result.data;
         let qualityRetry = false;
         let qualityFeedback = directLowPolyRequest ? lowPolyQualityFeedback(data) : null;
-        if (qualityFeedback) {
+        // Con el saldo actual no es seguro pagar dos generaciones completas.
+        // El modelo recibe el contrato detallado en la primera llamada; el
+        // reintento solo se habilita si el presupuesto configurado es amplio.
+        const qualityRetryAllowed = SANDBOX_MAX_OUTPUT_TOKENS >= 2400
+            && process.env.SANDBOX_ENABLE_QUALITY_RETRY !== "false";
+        if (qualityFeedback && qualityRetryAllowed) {
             const retryMessages = [
                 ...fullMessages,
                 { role: "user", content: `La primera propuesta de malla fue rechazada por baja calidad: ${qualityFeedback}. Generá ahora una única create_lowpoly_object completa y diferente, con la cantidad de partes, vértices, triángulos y silueta anatómica solicitadas. No uses primitivas ni describas el resultado: enviá la tool call con meshes reales.` },
@@ -494,7 +549,7 @@ async function handleSandboxRequest(req, res) {
                 tools: TOOLS,
                 tool_choice: toolChoice,
                 temperature: 0.55,
-                max_tokens: 6000,
+                max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
             });
             if (!retryResult.limited && retryResult.response?.ok) {
                 const firstUsage = data?.usage || {};
@@ -542,6 +597,8 @@ async function handleSandboxRequest(req, res) {
             forcedTool: toolChoice !== "auto" ? "create_lowpoly_object" : null,
             qualityRetry,
             qualityWarning: qualityFeedback,
+            qualityRetrySkipped: Boolean(qualityFeedback && !qualityRetryAllowed),
+            maxOutputTokens: SANDBOX_MAX_OUTPUT_TOKENS,
             cyclesUsed: getSandboxState(sandboxId).autonomousStreak,
             cyclesMax: config.maxCyclesPerSandbox,
             build: SANDBOX_AGENT_BUILD,
@@ -579,14 +636,21 @@ function lowPolyQualityFeedback(data) {
     const roles = new Set(meshes.map(part => String(part?.role || '').trim().toLowerCase()).filter(Boolean));
     const kind = String(args.semanticType || '').toLowerCase();
     const issues = [];
-    const animalLike = ['cat','person','robot','custom'].includes(kind) || /gato|perro|animal|persona|personaje|robot|criatura|monstruo/i.test(String(args.name || ''));
-    const minimumParts = animalLike ? 8 : 6;
-    const minimumVertices = animalLike ? 80 : 56;
-    const minimumFaces = animalLike ? 120 : 84;
+    const requestLabel = `${String(args.name || '')} ${kind}`;
+    const humanoidLike = /person|persona|humano|humanoid|personaje|b[ií]pedo|maniqu[ií]|figura humana|robot/i.test(requestLabel);
+    const animalLike = ['cat','person','robot','custom'].includes(kind) || /gato|perro|animal|felino|canino|criatura|monstruo/i.test(requestLabel);
+    const minimumParts = humanoidLike ? 10 : (animalLike ? 8 : 6);
+    const minimumVertices = humanoidLike ? 160 : (animalLike ? 80 : 56);
+    const minimumFaces = humanoidLike ? 280 : (animalLike ? 120 : 84);
     if (parts < minimumParts) issues.push(`usa al menos ${minimumParts} submallas anatómicas`);
     if (totalVertices < minimumVertices) issues.push(`usa al menos ${minimumVertices} vértices totales`);
     if (totalFaces < minimumFaces) issues.push(`usa al menos ${minimumFaces} triángulos totales`);
     if (boxLikeParts >= 4 && boxLikeParts >= Math.ceil(Math.max(parts, 1) * 0.6)) issues.push('no repitas cubos de 8 vértices y 12 triángulos; crea volúmenes con siluetas distintas');
-    if (animalLike && roles.size < Math.min(parts, 6)) issues.push('asigna roles anatómicos distintos a las partes');
+    if ((animalLike || humanoidLike) && roles.size < Math.min(parts, 6)) issues.push('asigna roles anatómicos distintos a las partes');
+    if (humanoidLike) {
+        const articulatedRolePattern = /torso|pelvis|head|head|neck|shoulder|arm|forearm|hand|thigh|leg|shin|foot|pie|brazo|antebrazo|mano|muslo|pantorrilla/i;
+        const articulatedRoles = [...roles].filter(role => articulatedRolePattern.test(role)).length;
+        if (articulatedRoles < 6) issues.push('separa torso, pelvis, cabeza y segmentos articulados de brazos y piernas');
+    }
     return issues.length ? issues.join('; ') : null;
 }
