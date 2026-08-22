@@ -42,13 +42,13 @@ const PROVIDER_PRESETS = {
   openrouter: {
     baseURL: "https://openrouter.ai/api/v1/chat/completions",
     keyPrefix: "OPENROUTER_API_KEY",
-    defaultModel: "z-ai/glm-5.2:free",   // modelo avanzado de código/razonamiento con tool calling
-    fallbackModel: "cohere/north-mini-code:free",  // respaldo orientado a programación
+    defaultModel: "openrouter/free",       // router gratuito oficial con selección de modelos compatibles
+    fallbackModel: "openrouter/free",      // segunda referencia al router gratuito, sin modelo pago
     extraHeaders: {
       "HTTP-Referer": "https://cut-real-ai.vercel.app",
       "X-Title": "Cut-real AI Sandbox",
     },
-    // Límites documentados actualmente por OpenRouter para modelos :free.
+    // El router gratuito selecciona modelos disponibles sin precio por token.
     // Sin créditos suficientes, el límite diario puede ser 50; el límite
     // local conservador evita seguir reintentando después de un 429 diario.
     rpm: 20,
@@ -156,7 +156,9 @@ export async function callWorkspaceModel(payload) {
     ...(PRESET.extraHeaders || {}),
   };
 
-  const body = { model: MODEL_NAME, ...payload }; // payload.model (si viene) pisa el default
+  // OpenRouter devuelve usage automáticamente en respuestas no streaming.
+  // No dependemos de usage.include, parámetro deprecado por OpenRouter.
+  const body = { model: MODEL_NAME, ...payload }; // payload.model puede forzar un modelo puntual
 
   let response;
   try {
