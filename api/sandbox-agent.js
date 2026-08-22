@@ -5,7 +5,7 @@
 //  ocurre en sandbox.js, que conoce el estado real de la escena 3D.
 //
 //  NUEVO en esta versión:
-//   - Usa api/workspace-model-client.js (OpenRouter exclusivo, rotación dinámica de keys)
+//   - Usa api/workspace-model-client.js (Gemini exclusivo, rotación dinámica de keys)
 //   - Lee config/sandbox_control desde Firestore (vía REST, sin
 //     necesitar Firebase Admin SDK) para aplicar en el SERVIDOR:
 //       · enabled / adminOnly / maintenanceOnly / emergencyStop
@@ -33,7 +33,7 @@ import {
 // con el chat normal de Groq.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "gemini-lowpoly-quality-20260821-5008";
+const SANDBOX_AGENT_BUILD = "gemini3-lowpoly-quality-20260821-5009";
 // La cuota gratuita puede variar entre solicitudes. Un límite conservador
 // evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
@@ -418,7 +418,7 @@ async function handleSandboxRequest(req, res) {
         const minIntervalMs = Math.max(1, config.minIntervalSeconds) * 1000;
 
         if (now - state.lastAutonomousAt < minIntervalMs) {
-            // No es un error: le decimos al cliente que espere, SIN llamar a OpenRouter.
+            // No es un error: le decimos al cliente que espere, SIN llamar a Gemini.
             return res.status(200).json({
                 skipped: true,
                 reason: "cooldown",
@@ -529,7 +529,7 @@ async function handleSandboxRequest(req, res) {
     const modelsToTry = configuredFallback && configuredFallback !== configuredPrimary
         ? [configuredPrimary, configuredFallback]
         : [configuredPrimary];
-    const requestedModel = modelsToTry[0];
+    let requestedModel = modelsToTry[0];
     const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
     const toolChoice = directLowPolyRequest && lowPolyToolEnabled
         ? { type: "function", function: { name: "create_lowpoly_object" } }
@@ -558,6 +558,31 @@ async function handleSandboxRequest(req, res) {
 
         let response = result.response;
         let data = result.data;
+
+        // Un proyecto Gemini puede no tener habilitado el modelo principal.
+        // Si Google devuelve 404 y hay un fallback distinto, hacemos un único
+        // intento con ese modelo; nunca se cambia a OpenRouter ni a un modelo
+        // de pago automáticamente.
+        if (response && response.status === 404 && modelsToTry.length > 1) {
+            const fallbackModel = modelsToTry[1];
+            const fallbackResult = await callWorkspaceModel({
+                model: fallbackModel,
+                models: [fallbackModel],
+                messages: fullMessages,
+                tools: TOOLS,
+                tool_choice: toolChoice,
+                temperature: directLowPolyRequest ? 0.25 : 0.7,
+                max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
+                parallel_tool_calls: false,
+                ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
+            });
+            if (!fallbackResult.limited && fallbackResult.response?.ok) {
+                requestedModel = fallbackModel;
+                response = fallbackResult.response;
+                data = fallbackResult.data;
+            }
+        }
+
         let qualityRetry = false;
         let qualityFeedback = directLowPolyRequest ? lowPolyQualityFeedback(data) : null;
         // Con el saldo actual no es seguro pagar dos generaciones completas.
@@ -619,8 +644,11 @@ async function handleSandboxRequest(req, res) {
             // bloqueo administrativo del Sandbox.
             return res.status(502).json({
                 error: `${WORKSPACE_MODEL_PROVIDER} no pudo responder: ${detail}`,
+                detail,
+                providerDetail: detail,
                 code: "SANDBOX_PROVIDER_REQUEST_FAILED",
                 upstreamStatus,
+                requestedModel,
                 build: SANDBOX_AGENT_BUILD,
             });
         }
