@@ -7,10 +7,12 @@
 //  para que nunca compita por tokens/rate-limit con el chat normal.
 //
 //  El Sandbox queda fijado a Google Gemini, independiente de Groq:
-//   - Usa el endpoint compatible con OpenAI de Google AI Studio:
-//       https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-//   - Conserva el formato choices[0].message.tool_calls que ya parsea
-//     api/sandbox-agent.js.
+//   - Las conversaciones sin tools usan el endpoint compatible con OpenAI.
+//   - Las solicitudes con tools usan el endpoint REST nativo
+//       https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+//     para evitar incompatibilidades del adaptador OpenAI en function calling.
+//   - Ambas rutas se normalizan al formato choices[0].message.tool_calls que
+//     ya parsea api/sandbox-agent.js.
 //   - Los campos exclusivos de OpenRouter (por ejemplo `models`,
 //     `reasoning` como objeto y headers HTTP-Referer) no se envían a Gemini.
 //
@@ -175,8 +177,9 @@ export async function callWorkspaceModel(payload) {
     ...(PRESET.extraHeaders || {}),
   };
 
-  // Normalizar el payload por proveedor. Gemini usa la forma OpenAI para
-  // tools, pero no acepta los campos de fallback/router de OpenRouter.
+  // Normalizar el payload por proveedor. Gemini usa generateContent nativo
+  // cuando hay tools y OpenAI-compatible para mensajes sin tools; nunca
+  // acepta los campos de fallback/router de OpenRouter.
   const { models: requestedModels, reasoning, parallel_tool_calls, transport, ...providerPayload } = payload || {};
   const requestedModel = typeof providerPayload.model === "string" ? providerPayload.model : MODEL_NAME;
   const safeRequestedModel = PROVIDER === "gemini" && requestedModel.startsWith("openrouter/")
@@ -187,11 +190,9 @@ export async function callWorkspaceModel(payload) {
     body.models = requestedModels;
   }
   if (PROVIDER === "gemini") {
-    // En los modelos Gemini 2.5, la forma compatible con OpenAI para apagar
-    // el razonamiento es reasoning_effort: "none". El Sandbox ofrece una
-    // única tool en la creación directa, por lo que "required" la fuerza sin
-    // depender de la sintaxis de nombre de función de otro proveedor.
-    if (body.tool_choice && typeof body.tool_choice === "object") body.tool_choice = "required";
+    // No trasladar tool_choice ni reasoning_effort al cuerpo nativo: Gemini
+    // recibe toolConfig/generationConfig en sus nombres REST propios.
+    if (body.tool_choice && typeof body.tool_choice === "object") body.tool_choice = "auto";
     // Gemini 3 no acepta reasoning_effort="none" (solo low/medium/high).
     // Mantener low reduce el razonamiento oculto sin enviar un campo inválido;
     // Gemini 2.5 sí conserva la opción none por compatibilidad.
@@ -211,8 +212,8 @@ export async function callWorkspaceModel(payload) {
   let response;
   let data;
   try {
-    if (PROVIDER === "gemini" && transport === "gemini-interactions" && Array.isArray(body.tools) && body.tools.length) {
-      const nativeResult = await callGeminiInteractions({
+    if (PROVIDER === "gemini" && Array.isArray(body.tools) && body.tools.length) {
+      const nativeResult = await callGeminiGenerateContent({
         apiKey: apiKeyValue,
         model: safeRequestedModel,
         messages: body.messages,
@@ -348,6 +349,91 @@ async function callGeminiInteractions({ apiKey, model, messages, tools, maxOutpu
   return {
     response,
     data: response.ok ? normalizeGeminiInteractionResponse(raw, model) : normalizeGeminiInteractionError(raw, response.status),
+    requestBody,
+  };
+}
+
+function nativeGeminiGenerateContents(messages) {
+  const contents = [];
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (!message || message.role === "system") continue;
+    const text = String(message.content ?? "").trim();
+    if (!text) continue;
+    contents.push({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [{ text }],
+    });
+  }
+  return contents.length ? contents : [{ role: "user", parts: [{ text: "Generá la respuesta solicitada." }] }];
+}
+
+function nativeGeminiGenerateTools(tools) {
+  const declarations = nativeGeminiTools(tools).map(({ type, ...declaration }) => declaration);
+  return declarations.length ? [{ functionDeclarations: declarations }] : undefined;
+}
+
+function normalizeGeminiGenerateContentResponse(raw, model) {
+  const candidates = Array.isArray(raw?.candidates) ? raw.candidates : [];
+  const parts = candidates.flatMap(candidate => Array.isArray(candidate?.content?.parts) ? candidate.content.parts : []);
+  const toolCalls = parts
+    .filter(part => part && part.functionCall?.name)
+    .map((part, index) => ({
+      id: part.functionCall.id || `gemini-function-call-${index + 1}`,
+      type: "function",
+      function: {
+        name: part.functionCall.name,
+        arguments: typeof part.functionCall.args === "string"
+          ? part.functionCall.args
+          : JSON.stringify(part.functionCall.args || {}),
+      },
+    }));
+  const text = parts
+    .filter(part => typeof part?.text === "string")
+    .map(part => part.text)
+    .join("\\n") || null;
+  const usageMetadata = raw?.usageMetadata || null;
+  return {
+    id: raw?.responseId || null,
+    model,
+    choices: [{
+      message: { role: "assistant", content: text, tool_calls: toolCalls },
+      finish_reason: toolCalls.length ? "tool_calls" : (candidates[0]?.finishReason || "stop").toLowerCase(),
+    }],
+    usage: usageMetadata ? {
+      prompt_tokens: Number(usageMetadata.promptTokenCount || 0),
+      completion_tokens: Number(usageMetadata.candidatesTokenCount || 0),
+      total_tokens: Number(usageMetadata.totalTokenCount || 0),
+      thoughts_tokens: Number(usageMetadata.thoughtsTokenCount || 0),
+    } : null,
+  };
+}
+
+async function callGeminiGenerateContent({ apiKey, model, messages, tools, maxOutputTokens }) {
+  const nativeTools = nativeGeminiTools(tools);
+  const requestBody = {
+    contents: nativeGeminiGenerateContents(messages),
+    systemInstruction: nativeGeminiSystemInstruction(messages)
+      ? { parts: [{ text: nativeGeminiSystemInstruction(messages) }] }
+      : undefined,
+    tools: nativeGeminiGenerateTools(tools),
+    toolConfig: nativeTools.length === 1
+      ? { functionCallingConfig: { mode: "ANY", allowedFunctionNames: nativeTools.map(tool => tool.name) } }
+      : { functionCallingConfig: { mode: "AUTO" } },
+    generationConfig: {
+      maxOutputTokens: Math.max(256, Number(maxOutputTokens) || 1400),
+      thinkingConfig: { thinkingLevel: "LOW" },
+    },
+  };
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+  });
+  const raw = await response.json().catch(() => ({}));
+  return {
+    response,
+    data: response.ok ? normalizeGeminiGenerateContentResponse(raw, model) : normalizeGeminiInteractionError(raw, response.status),
     requestBody,
   };
 }
