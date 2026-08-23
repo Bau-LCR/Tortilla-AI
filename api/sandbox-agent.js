@@ -6,6 +6,8 @@
 //
 //  NUEVO en esta versión:
 //   - Usa api/workspace-model-client.js (Gemini exclusivo, rotación dinámica de keys)
+//   - Para low-poly usa Gemini Interactions API nativa, que conserva function calling real
+//     y adapta la respuesta a choices[0].message.tool_calls para el frontend.
 //   - Lee config/sandbox_control desde Firestore (vía REST, sin
 //     necesitar Firebase Admin SDK) para aplicar en el SERVIDOR:
 //       · enabled / adminOnly / maintenanceOnly / emergencyStop
@@ -33,7 +35,7 @@ import {
 // con el chat normal de Groq.
 const PRIMARY_MODEL  = WORKSPACE_MODEL_NAME;
 const FALLBACK_MODEL = WORKSPACE_MODEL_FALLBACK;
-const SANDBOX_AGENT_BUILD = "gemini3-lowpoly-tool-auto-20260822-5010";
+const SANDBOX_AGENT_BUILD = "gemini-generate-content-tools-20260823-5013";
 // La cuota gratuita puede variar entre solicitudes. Un límite conservador
 // evita que el proveedor rechace una llamada antes de responder.
 // El valor seguro por defecto es 1400; solo se acepta un override explícito
@@ -522,6 +524,7 @@ async function handleSandboxRequest(req, res) {
     // ── 6) MODELO Y FALLBACK DEL PROVEEDOR ───────────────────
     // El cliente conserva `models` solo para proveedores que soportan fallback
     // nativo; Gemini recibe un único modelo válido y no recibe ese campo.
+    // Las solicitudes con tools de Gemini usan generateContent nativo.
         const configuredPrimary = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxModel
             ? config.sandboxModel : PRIMARY_MODEL;
         const configuredFallback = ALLOW_ADMIN_MODEL_OVERRIDE && config.sandboxFallbackModel
@@ -531,11 +534,10 @@ async function handleSandboxRequest(req, res) {
         : [configuredPrimary];
     let requestedModel = modelsToTry[0];
     const lowPolyToolEnabled = TOOLS.some(t => t.function?.name === "create_lowpoly_object");
-    // Gemini OpenAI-compatible documenta tool_choice="auto". En solicitudes
-    // low-poly solo se ofrece create_lowpoly_object y el prompt exige usarla;
-    // el backend valida después que la tool y meshes realmente hayan llegado.
-    // No enviamos el objeto tool_choice de OpenAI ni "required", porque esa
-    // variante puede provocar 503 en la capa compatible de Gemini.
+    // En solicitudes low-poly solo se ofrece create_lowpoly_object y el prompt
+    // exige usarla. El transporte nativo de Gemini usa toolConfig ANY cuando
+    // hay una sola función; el backend valida después que la tool y meshes
+    // realmente hayan llegado. Para Workspace/conversación usa AUTO.
     const directLowPolyToolForced = directLowPolyRequest && lowPolyToolEnabled;
     const toolChoice = "auto";
 
@@ -549,7 +551,7 @@ async function handleSandboxRequest(req, res) {
             temperature: directLowPolyRequest ? 1.0 : 0.7,
             max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
             parallel_tool_calls: false,
-            ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
+            ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true }, transport: "gemini-generate-content" } : {}),
         });
 
         if (result.limited) {
@@ -578,7 +580,7 @@ async function handleSandboxRequest(req, res) {
                 temperature: directLowPolyRequest ? 1.0 : 0.7,
                 max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
                 parallel_tool_calls: false,
-                ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true } } : {}),
+                ...(directLowPolyRequest ? { reasoning: { effort: "none", exclude: true }, transport: "gemini-generate-content" } : {}),
             });
             if (!fallbackResult.limited && fallbackResult.response?.ok) {
                 requestedModel = fallbackModel;
@@ -609,6 +611,7 @@ async function handleSandboxRequest(req, res) {
                 max_tokens: SANDBOX_MAX_OUTPUT_TOKENS,
                 parallel_tool_calls: false,
                 reasoning: { effort: "none", exclude: true },
+                transport: "gemini-generate-content",
             });
             if (!retryResult.limited && retryResult.response?.ok) {
                 const firstUsage = data?.usage || {};
