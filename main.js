@@ -41,6 +41,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const systemPrompt = { role: "system", content: "Configurado en el servidor." };
     let currentUser = null;
     let historial   = [systemPrompt];
+    let lastAssistantResponse = '';
+    let voiceCallActive = false;
+    let voiceCallBusy = false;
+    let voiceRecognition = null;
+    let voiceRecognitionStarting = false;
 
     // ===== FEATURE FLAGS (cargados desde Firestore) =====
     let featureFlags = {
@@ -386,6 +391,7 @@ const formatearTexto = (texto) => {
         try {
             const docSnap = await getDoc(doc(window.db, "chats", uid));
             historial = docSnap.exists() ? docSnap.data().mensajes : [systemPrompt];
+            lastAssistantResponse = [...historial].reverse().find(item => item.role === 'assistant' && typeof item.content === 'string')?.content || '';
             renderizarChat();
         } catch (e) {
             chat.innerHTML = "<div class='ai' style='color:#ff5555;'>⚠️ Error al sincronizar historial.</div>";
@@ -687,6 +693,7 @@ window.openSidebarChat = async (convId) => {
         if (!snap.exists()) { showToast("Ese chat ya no existe", "#ff4444", "⚠️"); loadSidebarChats(); return; }
         await archiveCurrentChatIfNeeded();
         historial = snap.data().mensajes || [systemPrompt];
+        lastAssistantResponse = [...historial].reverse().find(item => item.role === 'assistant' && typeof item.content === 'string')?.content || '';
         if (snap.data().model) window.setModel(snap.data().model);
         await deleteDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
         renderizarChat();
@@ -955,11 +962,81 @@ function createAiActionBtns(respuestaIA, intent) {
             window.CutRealOrb.show();
         }
 
+        voiceCallBusy = voiceCallActive;
         // Hablar con Loquendo — el sync de amplitud está en loquendo.js
         window.LoquendoSpeak(text, () => {
-            // Al terminar, el orb vuelve a idle (ya lo hace loquendo.js)
+            voiceCallBusy = false;
+            if (voiceCallActive) setTimeout(startVoiceListening, 420);
         });
     }
+
+    // ===================================================================
+    //  LLAMADA DE VOZ — conversación por turnos en el chat normal
+    // ===================================================================
+    function setVoiceCallStatus(text, active = false) {
+        const status = document.getElementById('voice-call-status');
+        if (status) { status.textContent = text; status.classList.toggle('active', active); }
+        const button = document.getElementById('voice-call-btn');
+        if (button) { button.textContent = active ? '■ Finalizar llamada' : '◉ Llamada de voz'; button.classList.toggle('active', active); }
+    }
+
+    function buildVoiceRecognition() {
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!Recognition) return null;
+        const recognition = new Recognition();
+        recognition.lang = 'es-419'; recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1;
+        recognition.onstart = () => { voiceRecognitionStarting = false; setVoiceCallStatus('Escuchando…', true); };
+        recognition.onresult = event => {
+            const phrase = event.results?.[0]?.[0]?.transcript?.trim();
+            if (!phrase || !voiceCallActive) return;
+            voiceCallBusy = true;
+            input.value = phrase;
+            setVoiceCallStatus(`Procesando: ${phrase.slice(0, 34)}${phrase.length > 34 ? '…' : ''}`, true);
+            try { recognition.stop(); } catch (_) {}
+            sendMessage();
+        };
+        recognition.onerror = event => {
+            voiceRecognitionStarting = false;
+            if (!voiceCallActive) return;
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                stopVoiceCall(); setVoiceCallStatus('Permiso de micrófono rechazado'); showToast('Permití el micrófono para usar la llamada de voz', '#ff8844', '◉'); return;
+            }
+            if (event.error !== 'aborted' && event.error !== 'no-speech') console.warn('[VoiceCall]', event.error);
+        };
+        recognition.onend = () => {
+            voiceRecognitionStarting = false;
+            if (voiceCallActive && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, 350);
+        };
+        return recognition;
+    }
+
+    function startVoiceListening() {
+        if (!voiceCallActive || voiceCallBusy || window.LoquendoIsSpeaking?.()) return;
+        if (!voiceRecognition) voiceRecognition = buildVoiceRecognition();
+        if (!voiceRecognition || voiceRecognitionStarting) {
+            if (!voiceRecognition) setVoiceCallStatus('Micrófono no compatible en este navegador', true);
+            return;
+        }
+        try { voiceRecognitionStarting = true; voiceRecognition.start(); } catch (error) { voiceRecognitionStarting = false; if (error.name !== 'InvalidStateError') console.warn('[VoiceCall] start', error); }
+    }
+
+    function startVoiceCall() {
+        if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return; }
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return; }
+        voiceCallActive = true; voiceCallBusy = false; voiceRecognition = buildVoiceRecognition();
+        setVoiceCallStatus('Llamada activa · preparando micrófono…', true);
+        startVoiceListening();
+    }
+
+    function stopVoiceCall() {
+        voiceCallActive = false; voiceCallBusy = false; voiceRecognitionStarting = false;
+        try { voiceRecognition?.stop(); } catch (_) {}
+        if (window.LoquendoStop) window.LoquendoStop();
+        setVoiceCallStatus('Voz lista', false);
+    }
+
+    function toggleVoiceCall() { voiceCallActive ? stopVoiceCall() : startVoiceCall(); }
 
     // ── DETECCIÓN DE BÚSQUEDA WEB (frontend) ─────────────────
 function needsWebSearchFrontend(msg) {
@@ -1148,6 +1225,7 @@ function needsWebSearchFrontend(msg) {
             if (!res.ok) throw new Error(data.error || "Error en el servidor");
 
             const respuestaIA = data.choices[0].message.content;
+            lastAssistantResponse = String(respuestaIA || '');
             if (respuestaIA === undefined || respuestaIA === null) {
                 throw new Error("La IA no devolvió respuesta. Intentá de nuevo.");
 }
@@ -1182,6 +1260,8 @@ function needsWebSearchFrontend(msg) {
             }, 22);
 
         } catch(e) {
+            voiceCallBusy = false;
+            if (voiceCallActive) setTimeout(startVoiceListening, 520);
             thinking.remove();
             const errorDiv = document.createElement("div"); errorDiv.className="ai";
             errorDiv.style.borderColor="#ff4040"; errorDiv.style.color="#ff8080";
@@ -1201,12 +1281,27 @@ function needsWebSearchFrontend(msg) {
     input.addEventListener("keydown", (e) => { if (e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();} });
     window.sendMessage = sendMessage;
 
+    document.getElementById('voice-call-btn')?.addEventListener('click', toggleVoiceCall);
+    document.getElementById('chat-read-last-btn')?.addEventListener('click', () => {
+        if (!lastAssistantResponse) return showToast('Todavía no hay una respuesta para leer', '#ff8844', '🔊');
+        speakResponse(lastAssistantResponse);
+    });
+    document.getElementById('chat-copy-last-btn')?.addEventListener('click', async () => {
+        if (!lastAssistantResponse) return showToast('Todavía no hay una respuesta para copiar', '#ff8844', '⧉');
+        try { await navigator.clipboard.writeText(lastAssistantResponse); showToast('Última respuesta copiada', '#4caf50', '✓'); } catch (_) { showToast('No se pudo copiar en este navegador', '#ff8844', '⚠'); }
+    });
+    document.getElementById('chat-export-btn')?.addEventListener('click', () => {
+        const text = historial.filter(item => item.role !== 'system').map(item => `${item.role === 'user' ? 'Tú' : 'Cut-real AI'}: ${typeof item.content === 'string' ? item.content : '[contenido adjunto]'}`).join('\\n\\n');
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `cut-real-chat-${Date.now()}.txt`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    });
+    document.getElementById('chat-focus-btn')?.addEventListener('click', event => { document.body.classList.toggle('chat-focus-mode'); event.currentTarget.classList.toggle('active'); });
+
     window.resetChat = async () => {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
             // Detener habla al borrar chat
             if (window.LoquendoStop) window.LoquendoStop();
-            historial=[systemPrompt]; renderizarChat(); await guardarEnNube();
+            historial=[systemPrompt]; lastAssistantResponse = ''; renderizarChat(); await guardarEnNube();
         }
     };
 
