@@ -9,7 +9,8 @@ const MODEL_KEY  = "cutreal_model_preference";
 
 // ===== ESTADO GLOBAL =====
 let attachedFile = null;
-let selectedModel = localStorage.getItem(MODEL_KEY) || 'pro';
+const MODEL_OPTIONS = new Set(['basic', 'pro', 'ultra']);
+let selectedModel = MODEL_OPTIONS.has(localStorage.getItem(MODEL_KEY)) ? localStorage.getItem(MODEL_KEY) : 'pro';
 
 // ===== GUARDA ANTI-RECURSIÓN =====
 // true si esta página está corriendo DENTRO de un iframe (por ejemplo,
@@ -46,6 +47,9 @@ document.addEventListener("DOMContentLoaded", function () {
     let voiceCallBusy = false;
     let voiceRecognition = null;
     let voiceRecognitionStarting = false;
+    let voiceRecognitionError = false;
+    let voiceCallMuted = false;
+    let voiceSpeakerMuted = false;
 
     // ===== FEATURE FLAGS (cargados desde Firestore) =====
     let featureFlags = {
@@ -71,17 +75,10 @@ document.addEventListener("DOMContentLoaded", function () {
         if (camBtn) camBtn.style.display = featureFlags.camera ? "" : "none";
 
         const proBtn = document.querySelector('.model-btn[onclick="setModel(\'pro\')"]');
-        if (proBtn) {
-            proBtn.style.display = featureFlags.promodel ? "" : "none";
-            if (!featureFlags.promodel && selectedModel === 'pro') {
-                setModel('basic');
-                const ultraBtn = document.querySelector('.model-btn.ultra-btn');
-if (ultraBtn) {
-    ultraBtn.style.display = featureFlags.promodel ? "" : "none";
-    if (!featureFlags.promodel && selectedModel === 'ultra') setModel('basic');
-}
-            }
-        }
+        if (proBtn) proBtn.style.display = featureFlags.promodel ? "" : "none";
+        const ultraBtn = document.querySelector('.model-btn.ultra-btn');
+        if (ultraBtn) ultraBtn.style.display = featureFlags.promodel ? "" : "none";
+        if (!featureFlags.promodel && (selectedModel === 'pro' || selectedModel === 'ultra')) setModel('basic');
 
         if (attachBtn) attachBtn.style.display = featureFlags.attachments ? "" : "none";
     }
@@ -138,11 +135,11 @@ if (ultraBtn) {
             <span class="model-icon">⚡</span>
             <span class="model-label">Básico</span>
         </button>
-        <button class="model-btn ${selectedModel === 'pro' ? 'active' : ''}" onclick="setModel('pro')" title="Llama 3.3 70B — Más inteligente y capaz">
+        <button class="model-btn ${selectedModel === 'pro' ? 'active' : ''}" onclick="setModel('pro')" title="Llama 3.3 70B — fallback GPT-OSS si Groq lo requiere">
             <span class="model-icon">🧠</span>
             <span class="model-label">Pro</span>
         </button>
-        <button class="model-btn ultra-btn ${selectedModel === 'ultra' ? 'active' : ''}" onclick="setModel('ultra')" title="DeepSeek R1 70B — Razonamiento avanzado">
+        <button class="model-btn ultra-btn ${selectedModel === 'ultra' ? 'active' : ''}" onclick="setModel('ultra')" title="GPT-OSS 120B — Razonamiento avanzado">
             <span class="model-icon">🚀</span>
             <span class="model-label">Ultra</span>
         </button>
@@ -154,12 +151,14 @@ if (ultraBtn) {
     }
 
     window.setModel = (model) => {
+        if (!MODEL_OPTIONS.has(model)) return;
+        if ((model === 'pro' || model === 'ultra') && featureFlags.promodel === false) model = 'basic';
         selectedModel = model;
         localStorage.setItem(MODEL_KEY, model);
         document.querySelectorAll(".model-btn").forEach(b => b.classList.remove("active"));
         const btn = document.querySelector(`.model-btn[onclick="setModel('${model}')"]`);
         if (btn) btn.classList.add("active");
-        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)", ultra: "🚀 Ultra (Fase Beta, PUEDE FALLAR)" };
+        const names = { basic: "⚡ Básico (rápido)", pro: "🧠 Pro (inteligente)", ultra: "🚀 Ultra (razonamiento avanzado)" };
         showToast(`Modelo: ${names[model]}`, "#4caf50", "🔄");
     };
 
@@ -956,28 +955,55 @@ function createAiActionBtns(respuestaIA, intent) {
      */
     function speakResponse(text) {
         if (!window.LoquendoSpeak) return;
+        if (voiceCallActive) setVoiceCallTranscript(text);
 
         // Mostrar orb si no está visible
-        if (window.CutRealOrb && !window.CutRealOrb.isVisible()) {
-            window.CutRealOrb.show();
-        }
+        if (window.CutRealOrb && !window.CutRealOrb.isVisible()) window.CutRealOrb.show();
 
         voiceCallBusy = voiceCallActive;
-        // Hablar con Loquendo — el sync de amplitud está en loquendo.js
+        if (voiceCallActive && voiceSpeakerMuted) {
+            voiceCallBusy = false;
+            setVoiceCallStatus('Respuesta lista · altavoz silenciado', true);
+            return;
+        }
+        setVoiceCallStatus(voiceCallActive ? 'Hablando…' : 'Voz lista', voiceCallActive);
+        // Hablar con el perfil seleccionado en loquendo.js.
         window.LoquendoSpeak(text, () => {
             voiceCallBusy = false;
-            if (voiceCallActive) setTimeout(startVoiceListening, 420);
+            if (voiceCallActive) { setVoiceCallStatus('Escuchando…', true); setTimeout(startVoiceListening, 420); }
         });
     }
 
     // ===================================================================
     //  LLAMADA DE VOZ — conversación por turnos en el chat normal
     // ===================================================================
+    function setVoiceCallModal(open) {
+        const modal = document.getElementById('voice-call-modal');
+        if (!modal) return;
+        modal.hidden = !open; modal.setAttribute('aria-hidden', String(!open));
+        document.body.classList.toggle('voice-call-open', open);
+        if (open) document.getElementById('voice-call-transcript')?.scrollIntoView?.({ block: 'nearest' });
+    }
+
+    function syncVoiceCallActions() {
+        const mic = document.getElementById('voice-call-mic');
+        const speaker = document.getElementById('voice-call-speaker');
+        if (mic) { mic.classList.toggle('muted', voiceCallMuted); const small = mic.querySelector('small'); if (small) small.textContent = voiceCallMuted ? 'Micrófono apagado' : 'Micrófono'; }
+        if (speaker) { speaker.classList.toggle('muted', voiceSpeakerMuted); const small = speaker.querySelector('small'); if (small) small.textContent = voiceSpeakerMuted ? 'Altavoz apagado' : 'Altavoz'; }
+    }
+
     function setVoiceCallStatus(text, active = false) {
         const status = document.getElementById('voice-call-status');
         if (status) { status.textContent = text; status.classList.toggle('active', active); }
+        const modalStatus = document.getElementById('voice-call-modal-status'); if (modalStatus) modalStatus.textContent = text;
+        const modal = document.getElementById('voice-call-modal'); if (modal) { modal.dataset.voiceState = /hablando/i.test(text) ? 'speaking' : /procesando|pensando/i.test(text) ? 'thinking' : /error|detenido|no detecté/i.test(text) ? 'error' : 'listening'; }
         const button = document.getElementById('voice-call-btn');
         if (button) { button.textContent = active ? '■ Finalizar llamada' : '◉ Llamada de voz'; button.classList.toggle('active', active); }
+        syncVoiceCallActions();
+    }
+
+    function setVoiceCallTranscript(text) {
+        const el = document.getElementById('voice-call-transcript'); if (el) el.textContent = text || 'La conversación aparecerá aquí.';
     }
 
     function buildVoiceRecognition() {
@@ -988,30 +1014,39 @@ function createAiActionBtns(respuestaIA, intent) {
         recognition.onstart = () => { voiceRecognitionStarting = false; setVoiceCallStatus('Escuchando…', true); };
         recognition.onresult = event => {
             const phrase = event.results?.[0]?.[0]?.transcript?.trim();
-            if (!phrase || !voiceCallActive) return;
+            if (!phrase || !voiceCallActive || voiceCallMuted) return;
             voiceCallBusy = true;
             input.value = phrase;
+            setVoiceCallTranscript(`Tú: ${phrase}`);
             setVoiceCallStatus(`Procesando: ${phrase.slice(0, 34)}${phrase.length > 34 ? '…' : ''}`, true);
             try { recognition.stop(); } catch (_) {}
             sendMessage();
         };
         recognition.onerror = event => {
             voiceRecognitionStarting = false;
-            if (!voiceCallActive) return;
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                stopVoiceCall(); setVoiceCallStatus('Permiso de micrófono rechazado'); showToast('Permití el micrófono para usar la llamada de voz', '#ff8844', '◉'); return;
+            if (!voiceCallActive || event.error === 'aborted') return;
+            if (event.error === 'no-speech') {
+                voiceRecognitionError = true;
+                setVoiceCallStatus('No detecté voz · pulsá Micrófono para reanudar', true);
+                return;
             }
-            if (event.error !== 'aborted' && event.error !== 'no-speech') console.warn('[VoiceCall]', event.error);
+            voiceRecognitionError = true;
+            const message = event.error === 'not-allowed' || event.error === 'service-not-allowed'
+                ? 'Permiso de micrófono rechazado'
+                : `Micrófono detenido (${event.error || 'error desconocido'})`;
+            stopVoiceCall();
+            setVoiceCallStatus(message, false);
+            showToast(message, '#ff8844', '◉');
         };
         recognition.onend = () => {
             voiceRecognitionStarting = false;
-            if (voiceCallActive && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, 350);
+            if (voiceCallActive && !voiceCallMuted && !voiceRecognitionError && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, 350);
         };
         return recognition;
     }
 
     function startVoiceListening() {
-        if (!voiceCallActive || voiceCallBusy || window.LoquendoIsSpeaking?.()) return;
+        if (!voiceCallActive || voiceCallMuted || voiceRecognitionError || voiceCallBusy || window.LoquendoIsSpeaking?.()) return;
         if (!voiceRecognition) voiceRecognition = buildVoiceRecognition();
         if (!voiceRecognition || voiceRecognitionStarting) {
             if (!voiceRecognition) setVoiceCallStatus('Micrófono no compatible en este navegador', true);
@@ -1024,7 +1059,9 @@ function createAiActionBtns(respuestaIA, intent) {
         if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return; }
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return; }
-        voiceCallActive = true; voiceCallBusy = false; voiceRecognition = buildVoiceRecognition();
+        voiceCallActive = true; voiceCallBusy = false; voiceRecognitionError = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
+        setVoiceCallTranscript('La conversación aparecerá aquí.');
+        setVoiceCallModal(true);
         setVoiceCallStatus('Llamada activa · preparando micrófono…', true);
         startVoiceListening();
     }
@@ -1033,7 +1070,25 @@ function createAiActionBtns(respuestaIA, intent) {
         voiceCallActive = false; voiceCallBusy = false; voiceRecognitionStarting = false;
         try { voiceRecognition?.stop(); } catch (_) {}
         if (window.LoquendoStop) window.LoquendoStop();
+        setVoiceCallModal(false);
         setVoiceCallStatus('Voz lista', false);
+        voiceRecognition = null;
+    }
+
+    function toggleVoiceMic() {
+        if (!voiceCallActive) return;
+        if (voiceRecognitionError) { voiceRecognitionError = false; voiceCallMuted = false; syncVoiceCallActions(); setVoiceCallStatus('Escuchando…', true); startVoiceListening(); return; }
+        voiceCallMuted = !voiceCallMuted; syncVoiceCallActions();
+        if (voiceCallMuted) { try { voiceRecognition?.stop(); } catch (_) {} setVoiceCallStatus('Micrófono apagado · altavoz activo', true); }
+        else { setVoiceCallStatus('Escuchando…', true); startVoiceListening(); }
+    }
+
+    function toggleVoiceSpeaker() {
+        if (!voiceCallActive) return;
+        voiceSpeakerMuted = !voiceSpeakerMuted; syncVoiceCallActions();
+        if (voiceSpeakerMuted && window.LoquendoStop) window.LoquendoStop();
+        setVoiceCallStatus(voiceSpeakerMuted ? 'Altavoz apagado · micrófono activo' : 'Escuchando…', true);
+        if (!voiceSpeakerMuted && !voiceCallBusy) startVoiceListening();
     }
 
     function toggleVoiceCall() { voiceCallActive ? stopVoiceCall() : startVoiceCall(); }
@@ -1261,7 +1316,7 @@ function needsWebSearchFrontend(msg) {
 
         } catch(e) {
             voiceCallBusy = false;
-            if (voiceCallActive) setTimeout(startVoiceListening, 520);
+            if (voiceCallActive) { voiceRecognitionError = true; setVoiceCallStatus('Turno detenido · revisá la conexión y pulsá Micrófono para reanudar', true); }
             thinking.remove();
             const errorDiv = document.createElement("div"); errorDiv.className="ai";
             errorDiv.style.borderColor="#ff4040"; errorDiv.style.color="#ff8080";
@@ -1282,6 +1337,11 @@ function needsWebSearchFrontend(msg) {
     window.sendMessage = sendMessage;
 
     document.getElementById('voice-call-btn')?.addEventListener('click', toggleVoiceCall);
+    document.getElementById('voice-call-close')?.addEventListener('click', stopVoiceCall);
+    document.getElementById('voice-call-end')?.addEventListener('click', stopVoiceCall);
+    document.getElementById('voice-call-mic')?.addEventListener('click', toggleVoiceMic);
+    document.getElementById('voice-call-speaker')?.addEventListener('click', toggleVoiceSpeaker);
+    document.querySelector('#voice-call-modal .voice-call-backdrop')?.addEventListener('click', stopVoiceCall);
     document.getElementById('chat-read-last-btn')?.addEventListener('click', () => {
         if (!lastAssistantResponse) return showToast('Todavía no hay una respuesta para leer', '#ff8844', '🔊');
         speakResponse(lastAssistantResponse);
