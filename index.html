@@ -847,13 +847,20 @@
         <div class="sbx-topbar-left">
             <span class="sbx-logo">◈ SANDBOX</span>
             <span id="sandbox-status-pill" class="sbx-status-pill sbx-status-idle">Inactivo</span>
-            <span id="sandbox-current-tool" class="sbx-current-tool"></span>
+                        <span id="sandbox-current-tool" class="sbx-current-tool"></span>
+            <span id="sandbox-openrouter-usage" class="sbx-api-usage" title="Uso de la API exclusiva del Sandbox">Gemini · 0 tokens · $0.000000</span>
+            <span id="sandbox-save-state" class="sbx-save-state sbx-save-idle" role="status" aria-live="polite">Sin cambios</span>
+
         </div>
         <div class="sbx-topbar-right">
             <button id="sandbox-autonomy-toggle" class="sbx-btn sbx-btn-toggle" title="Autonomía ON/OFF">⚡ Autonomía</button>
             <button id="sandbox-pause-btn" class="sbx-btn" title="Pausar/Reanudar">⏸ Pausar</button>
-            <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+                        <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
+            <button id="sandbox-editor-btn" class="sbx-btn sbx-btn-editor" title="Seleccionar y editar objetos 3D">✎ Modo Editor</button>
+            <button id="sandbox-catalog-btn" class="sbx-btn sbx-btn-catalog" title="Abrir catálogo de modelos low-poly">◫ Catálogo <span id="sandbox-catalog-count">37</span></button>
+            <button id="sandbox-chat-toggle" class="sbx-btn" title="Ocultar o mostrar el chat del Sandbox">◧ Ocultar chat</button>
             <button id="sandbox-workspace-btn" class="sbx-btn" title="Abrir Workspace">🧩 Workspace</button>
+
             <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
         </div>
     </div>
@@ -861,6 +868,7 @@
     <div class="sbx-mobile-tabs">
     <button id="sandbox-tab-chat" class="active">💬 Chat</button>
     <button id="sandbox-tab-scene">🧊 Escena</button>
+    <button id="sandbox-tab-catalog">◫ Catálogo</button>
     <button id="sandbox-tab-workspace">🧩 Workspace</button>
     </div>
 
@@ -878,8 +886,96 @@
             <div class="sbx-agent-state-row">Estado del agente: <span id="sandbox-agent-state">inactivo</span></div>
             <div id="sandbox-action-log" class="sbx-action-log"></div>
         </aside>
+                <main class="sbx-panel-right sbx-legacy-scene" aria-hidden="true">
+            <canvas id="sandbox-canvas-legacy"></canvas>
+        </main>
         <main class="sbx-panel-right">
             <canvas id="sandbox-canvas"></canvas>
+
+            <section id="sandbox-future-dock" class="sbx-future-dock" aria-label="Sistemas futuristas de escena">
+                <div class="sbx-future-head"><div><span class="sbx-eyebrow">NEXUS CONTROL // SCENE OS</span><strong>Centro de mando</strong></div><span id="sandbox-scene-stats">0 objetos · 0 vértices</span></div>
+                <div class="sbx-future-groups">
+                    <div class="sbx-future-group"><span>CAM</span><button id="sandbox-camera-hero" title="Cámara hero">Hero</button><button id="sandbox-camera-top" title="Vista cenital">Top</button><button id="sandbox-camera-orbit" title="Vista orbital">Orbit</button><button id="sandbox-focus-selected" title="Enfocar selección">Focus</button><button id="sandbox-camera-record" title="Grabar recorrido de cámara">● Rec</button><button id="sandbox-camera-play" title="Reproducir recorrido de cámara">▶ Path</button></div>
+                    <div class="sbx-future-group"><span>FX</span><button id="sandbox-grid-toggle" title="Mostrar u ocultar rejilla">Grid</button><button id="sandbox-wire-toggle" title="Modo wireframe">Wire</button><button id="sandbox-neon-toggle" title="Iluminación neon">Neon</button><button id="sandbox-performance-toggle" title="Modo rendimiento móvil">Eco</button></div>
+                    <div class="sbx-future-group"><span>FLOW</span><button id="sandbox-undo-btn" title="Deshacer">↶</button><button id="sandbox-redo-btn" title="Rehacer">↷</button><button id="sandbox-screenshot-btn" title="Guardar captura PNG">▣ PNG</button><button id="sandbox-clear-btn" title="Vaciar escena">⌫ Clear</button></div>
+                    <div class="sbx-future-group"><span>MEM</span><button id="sandbox-snapshot-btn" title="Crear snapshot de la escena">＋ Snapshot</button><button id="sandbox-recover-btn" title="Recuperar el último snapshot">↺ Recuperar</button><button id="sandbox-scan-btn" title="Analizar la escena actual">⌁ Scanner</button></div>
+                </div>
+            </section>
+
+            <section id="sandbox-nexus-sim" class="sbx-nexus-sim" aria-label="Simulación y ambiente NEXUS">
+                <div class="sbx-sim-row"><label>Ambiente<select id="sandbox-environment-select"><option value="lab">NEXUS Lab</option><option value="cyberpunk">Cyberpunk</option><option value="space">Orbital</option><option value="alien">Alien</option><option value="white">White Studio</option><option value="industrial">Industrial</option><option value="minimal">Minimal</option></select></label><label>Calidad<select id="sandbox-quality-select"><option value="eco">Eco móvil</option><option value="balanced" selected>Balanceada</option><option value="cinematic">Cinemática</option></select></label></div>
+                <div class="sbx-sim-row"><label class="sbx-check"><input id="sandbox-physics-toggle" type="checkbox"> Física ligera</label><label class="sbx-check"><input id="sandbox-gravity-toggle" type="checkbox" checked> Gravedad</label><label class="sbx-check"><input id="sandbox-snap-toggle" type="checkbox"> Snap 1m</label><label>Tiempo <input id="sandbox-time-scale" type="range" min="0" max="2" step="0.1" value="1"><output id="sandbox-time-scale-value">1.0×</output></label></div>
+                <div class="sbx-sim-row"><label>Patrón<select id="sandbox-clone-pattern"><option value="line">Línea</option><option value="grid">Matriz</option><option value="ring">Anillo</option></select></label><label>Copias<input id="sandbox-clone-count" type="number" min="1" max="12" step="1" value="3"></label><button id="sandbox-clone-btn" title="Clonar el objeto seleccionado según el patrón">Clonar patrón</button></div>
+                <div class="sbx-sim-row"><label>Mundo<select id="sandbox-world-preset"><option value="showcase">Showcase</option><option value="nature">Bioma</option><option value="fleet">Flota</option><option value="cyber-city">Cyber City</option></select></label><button id="sandbox-world-generate" title="Generar mundo desde activos reales del catálogo">Generar mundo</button><button id="sandbox-link-toggle" title="Seleccionar dos objetos para crear un enlace de datos o energía">Enlazar objetos</button><select id="sandbox-link-type" title="Tipo de conexión"><option value="data">Datos</option><option value="energy">Energía</option></select></div>
+                <div class="sbx-sim-row"><button id="sandbox-export-btn" title="Exportar escena JSON">Exportar JSON</button><button id="sandbox-import-btn" title="Importar escena JSON">Importar JSON</button><input id="sandbox-import-input" type="file" accept="application/json,.json" hidden></div>
+            </section>
+
+            <section id="sandbox-editor-toolbar" class="sbx-editor-toolbar" hidden aria-label="Editor de objetos 3D">
+                <div class="sbx-editor-head">
+                    <strong>Editor 3D</strong>
+                    <span id="sandbox-editor-selected">Seleccioná un objeto</span>
+                </div>
+                <div class="sbx-editor-fields">
+                    <label>Posición X<input id="sandbox-editor-x" type="number" step="0.1"></label>
+                    <label>Y<input id="sandbox-editor-y" type="number" step="0.1"></label>
+                    <label>Z<input id="sandbox-editor-z" type="number" step="0.1"></label>
+                    <label>Rotación X°<input id="sandbox-editor-rx" type="number" step="5"></label>
+                    <label>Y°<input id="sandbox-editor-ry" type="number" step="5"></label>
+                    <label>Z°<input id="sandbox-editor-rz" type="number" step="5"></label>
+                    <label>Escala<input id="sandbox-editor-scale" type="number" min="0.1" max="5" step="0.1"></label>
+                    <label>Color<input id="sandbox-editor-color" type="color" value="#33ff77"></label>
+                </div>
+                <div class="sbx-editor-actions">
+                    <button id="sandbox-editor-apply" class="sbx-editor-primary" disabled>Aplicar</button>
+                    <button id="sandbox-editor-focus" disabled>Enfocar</button>
+                    <button id="sandbox-editor-duplicate" disabled>Duplicar</button>
+                    <button id="sandbox-editor-delete" class="sbx-editor-danger" disabled>Eliminar</button>
+                </div>
+                <small>Activá el editor y arrastrá un objeto para moverlo sobre el plano. En móvil, tocá y arrastrá con un dedo.</small>
+            </section>
+
+            <section id="sandbox-analysis-panel" class="sbx-analysis-panel" hidden aria-label="Análisis de escena">
+                <header class="sbx-catalog-header"><div><span class="sbx-eyebrow">NEXUS VISION // SCANNER</span><strong>Análisis de escena</strong></div><button id="sandbox-analysis-close" title="Cerrar scanner">×</button></header>
+                <div id="sandbox-analysis-content" class="sbx-analysis-content">Presioná Scanner para medir la escena.</div>
+            </section>
+
+            <section id="sandbox-catalog-panel" class="sbx-catalog-panel" hidden aria-label="Catálogo de modelos 3D low-poly">
+                <header class="sbx-catalog-header">
+                    <div>
+                        <span class="sbx-eyebrow">ASSET DECK // LIVE LIBRARY</span>
+                        <h2>Catálogo de modelos <b>low-poly</b></h2>
+                        <p>Colocá modelos curados en la escena. Todo lo que agregues se guarda en tu Sandbox.</p>
+                    </div>
+                    <button id="sandbox-catalog-close" class="sbx-icon-btn" title="Cerrar catálogo">✕</button>
+                </header>
+                <div class="sbx-catalog-toolbar">
+                    <label class="sbx-search-field"><span>⌕</span><input id="sandbox-catalog-search" type="search" placeholder="Buscar humanos, criaturas, vehículos…" autocomplete="off"></label>
+                    <select id="sandbox-catalog-category" aria-label="Filtrar catálogo">
+                        <option value="all">Todas las familias</option>
+                        <option value="humanos">Humanos</option>
+                        <option value="robots">Robots</option>
+                        <option value="criaturas">Criaturas</option>
+                        <option value="vehiculos">Vehículos</option>
+                        <option value="estructuras">Estructuras</option>
+                        <option value="naturaleza">Naturaleza</option>
+                        <option value="artefactos">Artefactos</option>
+                    </select>
+                    <label class="sbx-color-pick" title="Color para el próximo modelo">Color <input id="sandbox-catalog-color" type="color" value="#33ff77"></label>
+                </div>
+                <div id="sandbox-catalog-grid" class="sbx-catalog-grid"></div>
+                <section id="sandbox-animation-controls" class="sbx-animation-dock" aria-label="Animación del objeto seleccionado">
+                    <div class="sbx-animation-title"><span class="sbx-eyebrow">MOTION CORE</span><strong id="sandbox-animation-selected">Seleccioná un objeto para animarlo</strong></div>
+                    <div class="sbx-animation-controls-row">
+                        <select id="sandbox-animation-select" aria-label="Animación">
+                            <option value="idle">Idle / respiración</option><option value="walk">Walk / caminar</option><option value="wave">Wave / saludar</option><option value="breathe">Breathe / respirar</option><option value="pulse">Pulse / energía</option><option value="spin">Spin / rotación</option><option value="fly">Fly / vuelo</option><option value="hover">Hover / flotación</option><option value="sway">Sway / balanceo</option><option value="dance">Dance / baile</option><option value="cast">Cast / conjuro</option><option value="scan">Scan / escaneo</option><option value="launch">Launch / despegue</option><option value="drive">Drive / avance</option><option value="orbit">Orbit / órbita</option><option value="float">Float / suspensión</option><option value="breath">Breath / ciclo vital</option>
+                        </select>
+                        <label class="sbx-range-field">Velocidad <input id="sandbox-animation-speed" type="range" min="0.15" max="3" step="0.05" value="1"><output id="sandbox-animation-speed-value">1.00×</output></label>
+                        <button id="sandbox-animation-toggle" class="sbx-btn sbx-btn-accent">▶ Reproducir</button>
+                        <button id="sandbox-animation-save" class="sbx-btn">Guardar</button>
+                    </div>
+                    <small>Elige un modelo del catálogo o seleccioná uno en el Editor. Las animaciones son livianas, compatibles con móvil y quedan guardadas junto con la escena.</small>
+                </section>
+            </section>
         </main>
 
         <section class="wks-workspace" id="sbx-panel-workspace">
@@ -947,6 +1043,14 @@
 </div>
 
 <!-- ÁREA DE ENTRADA -->
+<div id="chat-extra-toolbar" class="chat-extra-toolbar" aria-label="Controles avanzados de Cut-real AI">
+    <button id="voice-call-btn" class="chat-extra-btn chat-call-btn" title="Iniciar conversación por voz">◉ Llamada de voz</button>
+    <button id="chat-read-last-btn" class="chat-extra-btn" title="Leer en voz alta la última respuesta">🔊 Leer última</button>
+    <button id="chat-copy-last-btn" class="chat-extra-btn" title="Copiar la última respuesta">⧉ Copiar última</button>
+    <button id="chat-export-btn" class="chat-extra-btn" title="Descargar la conversación como texto">⇩ Exportar</button>
+    <button id="chat-focus-btn" class="chat-extra-btn" title="Activar modo enfoque">⌗ Enfoque</button>
+    <span id="voice-call-status" class="voice-call-status" aria-live="polite">Voz lista</span>
+</div>
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
     <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
@@ -957,6 +1061,28 @@
         <span>Enviar</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
     </button>
+</div>
+
+<!-- CUT-REAL VOICE CALL / EXPERIENCIA INMERSIVA -->
+<div id="voice-call-modal" class="voice-call-modal" hidden aria-hidden="true">
+    <div class="voice-call-backdrop"></div>
+    <section class="voice-call-card" role="dialog" aria-modal="true" aria-labelledby="voice-call-title">
+        <header class="voice-call-header">
+            <div><span class="voice-call-eyebrow">CUT-REAL AI · VOICE LINK</span><h2 id="voice-call-title">Llamada con Cut-real AI</h2><p id="voice-call-modal-status">Preparando micrófono…</p></div>
+            <button id="voice-call-close" class="voice-call-close" aria-label="Cerrar llamada">×</button>
+        </header>
+        <div class="voice-call-stage">
+            <div class="voice-call-orbit voice-call-orbit-a"></div><div class="voice-call-orbit voice-call-orbit-b"></div>
+            <div class="voice-call-core"><span class="voice-call-core-pulse"></span><span>CR</span></div>
+            <div class="voice-call-signal"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div id="voice-call-transcript" class="voice-call-transcript" aria-live="polite">La conversación aparecerá aquí.</div>
+        <footer class="voice-call-actions">
+            <button id="voice-call-mic" class="voice-call-action" aria-label="Activar o silenciar micrófono"><span>◉</span><small>Micrófono</small></button>
+            <button id="voice-call-speaker" class="voice-call-action" aria-label="Activar o silenciar altavoz"><span>◖</span><small>Altavoz</small></button>
+            <button id="voice-call-end" class="voice-call-action voice-call-end" aria-label="Finalizar llamada"><span>×</span><small>Finalizar</small></button>
+        </footer>
+    </section>
 </div>
 
 <!-- IMAGE ZOOM MODAL -->
@@ -1031,8 +1157,10 @@
 <!-- LOQUENDO: síntesis de voz con sincronización al orb -->
 <script src="loquendo.js"></script>
 <!-- MAIN: lógica principal del chat -->
-<script src="main.js"></script>
-<script src="sandbox.js"></script>
+<script src="main.js?v=lowpoly-20260819-2"></script>
+<!-- Versionado para invalidar caché tras agregar tools low-poly -->
+<script src="sandbox-catalog.js?v=catalog-37-lowpoly-20260823"></script>
+<script src="sandbox-frontend.js?v=dedicated-frontend-20260823-5013"></script>
 <script src="workspace.js"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
@@ -1200,7 +1328,7 @@ window.adminSavePrompt = async function(){
 };
 window.adminResetPrompt = async function(){
     if(!confirm('¿Restaurar el prompt por defecto?')) return;
-    const defaultPrompt = 'Eres Cut-real AI, un asistente de inteligencia artificial creado por Bautista. Respondés siempre en español argentino de manera amigable, clara y útil. Podés procesar imágenes, documentos PDF y archivos Word.';
+    const defaultPrompt = 'Eres Cut-real AI, una inteligencia artificial formal, precisa y orientada a resultados. Responde en español neutro con criterios definidos, diferencia hechos de inferencias y opiniones, reconoce la incertidumbre, cuestiona premisas débiles con respeto y ofrece soluciones reproducibles. Prioriza exactitud, seguridad, privacidad y mantenibilidad. No uses sarcasmo, hostilidad, condescendencia ni validaciones vacías. Puedes procesar imágenes, documentos PDF y archivos Word cuando la función esté habilitada.';
     document.getElementById('system-prompt-textarea').value = defaultPrompt;
     updatePromptCount();
     await adminSavePrompt();
