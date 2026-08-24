@@ -9,9 +9,15 @@
 
     // ── CONFIGURACIÓN ───────────────────────────────────────
     const CFG = {
-        rate:   0.85,   // Un poco más lento, pero sin sonar arrastrado
-        pitch:  0.20,   // Tono muy bajo (0 a 2) para forzar voz grave y robótica
+        rate:   0.85,   // Ritmo pausado, típico de una voz de asistente
+        pitch:  0.20,   // Tono grave y sintético
         volume: 1.0,
+        mode: 'classic',
+        profiles: {
+            classic: { label: 'Loquendo clásico', rate: .85, pitch: .20, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Microsoft Sabina','Google español','español'] },
+            narrator: { label: 'Loquendo narrador', rate: .78, pitch: .28, prefs: ['Microsoft Raul','Microsoft Jorge','Google español','español'] },
+            natural: { label: 'Español natural', rate: .96, pitch: .72, prefs: ['Google español','Microsoft Helena','Microsoft Sabina','español'] },
+        },
         // Preferencias de voz, buscando primero las más parecidas a Loquendo
         voicePrefs: [
             { name: 'Microsoft Jorge',   lang: null }, // La voz clásica si está en Windows
@@ -47,8 +53,13 @@
         S.voice  = pickVoice(all);
     }
 
+    function activeVoicePrefs() {
+        const profile = CFG.profiles[CFG.mode] || CFG.profiles.classic;
+        return [...profile.prefs.map(name => ({ name, lang: null })), ...CFG.voicePrefs.filter(pref => !profile.prefs.includes(pref.name))];
+    }
+
     function pickVoice(voices) {
-        for (const pref of CFG.voicePrefs) {
+        for (const pref of activeVoicePrefs()) {
             let match;
             if (pref.name) {
                 match = voices.find(v => v.name.toLowerCase().includes(pref.name.toLowerCase()));
@@ -206,6 +217,20 @@
         }
     };
 
+    window.LoquendoSetMode = function (mode) {
+        if (!CFG.profiles[mode]) return false;
+        CFG.mode = mode;
+        CFG.rate = CFG.profiles[mode].rate;
+        CFG.pitch = CFG.profiles[mode].pitch;
+        loadVoices();
+        try { localStorage.setItem('cutreal_loquendo_mode', mode); } catch (_) {}
+        const select = document.getElementById('loquendo-style'); if (select) select.value = mode;
+        const status = document.getElementById('voice-call-status'); if (status) status.textContent = CFG.profiles[mode].label;
+        return true;
+    };
+    window.LoquendoGetMode = function () { return CFG.mode; };
+    window.LoquendoListVoices = function () { return S.voices.map(v => ({ name: v.name, lang: v.lang, localService: v.localService })); };
+
     window.LoquendoStop = function () {
         if (!S.synth) return;
         S.synth.cancel();
@@ -260,9 +285,21 @@
     }
 
     // ── INIT ─────────────────────────────────────────────────
+    function createModeSelector() {
+        if (document.getElementById('loquendo-style')) return;
+        const sc = document.querySelector('.side-controls'); if (!sc) return;
+        const select = document.createElement('select'); select.id = 'loquendo-style'; select.title = 'Perfil de voz Loquendo'; select.setAttribute('aria-label','Perfil de voz');
+        select.innerHTML = Object.entries(CFG.profiles).map(([id, profile]) => `<option value="${id}">${profile.label}</option>`).join('');
+        select.value = CFG.mode; select.addEventListener('change', () => window.LoquendoSetMode(select.value));
+        sc.insertBefore(select, sc.firstChild);
+    }
+
     function init() {
+        try { const saved = localStorage.getItem('cutreal_loquendo_mode'); if (saved && CFG.profiles[saved]) CFG.mode = saved; } catch (_) {}
+        const profile = CFG.profiles[CFG.mode] || CFG.profiles.classic; CFG.rate = profile.rate; CFG.pitch = profile.pitch;
         loadVoices();
         createButtons();
+        createModeSelector();
     }
 
     if (document.readyState === 'loading') {
