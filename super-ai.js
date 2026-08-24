@@ -73,7 +73,7 @@
 
   function renderNodeEditor() {
     const el = $('super-node-editor'); if (!el) return;
-    const providerOptions = ['openai', 'anthropic', 'gemini', 'groq', 'xai', 'mistral', 'deepseek', 'openrouter'];
+    const providerOptions = ['openai', 'gemini', 'groq', 'xai', 'mistral', 'deepseek', 'openrouter'];
     el.innerHTML = state.nodes.map((node, index) => `<div class="super-node-config" data-super-node="${esc(node.id)}"><div class="super-node-order">${String(index + 1).padStart(2, '0')}</div><div class="super-node-fields"><label>Rol<input data-field="role" value="${esc(node.role)}" maxlength="80"></label><label>Proveedor<select data-field="provider">${providerOptions.map(provider => `<option value="${provider}" ${provider === node.provider ? 'selected' : ''}>${providerLabel(provider)}</option>`).join('')}</select></label><label>Modelo<input data-field="model" value="${esc(node.model)}" maxlength="150" placeholder="modelo configurado"></label><label>SUPER key ID<input data-field="keyId" value="${esc(node.keyId)}" maxlength="80" placeholder="ID backend"></label></div><div class="super-node-actions"><button data-move="-1" title="Mover arriba">↑</button><button data-move="1" title="Mover abajo">↓</button><button data-remove="1" title="Quitar modelo">−</button></div></div>`).join('');
     el.querySelectorAll('.super-node-config').forEach(row => row.querySelectorAll('[data-field]').forEach(field => field.addEventListener('change', () => updateNode(row.dataset.superNode, { [field.dataset.field]: field.value }))));
     el.querySelectorAll('[data-move]').forEach(button => button.addEventListener('click', () => moveNode(button.closest('.super-node-config').dataset.superNode, Number(button.dataset.move))));
