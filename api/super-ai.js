@@ -24,7 +24,6 @@ function parseJsonEnv(name) {
 
 function normalizeProvider(value) {
   const text = String(value || '').toLowerCase().trim();
-  if (text.includes('anthropic') || text === 'claude') return 'anthropic';
   if (text.includes('gemini') || text === 'google') return 'gemini';
   if (text.includes('openrouter')) return 'openrouter';
   if (text.includes('deepseek')) return 'deepseek';
@@ -143,19 +142,8 @@ async function callGemini(item, messages, maxTokens) {
   return { ok: true, text: String(text).slice(0, MAX_OUTPUT_CHARS), latencyMs: 0, tokens: Number(usage.totalTokenCount || 0), promptTokens: Number(usage.promptTokenCount || 0), completionTokens: Number(usage.candidatesTokenCount || 0), rawModel: item.model };
 }
 
-async function callAnthropic(item, messages, maxTokens) {
-  const system = messages.filter(message => message.role === 'system').map(message => message.content).join('\n\n');
-  const result = await fetchJson('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': item.key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'false' }, body: JSON.stringify({ model: item.model, system, messages: messages.filter(message => message.role !== 'system'), max_tokens: maxTokens, temperature: 0.35 }) });
-  if (!result.response.ok) return { ok: false, error: summarizeError(result.response.status, result.body) };
-  const text = result.body?.content?.filter(item => item?.type === 'text').map(item => item.text).join('\n');
-  if (!text) return { ok: false, error: { type: 'provider_error', message: 'Anthropic no devolvió contenido.' } };
-  const usage = result.body?.usage || {};
-  return { ok: true, text: String(text).slice(0, MAX_OUTPUT_CHARS), latencyMs: 0, tokens: Number((usage.input_tokens || 0) + (usage.output_tokens || 0)), promptTokens: Number(usage.input_tokens || 0), completionTokens: Number(usage.output_tokens || 0), rawModel: item.model };
-}
-
 async function callProvider(item, messages, maxTokens) {
   if (item.provider === 'gemini') return callGemini(item, messages, maxTokens);
-  if (item.provider === 'anthropic') return callAnthropic(item, messages, maxTokens);
   return callOpenAICompatible(item, messages, maxTokens);
 }
 
