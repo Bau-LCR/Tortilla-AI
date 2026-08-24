@@ -295,5 +295,4 @@ export default async function handler(req, res) {
   } catch (error) {
     return json(res, error.status || 500, { ok: false, error: clean(error.message || 'Error en CUT-REAL AI SUPER', 700), isolated: true });
   }
-  
 }
