@@ -88,6 +88,12 @@
     cameraRecording: false,
     cameraPlaying: false,
     behaviorPreset: 'idle',
+    sandboxMode: 'editor',
+    climate: 'clear',
+    worldHour: 14,
+    player: { position: [0, 1.7, 5], velocityY: 0, grounded: true },
+    dimensions: [],
+    activeDimensionId: 'nexus-001',
     fps: 0,
     frameTime: 0,
   };
@@ -263,11 +269,34 @@
     state.objects.forEach(rec => { if (rec.type === 'catalog_lowpoly') animateCatalogObject(rec, now); });
   }
 
+  const navigationKeys = new Set();
+  let playerJumpQueued = false;
+  function setSandboxMode(mode, persist = true) {
+    const allowed = ['editor','player','god','drone','cinematic','ai']; state.sandboxMode = allowed.includes(mode) ? mode : 'editor';
+    const hints = { editor: 'Editor: seleccioná y manipulá objetos', player: 'Player: WASD / flechas · Space para saltar', god: 'God: control directo del mundo habilitado', drone: 'Drone: navegación aérea con WASD', cinematic: 'Cinematic: recorridos de cámara y composición', ai: 'AI: usá el chat NEXUS para ejecutar acciones' };
+    document.querySelectorAll('[data-sandbox-mode]').forEach(button => button.classList.toggle('active', button.dataset.sandboxMode === state.sandboxMode));
+    const hint = $('sandbox-mode-hint'); if (hint) hint.textContent = hints[state.sandboxMode];
+    if (state.sandboxMode === 'editor') { state.editorMode = true; if (controls) controls.enabled = true; }
+    else if (state.sandboxMode === 'player' || state.sandboxMode === 'drone') { state.editorMode = false; if (controls) controls.enabled = false; }
+    else { state.editorMode = false; if (controls) controls.enabled = true; }
+    if (camera && ['player','drone'].includes(state.sandboxMode) && Array.isArray(state.player?.position)) camera.position.fromArray(state.player.position);
+    const joystick = $('sandbox-mobile-joystick'); if (joystick) joystick.hidden = !['player','drone'].includes(state.sandboxMode);
+    renderEditorUI(); renderFutureUI(); if (persist) { logAction(`Modo: ${state.sandboxMode.toUpperCase()}`); scheduleSave(); }
+  }
+  function stepModeNavigation(dt) {
+    if (!camera || !['player','drone'].includes(state.sandboxMode) || state.worldPaused) return;
+    const direction = new THREE.Vector3(); if (navigationKeys.has('KeyW') || navigationKeys.has('ArrowUp')) direction.z -= 1; if (navigationKeys.has('KeyS') || navigationKeys.has('ArrowDown')) direction.z += 1; if (navigationKeys.has('KeyA') || navigationKeys.has('ArrowLeft')) direction.x -= 1; if (navigationKeys.has('KeyD') || navigationKeys.has('ArrowRight')) direction.x += 1; if (direction.lengthSq()) direction.normalize();
+    const speed = state.sandboxMode === 'drone' ? 6 : 3.6; camera.position.x = clamp(camera.position.x + direction.x * speed * dt, -WORLD_BOUND, WORLD_BOUND); camera.position.z = clamp(camera.position.z + direction.z * speed * dt, -WORLD_BOUND, WORLD_BOUND);
+    if (state.sandboxMode === 'player') { state.player.velocityY = Number(state.player.velocityY) || 0; if (playerJumpQueued && state.player.grounded) { state.player.velocityY = 5.2; state.player.grounded = false; } playerJumpQueued = false; if (state.gravityEnabled) state.player.velocityY -= 9.8 * dt * state.timeScale; camera.position.y = Math.max(1.1, camera.position.y + state.player.velocityY * dt); if (camera.position.y <= 1.1) { camera.position.y = 1.1; state.player.velocityY = 0; state.player.grounded = true; } }
+    state.player.position = camera.position.toArray(); if (controls) controls.target.set(camera.position.x, camera.position.y, camera.position.z - 2); renderConnectionLines();
+  }
+
   function animate() {
     animFrame = requestAnimationFrame(animate);
     const now = performance.now(); const frameTime = Math.min(100, now - perfLastFrame); perfLastFrame = now; perfFrames += 1;
     if (now - perfWindowStart >= 500) { state.fps = Math.round(perfFrames * 1000 / (now - perfWindowStart)); state.frameTime = frameTime; perfFrames = 0; perfWindowStart = now; }
     if (controls) controls.update();
+    stepModeNavigation(frameTime / 1000);
     if (!state.worldPaused && !state.editorMode) state.objects.forEach(o => { if (o.mesh && o.type !== 'catalog_lowpoly') o.mesh.rotation.y += 0.0022 * state.timeScale; });
     if (!state.worldPaused) animateCatalogObjects(now * state.timeScale);
     stepLightPhysics(frameTime / 1000); renderConnectionLines();
@@ -334,13 +363,15 @@
       });
     });
   }
+  function applyClimate(name, persist = true) { const climate = CLIMATE_PRESETS[name] ? name : 'clear'; state.climate = climate; const preset = CLIMATE_PRESETS[climate]; const env = ENVIRONMENT_PRESETS[state.environment] || ENVIRONMENT_PRESETS.lab; if (scene?.fog) { scene.fog.near = env.near * preset.fog; scene.fog.far = env.far * preset.fog; } if (neonLights.length) neonLights.forEach((light, index) => { light.intensity = (state.neonEnabled ? [1.7,.65,.35][index] : [.75,.22,.08][index]) * preset.intensity; }); $('sandbox-climate-select') && ($('sandbox-climate-select').value = climate); if (persist) { logAction(`Clima: ${preset.label}`); scheduleSave(); } }
+  function applyWorldHour(hour, persist = true) { state.worldHour = clamp(Number(hour), 0, 24); const night = state.worldHour < 6 || state.worldHour >= 19; const climateFactor = (CLIMATE_PRESETS[state.climate] || CLIMATE_PRESETS.clear).intensity; const baseLights = state.neonEnabled ? [1.7,.65,.35] : [.75,.22,.08]; if (neonLights.length) neonLights.forEach((light, index) => { light.intensity = baseLights[index] * climateFactor * (night ? 1.08 : .92); }); const output = $('sandbox-world-hour-value'); if (output) output.textContent = `${String(Math.floor(state.worldHour)).padStart(2,'0')}:00`; const input = $('sandbox-world-hour'); if (input) input.value = state.worldHour; if (persist) { logAction(`Hora dimensional: ${String(Math.floor(state.worldHour)).padStart(2,'0')}:00`); scheduleSave(); } }
   function applySceneVisualState() {
     if (gridHelper) gridHelper.visible = state.gridVisible;
     $('sandbox-grid-toggle')?.classList.toggle('active', state.gridVisible);
     $('sandbox-neon-toggle')?.classList.toggle('active', state.neonEnabled);
     $('sandbox-performance-toggle')?.classList.toggle('active', state.ecoMode);
     if (neonLights.length) neonLights.forEach((light, index) => { light.intensity = state.neonEnabled ? [1.7,.65,.35][index] : [0.75,.22,.08][index]; });
-    applyEnvironment(state.environment, false); applyQualitySettings(false); applyWireframe();
+    applyEnvironment(state.environment, false); applyQualitySettings(false); applyWireframe(); applyClimate(state.climate, false); applyWorldHour(state.worldHour, false);
   }
 
   function stepLightPhysics(dt) {
@@ -409,6 +440,56 @@
     if (!file) return;
     try { const payload = JSON.parse(await file.text()); const list = Array.isArray(payload) ? payload : payload.scene; if (!Array.isArray(list)) throw new Error('El JSON no contiene una escena válida.'); recordUndoSnapshot(); clearConnections(); SceneManager.hydrate(list); state.environment = ENVIRONMENT_PRESETS[payload.environment] ? payload.environment : state.environment; state.quality = QUALITY_PRESETS[payload.quality] ? payload.quality : state.quality; state.connections = Array.isArray(payload.connections) ? payload.connections.slice(-80) : []; applySceneVisualState(); renderConnectionLines(); renderEditorUI(); renderFutureUI(); logAction(`Escena importada: ${state.objects.size} objetos`); await persistSandbox(true); } catch (error) { showToastSafe(`No se pudo importar: ${error.message}`, '#ff6666'); }
   }
+
+  // ============================================================
+  //  NEXUS WORLDS / PORTALS — expansión sobre el mismo Sandbox
+  // ============================================================
+  const MAX_DIMENSIONS = 8;
+  const CLIMATE_PRESETS = { clear: { label: 'Despejado', fog: 1, intensity: 1 }, rain: { label: 'Lluvia', fog: .82, intensity: .86 }, fog: { label: 'Niebla', fog: .45, intensity: .7 }, storm: { label: 'Tormenta', fog: .62, intensity: .58 }, snow: { label: 'Nieve', fog: .72, intensity: .92 }, dust: { label: 'Polvo marciano', fog: .7, intensity: .68 } };
+  const DIMENSION_PRESETS = {
+    earth: { name: 'EARTH', environment: 'lab', climate: 'clear', worldHour: 14, gravityEnabled: true, timeScale: 1, worldPreset: 'showcase' },
+    aether: { name: 'AETHER', environment: 'space', climate: 'clear', worldHour: 22, gravityEnabled: true, timeScale: .8, worldPreset: 'fleet' },
+    void: { name: 'VOID', environment: 'minimal', climate: 'fog', worldHour: 0, gravityEnabled: false, timeScale: .6, worldPreset: 'showcase' },
+    mars: { name: 'MARS', environment: 'industrial', climate: 'dust', worldHour: 16, gravityEnabled: true, timeScale: 1, worldPreset: 'nature' },
+    'cyber-city': { name: 'CYBER CITY', environment: 'cyberpunk', climate: 'rain', worldHour: 23, gravityEnabled: true, timeScale: 1, worldPreset: 'cyber-city' },
+  };
+  function newDimensionRecord(presetKey = 'earth', id = `nexus-${Date.now().toString(36)}`) {
+    const preset = DIMENSION_PRESETS[presetKey] || DIMENSION_PRESETS.earth;
+    return { id, name: preset.name, createdAt: Date.now(), updatedAt: Date.now(), environment: preset.environment, climate: preset.climate || 'clear', worldHour: preset.worldHour ?? 14, quality: 'balanced', physicsEnabled: false, gravityEnabled: preset.gravityEnabled, worldPaused: false, timeScale: preset.timeScale, worldPreset: preset.worldPreset, connections: [], cameraPath: [], scene: [] };
+  }
+  function activeDimension() { return state.dimensions.find(item => item.id === state.activeDimensionId) || state.dimensions[0] || null; }
+  function syncActiveDimension() {
+    const active = activeDimension(); if (!active) return null;
+    active.updatedAt = Date.now(); active.environment = state.environment; active.climate = state.climate; active.worldHour = state.worldHour; active.quality = state.quality; active.physicsEnabled = state.physicsEnabled; active.gravityEnabled = state.gravityEnabled; active.worldPaused = state.worldPaused; active.timeScale = state.timeScale; active.worldPreset = state.worldPreset; active.connections = state.connections.slice(-80); active.cameraPath = state.cameraPath.slice(-24); active.scene = SceneManager.serialize(); return active;
+  }
+  function setDimensionRuntime(record) {
+    state.activeDimensionId = record.id; state.environment = ENVIRONMENT_PRESETS[record.environment] ? record.environment : 'lab'; state.climate = CLIMATE_PRESETS[record.climate] ? record.climate : 'clear'; state.worldHour = Number.isFinite(Number(record.worldHour)) ? clamp(Number(record.worldHour), 0, 24) : 14; state.quality = QUALITY_PRESETS[record.quality] ? record.quality : 'balanced'; state.physicsEnabled = record.physicsEnabled === true; state.gravityEnabled = record.gravityEnabled !== false; state.worldPaused = record.worldPaused === true; state.timeScale = Number.isFinite(Number(record.timeScale)) ? clamp(Number(record.timeScale), 0, 2) : 1; state.worldPreset = WORLD_PRESETS[record.worldPreset] ? record.worldPreset : 'showcase'; state.connections = Array.isArray(record.connections) ? record.connections.slice(-80) : []; state.cameraPath = Array.isArray(record.cameraPath) ? record.cameraPath.slice(-24) : []; state.selectedObjectId = null; SceneManager.hydrate(Array.isArray(record.scene) ? record.scene : []); applySceneVisualState(); if (camera && controls) setCameraPreset(state.cameraPreset); renderEditorUI(); renderSceneStats(); renderConnectionLines(); renderFutureUI(); renderDimensionsUI(); }
+  function normalizeDimensionRecord(record, fallbackId) { const base = newDimensionRecord('earth', record?.id || fallbackId); return { ...base, ...(record || {}), id: String(record?.id || fallbackId), name: sanitizeText(record?.name || base.name, 40) || base.name, scene: Array.isArray(record?.scene) ? record.scene.slice(0, MAX_OBJECTS) : [], connections: Array.isArray(record?.connections) ? record.connections.slice(-80) : [], cameraPath: Array.isArray(record?.cameraPath) ? record.cameraPath.slice(-24) : [] }; }
+  function ensureDimensions(data) {
+    const saved = Array.isArray(data?.dimensions) ? data.dimensions : [];
+    if (saved.length) state.dimensions = saved.slice(0, MAX_DIMENSIONS).map((item, index) => normalizeDimensionRecord(item, `nexus-${String(index + 1).padStart(3, '0')}`));
+    else state.dimensions = [normalizeDimensionRecord({ id: 'nexus-001', name: 'EARTH', scene: data?.scene || [], environment: data?.environment, climate: data?.climate, worldHour: data?.worldHour, quality: data?.quality, physicsEnabled: data?.physicsEnabled, gravityEnabled: data?.gravityEnabled, worldPaused: data?.worldPaused, timeScale: data?.timeScale, worldPreset: data?.worldPreset, connections: data?.connections, cameraPath: data?.cameraPath }, 'nexus-001')];
+    state.activeDimensionId = state.dimensions.some(item => item.id === data?.activeDimensionId) ? data.activeDimensionId : state.dimensions[0].id; state.sandboxMode = ['editor','player','god','drone','cinematic','ai'].includes(data?.sandboxMode) ? data.sandboxMode : 'editor'; state.player = { position: Array.isArray(data?.player?.position) ? clampVec(data.player.position) : [0,1.7,5], velocityY: Number(data?.player?.velocityY) || 0, grounded: data?.player?.grounded !== false }; setDimensionRuntime(activeDimension());
+  }
+  async function switchDimension(id) {
+    const next = state.dimensions.find(item => item.id === id); if (!next || next.id === state.activeDimensionId) return false;
+    syncActiveDimension(); setDimensionRuntime(next); logAction(`Dimensión activa: ${next.name}`); await persistSandbox(true); return true;
+  }
+  function createDimension(presetOverride = null, nameOverride = null) {
+    if (state.dimensions.length >= MAX_DIMENSIONS) { showToastSafe(`Límite de ${MAX_DIMENSIONS} dimensiones alcanzado.`, '#ffaa44'); return null; }
+    syncActiveDimension(); const key = DIMENSION_PRESETS[presetOverride] ? presetOverride : ($('sandbox-dimension-preset')?.value || 'earth'); const record = newDimensionRecord(key); record.name = sanitizeText(nameOverride || $('sandbox-dimension-name')?.value || record.name, 40); state.dimensions.push(record); setDimensionRuntime(record); applyDimensionPreset(key, false); logAction(`Dimensión creada: ${record.name}`); renderDimensionsUI(); void persistSandbox(true); return record.id;
+  }
+  function duplicateDimension() {
+    if (state.dimensions.length >= MAX_DIMENSIONS) { showToastSafe(`Límite de ${MAX_DIMENSIONS} dimensiones alcanzado.`, '#ffaa44'); return null; }
+    const source = syncActiveDimension(); if (!source) return null; const copy = JSON.parse(JSON.stringify(source)); copy.id = `nexus-${Date.now().toString(36)}`; copy.name = `${source.name} COPY`; copy.createdAt = Date.now(); state.dimensions.push(copy); setDimensionRuntime(copy); logAction(`Dimensión duplicada: ${copy.name}`); void persistSandbox(true); return copy.id;
+  }
+  function renameDimension(nameOverride = null) { const active = activeDimension(); if (!active) return false; const input = $('sandbox-dimension-name'); const name = sanitizeText(nameOverride || input?.value, 40).trim(); if (!name) { showToastSafe('Escribí un nombre para la dimensión.', '#ffaa44'); return false; } active.name = name; active.updatedAt = Date.now(); logAction(`Dimensión renombrada: ${name}`); renderDimensionsUI(); void persistSandbox(true); return true; }
+  async function deleteDimension() { const active = activeDimension(); if (!active || state.dimensions.length <= 1) { showToastSafe('Debe existir al menos una dimensión.', '#ffaa44'); return false; } if (!confirm(`¿Eliminar permanentemente ${active.name}? Esta acción no se puede deshacer.`)) return false; state.dimensions = state.dimensions.filter(item => item.id !== active.id); const next = state.dimensions[0]; setDimensionRuntime(next); logAction(`Dimensión eliminada: ${active.name}`); await persistSandbox(true); return true; }
+  function applyDimensionPreset(key, persist = true) { const active = activeDimension(); const preset = DIMENSION_PRESETS[key] || DIMENSION_PRESETS.earth; if (!active) return; active.environment = preset.environment; active.climate = preset.climate || 'clear'; active.worldHour = preset.worldHour ?? 14; active.gravityEnabled = preset.gravityEnabled; active.timeScale = preset.timeScale; active.worldPreset = preset.worldPreset; state.environment = preset.environment; state.climate = active.climate; state.worldHour = active.worldHour; state.gravityEnabled = preset.gravityEnabled; state.timeScale = preset.timeScale; state.worldPreset = preset.worldPreset; if (key === 'cyber-city' && sandboxId && window.CutRealCatalog) generateWorldPreset(); else { applySceneVisualState(); renderFutureUI(); } logAction(`Preset dimensional aplicado: ${preset.name}`); if (persist) void persistSandbox(true); renderDimensionsUI(); }
+  function createPortalForTarget(targetOverride = null, positionOverride = null) { const targetId = targetOverride || $('sandbox-portal-target')?.value; const target = state.dimensions.find(item => item.id === targetId); if (!target || target.id === state.activeDimensionId) { showToastSafe('Elegí otra dimensión como destino.', '#ffaa44'); return null; } const meta = window.CutRealCatalog?.instantiate('portal-gate', { color: state.catalogTint, animation: 'spin', animationPlaying: true }); if (!meta) { showToastSafe('El asset portal-gate no está disponible.', '#ff6666'); return null; } recordUndoSnapshot(); meta.name = `NEXUS Gate → ${target.name}`;     meta.position = Array.isArray(positionOverride) ? clampVec(positionOverride) : suggestedScenePosition(); meta.portalTargetDimension = target.id; const id = SceneManager.addObject(meta); Editor.select(id); logAction(`Portal creado hacia ${target.name}`); scheduleSave(); return id; }
+  function connectSelectedPortal(portalIdOverride = null, targetOverride = null) { const portalId = portalIdOverride || state.selectedObjectId; const rec = portalId ? SceneManager.getObject(portalId) : null; const target = state.dimensions.find(item => item.id === (targetOverride || $('sandbox-portal-target')?.value)); if (!rec || rec.catalogId !== 'portal-gate' || !target || target.id === state.activeDimensionId) { showToastSafe('Seleccioná un NEXUS Gate y un destino válido.', '#ffaa44'); return false; } rec.portalTargetDimension = target.id; rec.name = `NEXUS Gate → ${target.name}`; logAction(`Portal conectado hacia ${target.name}`); scheduleSave(); renderDimensionsUI(); return true; }
+  async function enterSelectedPortal(portalIdOverride = null) { const portalId = portalIdOverride || state.selectedObjectId; const rec = portalId ? SceneManager.getObject(portalId) : null; if (!rec?.portalTargetDimension) { showToastSafe('Seleccioná un portal conectado.', '#ffaa44'); return false; } return switchDimension(rec.portalTargetDimension); }
+  function renderDimensionsUI() { const active = activeDimension(); const select = $('sandbox-dimension-select'); const target = $('sandbox-portal-target'); const options = state.dimensions.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)} · ${escapeHtml(item.id)}</option>`).join(''); if (select) { select.innerHTML = options; select.value = active?.id || ''; } if (target) { target.innerHTML = `<option value="">Elegir destino…</option>${options}`; target.value = target.value && state.dimensions.some(item => item.id === target.value) ? target.value : ''; } const name = $('sandbox-dimension-name'); if (name && document.activeElement !== name) name.value = active?.name || ''; const status = $('sandbox-dimension-active-status'); if (status) status.textContent = active ? `${active.id.toUpperCase()} · ${active.name}` : 'Sin dimensión'; const info = $('sandbox-dimension-info'); if (info && active) info.textContent = `${active.name}: ${active.scene?.length || state.objects.size} objetos · ambiente ${active.environment} · clima ${state.climate} · hora ${String(Math.floor(state.worldHour)).padStart(2,'0')}:00 · gravedad ${active.gravityEnabled ? 'activa' : 'desactivada'} · ${state.connections.length} conexiones`; const map = $('sandbox-dimension-map'); if (map) map.innerHTML = state.dimensions.map(item => `<button class="sbx-dimension-node ${item.id === state.activeDimensionId ? 'active' : ''}" data-dimension-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}<small>${escapeHtml(item.id)} · ${item.scene?.length || 0} obj.</small></button>`).join(''); }
 
   function setChatVisible(visible, persist = true) {
     state.chatVisible = !!visible;
@@ -809,6 +890,7 @@
         rotation, scale, color: meta.color || null, mesh: group,
         catalogId: meta.catalogId || null, catalogCategory: meta.catalogCategory || null,
         catalogDescription: meta.catalogDescription || null,
+        portalTargetDimension: meta.portalTargetDimension || null,
         animation: meta.animation || 'idle', animationSpeed: clamp(Number(meta.animationSpeed) || 1, .15, 3),
         animationPlaying: meta.animationPlaying !== false, animationBase: null,
 
@@ -914,6 +996,7 @@
         rotation: o.animationBase?.rotation?.slice?.() || [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
         scale: o.animationBase?.scale?.slice?.() || [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
         catalogId: o.catalogId, catalogCategory: o.catalogCategory, catalogDescription: o.catalogDescription,
+        portalTargetDimension: o.portalTargetDimension || null,
         animation: o.animation, animationSpeed: o.animationSpeed, animationPlaying: o.animationPlaying,
       }));
 
@@ -1021,7 +1104,8 @@
     const save = $('sandbox-animation-save'); if (save) save.disabled = !supported;
   }
 
-  function renderFutureUI() {
+    function renderFutureUI() {
+    renderDimensionsUI();
     const stats = $('sandbox-scene-stats');
     if (stats) renderSceneStats();
     const chatBtn = $('sandbox-chat-toggle'); if (chatBtn) chatBtn.textContent = state.chatVisible ? '◧ Ocultar chat' : '◨ Mostrar chat';
@@ -1038,6 +1122,9 @@
     const timeValue = $('sandbox-time-scale-value'); if (timeValue) timeValue.textContent = `${Number(state.timeScale).toFixed(1)}×`;
     const pattern = $('sandbox-clone-pattern'); if (pattern) pattern.value = state.clonePattern;
     const worldPreset = $('sandbox-world-preset'); if (worldPreset) worldPreset.value = state.worldPreset;
+    const climate = $('sandbox-climate-select'); if (climate) climate.value = state.climate;
+    const hour = $('sandbox-world-hour'); if (hour) hour.value = state.worldHour;
+    const hourValue = $('sandbox-world-hour-value'); if (hourValue) hourValue.textContent = `${String(Math.floor(state.worldHour)).padStart(2,'0')}:00`;
     const snap = $('sandbox-snap-toggle'); if (snap) snap.checked = state.snapEnabled;
     const link = $('sandbox-link-toggle'); if (link) { link.classList.toggle('active', state.linkMode); link.textContent = state.linkMode ? 'Elegí dos objetos…' : 'Enlazar objetos'; }
     const record = $('sandbox-camera-record'); if (record) { record.classList.toggle('active', state.cameraRecording); record.textContent = state.cameraRecording ? '■ Stop' : '● Rec'; }
@@ -1236,6 +1323,18 @@
       state.agentState = { label: sanitizeText(label, 24), color: safeColor(color) || state.agentState.color };
       renderAgentStateHUD(); return { ok: true };
     },
+    create_dimension: ({ name, preset }) => { const id = createDimension(preset || 'earth', sanitizeText(name, 40)); if (!id) throw new Error('No se pudo crear la dimensión.'); return { ok: true, id }; },
+    duplicate_dimension: () => { const id = duplicateDimension(); if (!id) throw new Error('No se pudo duplicar la dimensión.'); return { ok: true, id }; },
+    rename_dimension: ({ name }) => { if (!renameDimension(name)) throw new Error('El nombre de dimensión no es válido.'); return { ok: true, name: activeDimension()?.name }; },
+    delete_dimension: ({ id, confirmed }) => { if (confirmed !== true) throw new Error('CONFIRM DESTRUCTIVE ACTION: la eliminación requiere confirmación explícita del usuario.'); if (id && id !== state.activeDimensionId) throw new Error('La eliminación de otra dimensión debe seleccionarse primero en la consola.'); return deleteDimension().then?.(ok => ({ ok })) || { ok: false, pending: true }; },
+    set_dimension_preset: ({ preset }) => { if (!DIMENSION_PRESETS[preset]) throw new Error('Preset dimensional no permitido.'); applyDimensionPreset(preset); return { ok: true, preset }; },
+    set_environment: ({ environment }) => { if (!ENVIRONMENT_PRESETS[environment]) throw new Error('Ambiente no permitido.'); applyEnvironment(environment); return { ok: true, environment }; },
+    set_climate: ({ climate }) => { if (!CLIMATE_PRESETS[climate]) throw new Error('Clima no permitido.'); applyClimate(climate); return { ok: true, climate }; },
+    set_world_time: ({ hour }) => { applyWorldHour(hour); return { ok: true, hour: state.worldHour }; },
+    set_gravity: ({ enabled }) => { state.gravityEnabled = !!enabled; applySceneVisualState(); logAction(`Gravedad: ${state.gravityEnabled ? 'ON' : 'OFF'}`); scheduleSave(); return { ok: true, enabled: state.gravityEnabled }; },
+    create_portal: ({ targetDimensionId, position }) => { const id = createPortalForTarget(targetDimensionId, position); if (!id) throw new Error('No se pudo crear el portal o el destino no existe.'); return { ok: true, id, targetDimensionId }; },
+    connect_portal: ({ portalId, targetDimensionId }) => { const ok = connectSelectedPortal(portalId, targetDimensionId); if (!ok) throw new Error('El portal o destino no es válido.'); return { ok: true, portalId, targetDimensionId }; },
+    enter_portal: ({ portalId }) => enterSelectedPortal(portalId).then?.(ok => ({ ok })) || { ok: false },
   };
 
   function executeTool(name, args) {
@@ -1358,6 +1457,7 @@
     const payload = {
       messages: state.messages.slice(-16).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
       scene: { objects: SceneManager.inspect().objects },
+      dimensions: state.dimensions.slice(0, MAX_DIMENSIONS).map(item => ({ id: item.id, name: item.name, active: item.id === state.activeDimensionId, environment: item.environment, gravityEnabled: item.gravityEnabled, objects: item.scene?.length || 0 })),
       memoryKeys: Object.keys(state.memory),
       lastActions: state.actionLog.slice(-6).map(a => a.text),
       autonomous: !userText,
@@ -1513,7 +1613,7 @@
     for (const call of toolCalls) {
       const toolEl = $('sandbox-current-tool');
       if (toolEl) toolEl.textContent = '⚙ ' + call.name;
-      try { executeTool(call.name, call.args); }
+      try { await executeTool(call.name, call.args); }
       catch (e) { logAction(`⚠️ Herramienta "${call.name}" falló: ${e.message}`); }
     }
     const toolEl = $('sandbox-current-tool'); if (toolEl) toolEl.textContent = '';
@@ -1621,6 +1721,12 @@
       cameraPreset: state.cameraPreset,
       autonomyEnabled: state.autonomyEnabled,
       apiUsage: state.apiUsage,
+      activeDimensionId: state.activeDimensionId,
+      dimensions: (syncActiveDimension() ? state.dimensions : []).slice(0, MAX_DIMENSIONS),
+      climate: state.climate,
+      worldHour: state.worldHour,
+      sandboxMode: state.sandboxMode,
+      player: { position: state.player.position.slice(0, 3), velocityY: Number(state.player.velocityY) || 0, grounded: state.player.grounded !== false },
     };
   }
 
@@ -1691,7 +1797,7 @@
     const { doc, setDoc } = window.firestore;
     const ref = doc(sandboxCollection());
     const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], snapshots: [], environment: 'lab', quality: 'balanced', physicsEnabled: false, gravityEnabled: true, worldPaused: false, timeScale: 1, snapEnabled: false, snapSize: 1, clonePattern: 'line', connectionType: 'data', worldPreset: 'showcase', connections: [], cameraPath: [], behaviorPreset: 'idle', editorMode: false, selectedObjectId: null, chatVisible: true, gridVisible: true, wireframe: false, neonEnabled: true, ecoMode: false, cameraPreset: 'hero', autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], snapshots: [], environment: 'lab', quality: 'balanced', physicsEnabled: false, gravityEnabled: true, worldPaused: false, timeScale: 1, snapEnabled: false, snapSize: 1, clonePattern: 'line', connectionType: 'data', worldPreset: 'showcase', connections: [], cameraPath: [], behaviorPreset: 'idle', editorMode: false, selectedObjectId: null, chatVisible: true, gridVisible: true, wireframe: false, neonEnabled: true, ecoMode: false, cameraPreset: 'hero', activeDimensionId: 'nexus-001', dimensions: [newDimensionRecord('earth', 'nexus-001')], climate: 'clear', worldHour: 14, sandboxMode: 'editor', player: { position: [0,1.7,5], velocityY: 0, grounded: true }, autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
 
     await loadSandboxList();
     await openSandboxById(ref.id);
@@ -1732,9 +1838,11 @@
     state.cameraPreset = data.cameraPreset || 'hero';
     state.undoStack = []; state.redoStack = [];
     state.selectedObjectId = null;
+    ensureDimensions(data);
     renderSaveState('saved', 'Sincronizado');
     renderUsageHUD();
-    state.autonomyEnabled = false;
+        state.autonomyEnabled = false;
+    setSandboxMode(state.sandboxMode, false);
 
     const chatEl = $('sandbox-chat'); if (chatEl) chatEl.innerHTML = '';
     state.messages.forEach(m => renderMessage(m.role, m.text));
@@ -1743,7 +1851,7 @@
       line.textContent = `[${new Date(a.ts).toLocaleTimeString('es-AR')}] ${a.text}`; logEl.appendChild(line);
     }); }
 
-        SceneManager.hydrate(data.scene || []);
+        // ensureDimensions ya hidrató la dimensión activa; no se vuelve a cargar data.scene encima.
     state.selectedObjectId = data.selectedObjectId && SceneManager.getObject(data.selectedObjectId) ? data.selectedObjectId : null;
     if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
     if (camera && controls) setCameraPreset(state.cameraPreset);
@@ -1774,7 +1882,7 @@
     resizeRenderer();
     await loadSandboxList();
     if (!sandboxId && sandboxListCache.length) await openSandboxById(sandboxListCache[0].id);
-    setChatVisible(state.chatVisible, false); applySceneVisualState(); renderFutureUI();
+    setChatVisible(state.chatVisible, false); applySceneVisualState(); renderDimensionsUI(); renderFutureUI();
   }
   async function closeSandboxPanel() {
     pauseAutonomy();
@@ -1804,6 +1912,11 @@
     $('sandbox-new-btn')?.addEventListener('click', createSandbox);
     $('sandbox-send-btn')?.addEventListener('click', sendUserMessage);
     $('sandbox-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendUserMessage(); } });
+    document.querySelectorAll('[data-sandbox-mode]').forEach(button => button.addEventListener('click', () => setSandboxMode(button.dataset.sandboxMode)));
+    window.addEventListener('keydown', event => { if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return; if (['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)) { navigationKeys.add(event.code); event.preventDefault(); } if (event.code === 'Space' && ['player','drone'].includes(state.sandboxMode)) { playerJumpQueued = true; event.preventDefault(); } });
+    window.addEventListener('keyup', event => navigationKeys.delete(event.code));
+    const joystick = $('sandbox-mobile-joystick');
+    if (joystick) { const updateJoystick = event => { const rect = joystick.getBoundingClientRect(); const x = event.clientX - (rect.left + rect.width / 2), y = event.clientY - (rect.top + rect.height / 2); const angle = Math.atan2(y, x); const threshold = rect.width * .16; navigationKeys.delete('KeyW'); navigationKeys.delete('KeyA'); navigationKeys.delete('KeyS'); navigationKeys.delete('KeyD'); if (Math.hypot(x,y) > threshold) { if (Math.abs(x) > Math.abs(y)) navigationKeys.add(x > 0 ? 'KeyD' : 'KeyA'); else navigationKeys.add(y > 0 ? 'KeyS' : 'KeyW'); } }; const clearJoystick = () => { ['KeyW','KeyA','KeyS','KeyD'].forEach(key => navigationKeys.delete(key)); }; joystick.addEventListener('pointerdown', event => { joystick.setPointerCapture?.(event.pointerId); updateJoystick(event); }); joystick.addEventListener('pointermove', event => { if (joystick.hasPointerCapture?.(event.pointerId)) updateJoystick(event); }); joystick.addEventListener('pointerup', clearJoystick); joystick.addEventListener('pointercancel', clearJoystick); }
     $('sandbox-autonomy-toggle')?.addEventListener('click', () => state.autonomyEnabled ? stopAutonomy('Desactivado por el usuario') : startAutonomy());
     $('sandbox-pause-btn')?.addEventListener('click', () => state.paused ? resumeAutonomy() : pauseAutonomy());
         $('sandbox-step-btn')?.addEventListener('click', stepOnce);
@@ -1834,6 +1947,8 @@
     $('sandbox-neon-toggle')?.addEventListener('click', () => { state.neonEnabled = !state.neonEnabled; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
     $('sandbox-performance-toggle')?.addEventListener('click', () => { state.ecoMode = !state.ecoMode; state.quality = state.ecoMode ? 'eco' : 'balanced'; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
     $('sandbox-environment-select')?.addEventListener('change', event => applyEnvironment(event.target.value));
+    $('sandbox-climate-select')?.addEventListener('change', event => applyClimate(event.target.value));
+    $('sandbox-world-hour')?.addEventListener('input', event => applyWorldHour(event.target.value));
     $('sandbox-quality-select')?.addEventListener('change', event => { state.quality = QUALITY_PRESETS[event.target.value] ? event.target.value : 'balanced'; applyQualitySettings(); renderFutureUI(); });
     $('sandbox-physics-toggle')?.addEventListener('change', event => { state.physicsEnabled = !!event.target.checked; scheduleSave(); logAction(`Física ligera: ${state.physicsEnabled ? 'ON' : 'OFF'}`); renderFutureUI(); });
     $('sandbox-gravity-toggle')?.addEventListener('change', event => { state.gravityEnabled = !!event.target.checked; scheduleSave(); logAction(`Gravedad: ${state.gravityEnabled ? 'ON' : 'OFF'}`); });
@@ -1855,6 +1970,16 @@
     $('sandbox-snapshot-btn')?.addEventListener('click', createSceneSnapshot);
     $('sandbox-recover-btn')?.addEventListener('click', recoverLatestSnapshot);
     $('sandbox-scan-btn')?.addEventListener('click', openSceneScanner);
+    $('sandbox-dimension-select')?.addEventListener('change', event => { void switchDimension(event.target.value); });
+    $('sandbox-dimension-new')?.addEventListener('click', createDimension);
+    $('sandbox-dimension-duplicate')?.addEventListener('click', duplicateDimension);
+    $('sandbox-dimension-rename')?.addEventListener('click', renameDimension);
+    $('sandbox-dimension-delete')?.addEventListener('click', () => { void deleteDimension(); });
+    $('sandbox-dimension-apply-preset')?.addEventListener('click', () => applyDimensionPreset($('sandbox-dimension-preset')?.value || 'earth'));
+    $('sandbox-portal-create')?.addEventListener('click', createPortalForTarget);
+    $('sandbox-portal-connect')?.addEventListener('click', connectSelectedPortal);
+    $('sandbox-portal-enter')?.addEventListener('click', () => { void enterSelectedPortal(); });
+    $('sandbox-dimension-map')?.addEventListener('click', event => { const node = event.target.closest('[data-dimension-id]'); if (node) void switchDimension(node.dataset.dimensionId); });
     $('sandbox-analysis-close')?.addEventListener('click', () => { const panel = $('sandbox-analysis-panel'); if (panel) panel.hidden = true; });
     $('sandbox-catalog-btn')?.addEventListener('click', openCatalogPanel);
     $('sandbox-catalog-close')?.addEventListener('click', closeCatalogPanel);
@@ -1867,7 +1992,7 @@
     $('sandbox-animation-speed')?.addEventListener('input', event => { const output = $('sandbox-animation-speed-value'); if (output) output.textContent = `${Number(event.target.value).toFixed(2)}×`; applyAnimationControls(); });
     $('sandbox-animation-toggle')?.addEventListener('click', toggleSelectedAnimation);
     $('sandbox-animation-save')?.addEventListener('click', applyAnimationControls);
-    renderCatalog(); renderFutureUI();
+    setSandboxMode(state.sandboxMode, false); renderCatalog(); renderDimensionsUI(); renderFutureUI();
 
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void persistSandbox(true); });
     window.addEventListener('beforeunload', () => { void persistSandbox(true); });
