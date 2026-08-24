@@ -18,7 +18,7 @@
   const flat = (n, fallback) => Number.isFinite(Number(n)) ? Number(n) : fallback;
   const color = value => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#33ff77';
 
-  function ellipsoid(rx, ry, rz, segments = 6, rings = 3) {
+  function ellipsoid(rx, ry, rz, segments = 12, rings = 6) {
     const vertices = [[0, ry, 0]];
     for (let ring = 1; ring < rings; ring++) {
       const phi = Math.PI * ring / rings;
@@ -43,7 +43,7 @@
     return { vertices, faces };
   }
 
-  function frustum(rxTop, rzTop, rxBottom, rzBottom, height, segments = 6) {
+  function frustum(rxTop, rzTop, rxBottom, rzBottom, height, segments = 12) {
     const vertices = [];
     for (const [y, rx, rz] of [[height / 2, rxTop, rzTop], [-height / 2, rxBottom, rzBottom]]) {
       for (let i = 0; i < segments; i++) {
@@ -102,14 +102,17 @@
       F('pelvis', [0,.68,0], [.46,.36], [.52,.4], .42, p.dark),
       E('head', [0,2.55,0], [.4,.48,.36], p.skin),
       E('hair', [0,2.88,-.02], [.43,.2,.37], p.dark),
-      F('arm_left', [-.7,1.48,0], [.13,.13], [.2,.18], 1.16, p.suit, [0,0,-.15]),
-      F('arm_right', [.7,1.48,0], [.13,.13], [.2,.18], 1.16, p.suit, [0,0,.15]),
-      E('hand_left', [-.78,.84,0], [.14,.16,.14], p.skin),
-      E('hand_right', [.78,.84,0], [.14,.16,.14], p.skin),
-      F('leg_left', [-.29,.02,0], [.18,.19], [.25,.23], 1.22, p.dark),
-      F('leg_right', [.29,.02,0], [.18,.19], [.25,.23], 1.22, p.dark),
-      B('boot_left', [-.3,-.66,.14], [.42,.2,.72], p.boot),
-      B('boot_right', [.3,-.66,.14], [.42,.2,.72], p.boot),
+      E('shoulder_left', [-.5,1.98,0], [.3,.3,.3], p.suit), E('shoulder_right', [.5,1.98,0], [.3,.3,.3], p.suit),
+      F('upper_arm_left', [-.64,1.7,0], [.15,.15], [.2,.18], .7, p.suit, [0,0,-.14]),
+      F('upper_arm_right', [.64,1.7,0], [.15,.15], [.2,.18], .7, p.suit, [0,0,.14]),
+      E('elbow_left', [-.72,1.32,0], [.17,.17,.17], p.dark), E('elbow_right', [.72,1.32,0], [.17,.17,.17], p.dark),
+      F('forearm_left', [-.76,1.03,0], [.12,.13], [.18,.16], .62, p.suit, [0,0,-.08]),
+      F('forearm_right', [.76,1.03,0], [.12,.13], [.18,.16], .62, p.suit, [0,0,.08]),
+      E('hand_left', [-.8,.66,0], [.14,.17,.14], p.skin), E('hand_right', [.8,.66,0], [.14,.17,.14], p.skin),
+      F('thigh_left', [-.29,.38,0], [.2,.22], [.29,.26], .72, p.dark), F('thigh_right', [.29,.38,0], [.2,.22], [.29,.26], .72, p.dark),
+      E('knee_left', [-.29,-.08,.02], [.22,.2,.22], p.dark), E('knee_right', [.29,-.08,.02], [.22,.2,.22], p.dark),
+      F('shin_left', [-.29,-.42,0], [.16,.18], [.23,.21], .72, p.suit), F('shin_right', [.29,-.42,0], [.16,.18], [.23,.21], .72, p.suit),
+      B('boot_left', [-.3,-.86,.16], [.44,.24,.8], p.boot), B('boot_right', [.3,-.86,.16], [.44,.24,.8], p.boot),
     ];
     if (variant === 'pilot') parts.push(B('visor', [0,2.57,.34], [.55,.22,.08], p.accent));
     if (variant === 'guardian') parts.push(T('shoulder_left', [-.78,2.0,0], [.38,.34,.35], p.accent), T('shoulder_right', [.78,2.0,0], [.38,.34,.35], p.accent));
