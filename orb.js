@@ -7,12 +7,16 @@
 
     window.CutRealOrb = {
         isSpeaking: false,
-        volume:     0,
+                volume:     0,
+        inputVolume: 0,
         _canvas:    null,
         _ctx:       null,
         _animId:    null,
         _t:         0,
         _visible:   false,
+        _state:     'idle',
+        _boundCanvas: null,
+        _resizeHandler: null,
     };
 
     const ORB = window.CutRealOrb;
@@ -38,9 +42,21 @@
             document.body.insertBefore(wrap, document.body.firstChild);
         }
 
-        ORB._canvas = document.getElementById('orb-canvas');
-        ORB._ctx    = ORB._canvas.getContext('2d');
+        bindCanvas(document.getElementById('orb-canvas'));
         startAnimation();
+    }
+
+    function bindCanvas(canvas) {
+        if (!canvas || !canvas.getContext) return false;
+        ORB._canvas = canvas; ORB._ctx = canvas.getContext('2d'); ORB._boundCanvas = canvas;
+        resizeCanvas();
+        if (!ORB._resizeHandler) { ORB._resizeHandler = () => resizeCanvas(); window.addEventListener('resize', ORB._resizeHandler, { passive: true }); }
+        return true;
+    }
+    function resizeCanvas() {
+        const canvas = ORB._canvas; if (!canvas) return;
+        const rect = canvas.getBoundingClientRect(); const cssSize = Math.max(180, Math.min(360, Math.round(Math.max(rect.width || 280, rect.height || 280)))); const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        if (canvas.width !== Math.round(cssSize * ratio) || canvas.height !== Math.round(cssSize * ratio)) { canvas.width = Math.round(cssSize * ratio); canvas.height = Math.round(cssSize * ratio); }
     }
 
     // ── Loop principal ──────────────────────────────────────
@@ -58,12 +74,13 @@
     function drawOrb() {
         const canvas = ORB._canvas;
         const ctx    = ORB._ctx;
+        if (!canvas || !ctx) return;
         const W  = canvas.width;
         const H  = canvas.height;
         const cx = W / 2;
         const cy = H / 2;
         const t  = ORB._t;
-        const vol = ORB.isSpeaking ? ORB.volume : 0;
+        const vol = ORB.isSpeaking ? ORB.volume : (ORB._state === 'listening' ? ORB.inputVolume * .72 : 0);
         const R  = W * 0.40;
 
         ctx.clearRect(0, 0, W, H);
@@ -115,7 +132,7 @@
             '#ddeeff', '#66aaff', '#1150cc', '#000b20');
 
         // ── 4. ONDAS DE VOZ al hablar ────────────────────────
-        if (ORB.isSpeaking && vol > 0.06) {
+        if ((ORB.isSpeaking || ORB._state === 'listening') && vol > 0.06) {
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             const speakGrd = ctx.createRadialGradient(cx, cy, mainR * 0.88, cx, cy, W * 0.46);
@@ -204,23 +221,18 @@
 
     // ── Label del orb ────────────────────────────────────────
     function _updateOrbLabel(vol) {
-        const label = document.getElementById('orb-label');
-        if (!label) return;
-        if (ORB.isSpeaking && vol > 0.05) {
-            label.textContent = 'Hablando…';
-            label.style.opacity = '0.90';
-            label.style.color   = '#88bbff';
-        } else {
-            label.textContent = 'Cut-real AI';
-            label.style.opacity = '0.35';
-            label.style.color   = '#aaa';
-        }
+        const labels = [document.getElementById('orb-label'), document.getElementById('voice-call-orb-label')].filter(Boolean);
+        if (!labels.length) return;
+        const stateLabels = { listening: 'Escuchando…', thinking: 'Procesando…', speaking: 'Hablando…', error: 'Revisá el micrófono', idle: 'Cut-real AI' };
+        const text = stateLabels[ORB._state] || ((ORB.isSpeaking && vol > 0.05) ? 'Hablando…' : 'Cut-real AI');
+        labels.forEach(label => { label.textContent = text; label.style.opacity = ORB._state === 'idle' ? '0.45' : '0.92'; label.style.color = ORB._state === 'error' ? '#ff9b83' : '#88bbff'; });
     }
 
     // ── API pública ─────────────────────────────────────────
     window.CutRealOrb.setVolume = function (volume) {
         ORB.volume     = Math.max(0, Math.min(1, volume));
         ORB.isSpeaking = ORB.volume > 0.02;
+        if (ORB.isSpeaking) ORB._state = 'speaking';
         const container = document.getElementById('orb-container');
         if (container) container.classList.toggle('orb-speaking', ORB.isSpeaking);
     };
@@ -235,7 +247,11 @@
         if (wrap) { wrap.classList.remove('orb-visible'); ORB._visible = false; }
     };
 
+    window.CutRealOrb.setInputLevel = function (level) { ORB.inputVolume = Math.max(0, Math.min(1, Number(level) || 0)); };
     window.CutRealOrb.isVisible = function () { return ORB._visible; };
+    window.CutRealOrb.attach = function (canvas) { return bindCanvas(canvas); };
+    window.CutRealOrb.detach = function () { return bindCanvas(document.getElementById('orb-canvas')); };
+    window.CutRealOrb.setState = function (state) { ORB._state = ['idle','listening','thinking','speaking','error'].includes(state) ? state : 'idle'; if (ORB._state !== 'listening') ORB.inputVolume = 0; _updateOrbLabel(ORB.volume || ORB.inputVolume || 0); const modal = document.getElementById('voice-call-modal'); if (modal) modal.dataset.orbState = ORB._state; };
 
     // ── Init ─────────────────────────────────────────────────
     if (document.readyState === 'loading') {
