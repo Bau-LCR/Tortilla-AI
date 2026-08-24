@@ -58,6 +58,7 @@
     <button class="new-chat-btn" onclick="startNewChat()">
         <span>➕</span> Nuevo chat
     </button>
+    <button id="super-nav-btn" class="super-nav-btn" type="button" title="Abrir CUT-REAL AI SUPER">⚡ CUT-REAL AI SUPER</button>
 
     <div style="padding:0 12px 8px;">
         <input type="text" id="sidebar-search-input" class="admin-input" style="width:100%;font-size:12px;"
@@ -184,6 +185,7 @@
     <button id="logout-btn" onclick="logout()" style="display:none;">Cerrar Sesión</button>
     <button id="resetChat" onclick="resetChat()" style="display:none;">Borrar Chat</button>
     <button id="sandbox-btn" onclick="openSandbox()" style="display:none;">🧪 Sandbox</button>
+    <button id="super-open-btn" class="super-nav-floating" type="button">⚡ SUPER</button>
 </div>
 
 <!-- ============================================================ -->
@@ -838,6 +840,28 @@
     </div><!-- /admin-card -->
 </div><!-- /admin-overlay -->
 
+<!-- ============================================================ -->
+<!-- CUT-REAL AI SUPER — sistema multi-modelo independiente       -->
+<!-- ============================================================ -->
+<div id="super-view" class="super-view" hidden aria-hidden="true">
+    <header class="super-topbar">
+        <div class="super-brand"><span class="super-brand-mark">⚡</span><div><span class="super-eyebrow">CUT-REAL AI // INDEPENDENT INTELLIGENCE LAYER</span><h1>CUT-REAL AI SUPER</h1><p>Consejo colaborativo de modelos · claves y memoria separadas</p></div></div>
+        <div class="super-top-actions"><span id="super-status" class="super-status">READY</span><button id="super-close-btn" class="super-close-btn" type="button" aria-label="Cerrar CUT-REAL AI SUPER">×</button></div>
+    </header>
+    <div class="super-layout">
+        <aside class="super-config-panel" aria-label="Configuración de CUT-REAL AI SUPER">
+            <section class="super-card super-request-card"><span class="super-eyebrow">USER REQUEST</span><textarea id="super-question" rows="5" placeholder="¿Qué querés resolver con el consejo de inteligencias artificiales?"></textarea><div class="super-run-row"><button id="super-run-btn" class="super-primary" type="button">▶ RUN SUPER</button><button id="super-pause-btn" type="button">Ⅱ PAUSE</button><button id="super-continue-btn" type="button">▶ CONTINUE</button><button id="super-cancel-btn" class="super-danger" type="button">■ CANCEL</button></div></section>
+        <section class="super-card"><div class="super-card-head"><span class="super-eyebrow">SUPER PIPELINE</span><strong>Control del proceso</strong></div><div class="super-control-grid"><label>Modo<select id="super-mode"><option value="sequential">SEQUENTIAL</option><option value="parallel">PARALLEL</option><option value="hybrid">HYBRID</option></select></label><label>Feedback rounds<select id="super-rounds"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label><label>Max tokens/modelo<input id="super-max-tokens" type="number" min="128" max="3000" value="900"></label><label>Max tokens sesión<input id="super-max-total-tokens" type="number" min="1000" max="50000" value="14000"></label><label>Retries<input id="super-max-retries" type="number" min="0" max="3" value="1"></label><label>Max budget USD<input id="super-budget" type="number" min="0" step="0.01" placeholder="Cost unavailable"></label></div><label class="super-check"><input id="super-fallback" type="checkbox" checked> Fallback configurable si un modelo falla</label></section>
+        <section class="super-card"><div class="super-card-head"><span class="super-eyebrow">AI MODEL ROLES</span><button id="super-add-node" type="button">＋ ADD AI MODEL</button></div><div id="super-node-editor" class="super-node-editor"></div><small class="super-note">Los modelos se resuelven mediante IDs de claves SUPER configuradas en backend. No guardes API keys en el navegador.</small></section>
+        <section class="super-card"><div class="super-card-head"><span class="super-eyebrow">SUPER API KEYS</span><strong>Backend only</strong></div><div id="super-provider-list" class="super-provider-list"><div class="super-empty">Cargando proveedores configurados…</div></div><div class="super-key-test"><select id="super-test-provider"><option value="openai">OPENAI</option><option value="anthropic">ANTHROPIC</option><option value="gemini">GEMINI</option><option value="groq">GROQ</option><option value="openrouter">OPENROUTER</option><option value="xai">XAI</option><option value="mistral">MISTRAL</option><option value="deepseek">DEEPSEEK</option></select><input id="super-test-model" type="text" placeholder="modelo a probar"><input id="super-test-key" type="password" autocomplete="off" placeholder="clave temporal · no se guarda"><button id="super-test-connection" type="button">TEST CONNECTION</button><output id="super-test-output">Las claves persistentes se configuran server-side.</output></div></section>
+        </aside>
+        <main class="super-workspace" aria-label="Super Workspace">
+            <section class="super-card super-pipeline-card"><div class="super-card-head"><div><span class="super-eyebrow">SUPER WORKSPACE // COLLABORATION GRAPH</span><strong>ANALYZE → CRITIQUE → IMPROVE → SYNTHESIZE</strong></div><span id="super-map-status" class="super-map-status">LIVE MAP · READY</span></div><div id="super-pipeline-nodes" class="super-pipeline-nodes"></div><div class="super-result-section"><div class="super-card-head"><span class="super-eyebrow">FINAL SYNTHESIS</span><div class="super-export-actions"><button id="super-export-svg" type="button">SVG</button><button id="super-export-png" type="button">PNG</button><button id="super-export-text" type="button">TXT</button></div></div><div id="super-final-answer" class="super-final-answer"><span class="super-placeholder">La síntesis final aparecerá aquí después de una colaboración real.</span></div><div id="super-consent" class="super-consent" hidden><strong>SAVE SUPER SESSION?</strong><span>¿Querés conservar el proceso completo o solo la respuesta final?</span><div><button id="super-save-full" type="button">SAVE FULL PROCESS</button><button id="super-save-final" type="button">SAVE FINAL ANSWER ONLY</button><button id="super-dont-save" type="button">DON'T SAVE</button></div></div></div></section>
+            <section class="super-card super-map-card"><div class="super-card-head"><div><span class="super-eyebrow">SUPER COGNITIVE MAP</span><strong>Mapa vivo de colaboración</strong></div><div class="super-map-controls"><button id="super-map-zoom-in" type="button">＋</button><button id="super-map-zoom-out" type="button">−</button><button id="super-map-fit" type="button">FIT</button><button id="super-map-reset" type="button">RESET</button></div></div><canvas id="super-map-canvas" aria-label="Mapa visual del pipeline SUPER"></canvas></section>
+        </main>
+        <aside class="super-inspector-panel" aria-label="Actividad e inspector SUPER"><section class="super-card"><div class="super-card-head"><span class="super-eyebrow">NODE INSPECTOR</span><strong>Datos reales</strong></div><div id="super-node-inspector" class="super-node-inspector"><div class="super-empty">Seleccioná un nodo para inspeccionar sus datos.</div></div></section><section class="super-card"><div class="super-card-head"><span class="super-eyebrow">LIVE TIMELINE</span><strong>Eventos del pipeline</strong></div><div id="super-timeline" class="super-timeline"><div class="super-empty">La timeline aparecerá cuando exista actividad real.</div></div></section><section class="super-card"><div class="super-card-head"><span class="super-eyebrow">SUPER HISTORY</span><button id="super-replay-btn" type="button">▶ REPLAY</button></div><input id="super-history-search" class="super-history-search" type="search" placeholder="Buscar sesiones…"><div id="super-history-list" class="super-history-list"><div class="super-empty">No hay sesiones guardadas.</div></div></section></aside>
+    </div>
+</div>
 
 <!-- ============================================================ -->
 <!-- SANDBOX — agente autónomo + mundo 3D                        -->
@@ -1197,6 +1221,8 @@
 <script src="sandbox-catalog.js?v=catalog-37-lowpoly-20260823"></script>
 <script src="sandbox-frontend.js?v=dedicated-frontend-20260823-5013"></script>
 <script src="workspace.js"></script>
+<!-- CUT-REAL AI SUPER: módulo aislado multi-modelo -->
+<script src="super-ai.js"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
 <!-- VIVO: easter egg de video -->
