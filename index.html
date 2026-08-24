@@ -1049,6 +1049,8 @@
     <button id="chat-copy-last-btn" class="chat-extra-btn" title="Copiar la última respuesta">⧉ Copiar última</button>
     <button id="chat-export-btn" class="chat-extra-btn" title="Descargar la conversación como texto">⇩ Exportar</button>
     <button id="chat-focus-btn" class="chat-extra-btn" title="Activar modo enfoque">⌗ Enfoque</button>
+    <button id="assistant-notify-btn" class="chat-extra-btn" title="Permitir avisos de asistencia cuando Cut-real responda">🔔 Avisarme</button>
+    <button id="dictate-btn" class="chat-extra-btn" title="Dictar un mensaje con el micrófono">🎙 Dictar</button>
     <span id="voice-call-status" class="voice-call-status" aria-live="polite">Voz lista</span>
 </div>
 <div class="input-area">
@@ -1068,12 +1070,12 @@
     <div class="voice-call-backdrop"></div>
     <section class="voice-call-card" role="dialog" aria-modal="true" aria-labelledby="voice-call-title">
         <header class="voice-call-header">
-            <div><span class="voice-call-eyebrow">CUT-REAL AI · VOICE LINK</span><h2 id="voice-call-title">Llamada con Cut-real AI</h2><p id="voice-call-modal-status">Preparando micrófono…</p></div>
+            <div><span class="voice-call-eyebrow">CUT-REAL AI · VOICE LINK</span><h2 id="voice-call-title">Llamada con Cut-real AI</h2><p id="voice-call-modal-status">Preparando micrófono…</p><p class="voice-call-voice-note">Perfil Loquendo aproximado · voz local del navegador</p></div>
             <button id="voice-call-close" class="voice-call-close" aria-label="Cerrar llamada">×</button>
         </header>
         <div class="voice-call-stage">
             <div class="voice-call-orbit voice-call-orbit-a"></div><div class="voice-call-orbit voice-call-orbit-b"></div>
-            <div class="voice-call-core"><span class="voice-call-core-pulse"></span><span>CR</span></div>
+            <div class="voice-call-orb-shell"><canvas id="voice-call-orb-canvas" width="280" height="280" aria-label="Esfera visual de Cut-real AI"></canvas><span class="voice-call-orb-label" id="voice-call-orb-label">Cut-real AI</span></div>
             <div class="voice-call-signal"><i></i><i></i><i></i><i></i><i></i></div>
         </div>
         <div id="voice-call-transcript" class="voice-call-transcript" aria-live="polite">La conversación aparecerá aquí.</div>
