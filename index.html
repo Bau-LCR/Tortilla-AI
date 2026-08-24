@@ -1130,10 +1130,11 @@
     <div class="agent-mode-backdrop"></div>
     <section class="agent-mode-card" role="dialog" aria-modal="true" aria-labelledby="agent-mode-title">
         <header class="agent-mode-header"><div><span class="voice-call-eyebrow">CUT-REAL AI · ACTION LAYER</span><h2 id="agent-mode-title">CUT-REAL AGENT</h2><p>El Chat Mode no cambia. Activá este panel solo cuando quieras ejecutar acciones disponibles.</p></div><button id="agent-mode-close" class="voice-call-close" aria-label="Cerrar Agent Mode">×</button></header>
+        <aside id="agent-orb-panel" class="agent-orb-panel" aria-label="Estado visual del agente"><span class="agent-orb-kicker">AGENT LINK</span><div class="agent-orb-visual" data-agent-state="idle"><span class="agent-orb-core"></span><span class="agent-orb-glint"></span><span class="agent-orb-ring agent-orb-ring-a"></span><span class="agent-orb-ring agent-orb-ring-b"></span></div><strong id="agent-orb-status">READY</strong><small>Estado visual · sin mostrar razonamiento privado</small></aside>
         <div class="agent-mode-switch" role="tablist" aria-label="Modo de conversación"><button id="agent-chat-tab" class="active" role="tab">CHAT MODE</button><button id="agent-tab" role="tab">AGENT MODE</button></div>
         <label class="agent-task-label" for="agent-task-input">¿Qué querés que haga?</label>
         <textarea id="agent-task-input" rows="3" placeholder="Ej.: abrí mi Sandbox, iniciá una llamada o activá avisos de asistencia…"></textarea>
-        <div class="agent-mode-actions"><button id="agent-execute-btn" class="agent-primary">▶ Ejecutar</button><button id="agent-pause-btn">Ⅱ Pausar</button><button id="agent-stop-btn">■ Detener</button><button id="agent-undo-btn">↶ Undo</button></div>
+        <div class="agent-mode-actions"><button id="agent-execute-btn" class="agent-primary">▶ Ejecutar</button><button id="agent-pause-btn">Ⅱ Pausar</button><button id="agent-stop-btn">■ Detener</button><button id="agent-undo-btn">↶ Undo</button><button id="agent-super-open-btn" class="agent-super-action" type="button">⚡ Entrar a SUPER AI</button></div>
         <div class="agent-status-box"><span>AGENT STATUS</span><strong id="agent-status-label">IDLE</strong></div>
         <section class="agent-plan-box"><div class="agent-box-title">TASK PLAN</div><ol id="agent-plan-list"><li>Escribí una tarea para crear un plan verificable.</li></ol></section>
         <section class="agent-activity-box"><div class="agent-box-title">AGENT ACTIVITY</div><div id="agent-activity-log" aria-live="polite"></div></section>
@@ -1222,7 +1223,7 @@
 <script src="sandbox-frontend.js?v=dedicated-frontend-20260823-5013"></script>
 <script src="workspace.js"></script>
 <!-- CUT-REAL AI SUPER: módulo aislado multi-modelo -->
-<script src="super-ai.js"></script>
+<script src="super-ai.js?v=super-20260824-1"></script>
 <!-- DOOM: easter egg -->
 <script src="doom.js"></script>
 <!-- VIVO: easter egg de video -->
