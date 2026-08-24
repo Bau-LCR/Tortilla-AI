@@ -38,6 +38,8 @@
   const WORLD_BOUND            = 12;   // clamp de coordenadas
   const RATE_LIMIT_RETRY_MS    = 20000; // espera al pegar contra un límite de consumo del admin
   const MAX_HISTORY_SNAPSHOTS  = 24;
+  const MAX_FIRESTORE_SNAPSHOTS = 8;
+  const SAVE_RETRY_DELAYS = [250, 900, 2200];
 
   let currentUser = null;
   let sandboxId   = null;
@@ -66,6 +68,28 @@
     cameraPreset: 'hero',
     undoStack: [],
     redoStack: [],
+    snapshots: [],
+    saveState: 'idle',
+    environment: 'lab',
+    quality: 'balanced',
+    physicsEnabled: false,
+    gravityEnabled: true,
+    worldPaused: false,
+    timeScale: 1,
+    snapEnabled: false,
+    snapSize: 1,
+    clonePattern: 'line',
+    connections: [],
+    linkMode: false,
+    linkSourceId: null,
+    connectionType: 'data',
+    worldPreset: 'showcase',
+    cameraPath: [],
+    cameraRecording: false,
+    cameraPlaying: false,
+    behaviorPreset: 'idle',
+    fps: 0,
+    frameTime: 0,
   };
 
     let scene, camera, renderer, controls, animFrame, threeReady = false;
@@ -76,6 +100,15 @@
   let editorDrag = null;
 
   let sandboxListCache = [];
+  let saveInFlight = null;
+  let saveQueued = false;
+  let saveSequence = 0;
+  let perfLastFrame = performance.now();
+  let perfWindowStart = performance.now();
+  let perfFrames = 0;
+  let cameraPathTimer = null;
+  let cameraPathPlayback = null;
+  const connectionLines = new Map();
 
   // ---------- UTIL ----------
   const $ = (id) => document.getElementById(id);
@@ -232,10 +265,13 @@
 
   function animate() {
     animFrame = requestAnimationFrame(animate);
+    const now = performance.now(); const frameTime = Math.min(100, now - perfLastFrame); perfLastFrame = now; perfFrames += 1;
+    if (now - perfWindowStart >= 500) { state.fps = Math.round(perfFrames * 1000 / (now - perfWindowStart)); state.frameTime = frameTime; perfFrames = 0; perfWindowStart = now; }
     if (controls) controls.update();
-    if (!state.editorMode) state.objects.forEach(o => { if (o.mesh && o.type !== 'catalog_lowpoly') o.mesh.rotation.y += 0.0022; });
-    animateCatalogObjects(performance.now());
-    if (performance.now() - lastStatsPaint > 600) { renderSceneStats(); lastStatsPaint = performance.now(); }
+    if (!state.worldPaused && !state.editorMode) state.objects.forEach(o => { if (o.mesh && o.type !== 'catalog_lowpoly') o.mesh.rotation.y += 0.0022 * state.timeScale; });
+    if (!state.worldPaused) animateCatalogObjects(now * state.timeScale);
+    stepLightPhysics(frameTime / 1000); renderConnectionLines();
+    if (camera && now - lastStatsPaint > 600) { applyDistanceCulling(); renderSceneStats(); lastStatsPaint = now; }
     if (renderer && scene && camera) renderer.render(scene, camera);
   }
 
@@ -243,11 +279,11 @@
     const el = $('sandbox-scene-stats'); if (!el) return;
     let vertices = 0, faces = 0;
     state.objects.forEach(rec => rec.mesh?.traverse(child => {
-      if (!child.isMesh || !child.geometry) return;
+      if (!child.isMesh || !child.geometry || child.visible === false) return;
       const pos = child.geometry.getAttribute?.('position'); vertices += pos?.count || 0;
       faces += Math.floor((pos?.count || 0) / 3);
     }));
-    el.textContent = `${state.objects.size} objetos · ${vertices.toLocaleString('es-AR')} vértices · ${faces.toLocaleString('es-AR')} tris`;
+    el.textContent = `${state.objects.size} objetos · ${vertices.toLocaleString('es-AR')} vértices · ${faces.toLocaleString('es-AR')} tris · ${state.fps || 0} FPS · ${Number(state.frameTime || 0).toFixed(1)} ms`;
   }
 
   function applyWireframe() {
@@ -255,14 +291,123 @@
     $('sandbox-wire-toggle')?.classList.toggle('active', state.wireframe);
   }
 
+  const ENVIRONMENT_PRESETS = {
+    lab: { background: 0x02070a, fog: 0x02070a, near: 16, far: 52, lights: [0x33ff77, 0x2266ff, 0xff42bc] },
+    cyberpunk: { background: 0x100318, fog: 0x100318, near: 12, far: 44, lights: [0xff3bd4, 0x4b6cff, 0x00eaff] },
+    space: { background: 0x01020b, fog: 0x01020b, near: 22, far: 75, lights: [0x8cbcff, 0x5277ff, 0x9d72ff] },
+    alien: { background: 0x041008, fog: 0x041008, near: 11, far: 42, lights: [0x7dff54, 0x32e6bf, 0xd4ff42] },
+    white: { background: 0xc7d2d1, fog: 0xc7d2d1, near: 18, far: 58, lights: [0x80cfff, 0x9ffff0, 0xffc2e8] },
+    industrial: { background: 0x0b0c0d, fog: 0x0b0c0d, near: 10, far: 38, lights: [0xffaa4d, 0x91a6b4, 0xff624d] },
+    minimal: { background: 0x050609, fog: 0x050609, near: 25, far: 90, lights: [0xffffff, 0x9bbcff, 0x88ffcc] },
+  };
+  const QUALITY_PRESETS = {
+    eco: { pixelRatio: .85, far: 28, label: 'Eco móvil' }, balanced: { pixelRatio: 1.35, far: 52, label: 'Balanceada' }, cinematic: { pixelRatio: 2, far: 90, label: 'Cinemática' },
+  };
+  function applyEnvironment(name, persist = true) {
+    const preset = ENVIRONMENT_PRESETS[name] || ENVIRONMENT_PRESETS.lab;
+    state.environment = ENVIRONMENT_PRESETS[name] ? name : 'lab';
+    if (scene) { scene.background = new THREE.Color(preset.background); if (scene.fog) { scene.fog.color.setHex(preset.fog); scene.fog.near = preset.near; scene.fog.far = preset.far; } }
+    if (neonLights.length) neonLights.forEach((light, index) => light.color.setHex(preset.lights[index]));
+    const select = $('sandbox-environment-select'); if (select) select.value = state.environment;
+    if (persist) { logAction(`Ambiente: ${state.environment}`); scheduleSave(); }
+  }
+  function applyQualitySettings(persist = true) {
+    const preset = QUALITY_PRESETS[state.quality] || QUALITY_PRESETS.balanced;
+    if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio));
+    if (camera) { camera.far = preset.far; camera.updateProjectionMatrix(); }
+    state.ecoMode = state.quality === 'eco';
+    const select = $('sandbox-quality-select'); if (select) select.value = state.quality;
+    if (persist) { applyDistanceCulling(); logAction(`Calidad: ${preset.label}`); scheduleSave(); }
+  }
+  function applyDistanceCulling() {
+    const far = (QUALITY_PRESETS[state.quality] || QUALITY_PRESETS.balanced).far + 4;
+    if (!camera) return;
+    state.objects.forEach(rec => {
+      if (!rec.mesh) return;
+      const distance = camera.position.distanceTo(rec.mesh.position); rec.mesh.visible = distance <= far * 1.35;
+      rec.mesh.traverse(child => {
+        if (!child.isMesh) return;
+        const role = String(child.userData?.catalogRole || '').toLowerCase();
+        const fineDetail = /eye|hand|knee|spot|antenna|sensor|window|visor|collar|light|orb|halo/.test(role);
+        const mediumDetail = /hair|shoulder|elbow|wing|tail|horn|beak|muzzle/.test(role);
+        child.visible = rec.mesh.visible && !(state.quality === 'eco' && distance > far * .42 && fineDetail) && !(state.quality === 'eco' && distance > far * .9 && mediumDetail);
+      });
+    });
+  }
   function applySceneVisualState() {
     if (gridHelper) gridHelper.visible = state.gridVisible;
     $('sandbox-grid-toggle')?.classList.toggle('active', state.gridVisible);
     $('sandbox-neon-toggle')?.classList.toggle('active', state.neonEnabled);
     $('sandbox-performance-toggle')?.classList.toggle('active', state.ecoMode);
     if (neonLights.length) neonLights.forEach((light, index) => { light.intensity = state.neonEnabled ? [1.7,.65,.35][index] : [0.75,.22,.08][index]; });
-    if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.ecoMode ? 1 : 2));
-    applyWireframe();
+    applyEnvironment(state.environment, false); applyQualitySettings(false); applyWireframe();
+  }
+
+  function stepLightPhysics(dt) {
+    if (!state.physicsEnabled || state.worldPaused) return;
+    state.objects.forEach(rec => {
+      if (!rec.mesh || rec.type === 'text') return;
+      rec.velocityY = Number.isFinite(rec.velocityY) ? rec.velocityY : 0;
+      if (state.gravityEnabled) rec.velocityY -= 9.8 * dt * state.timeScale;
+      rec.mesh.position.y += rec.velocityY * dt * state.timeScale;
+      if (rec.mesh.position.y < 0) { rec.mesh.position.y = 0; rec.velocityY = 0; }
+      rec.position = rec.mesh.position.toArray();
+    });
+  }
+
+  function cloneSelectedWithPattern() {
+    const source = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+    if (!source) { showToastSafe('Seleccioná un objeto para clonar.', '#ffaa44'); return []; }
+    const count = clamp(Math.trunc(Number($('sandbox-clone-count')?.value) || 3), 1, 12);
+    const pattern = $('sandbox-clone-pattern')?.value || 'line'; state.clonePattern = pattern; recordUndoSnapshot();
+    const ids = [];
+    for (let i = 0; i < count; i++) {
+      const id = SceneManager.duplicateObject(source.id); const rec = SceneManager.getObject(id); if (!rec) continue;
+      let offset = [0, 0, 0];
+      if (pattern === 'grid') { const cols = Math.ceil(Math.sqrt(count + 1)); offset = [(i % cols + 1) * 2.2, 0, Math.floor(i / cols) * 2.2]; }
+      else if (pattern === 'ring') { const angle = (i + 1) * Math.PI * 2 / (count + 1); offset = [Math.cos(angle) * 4, 0, Math.sin(angle) * 4]; }
+      else offset = [(i + 1) * 2.2, 0, 0];
+      const pos = [source.mesh.position.x + offset[0], source.mesh.position.y + offset[1], source.mesh.position.z + offset[2]]; SceneManager.updateObject(id, { position: pos }); ids.push(id);
+    }
+    logAction(`Patrón ${pattern}: ${ids.length} clones creados`); scheduleSave(); renderFutureUI(); return ids;
+  }
+
+  const WORLD_PRESETS = {
+    showcase: ['human-explorer','cat-cyber','hovercar-neon','portal-gate','crystal-cluster'],
+    nature: ['ancient-tree','mushroom-lab','crystal-cluster','dragon-green','dog-companion'],
+    fleet: ['space-shuttle','rover-explorer','aero-bike','drone-guardian','orbital-satellite'],
+    'cyber-city': ['sky-tower','neon-lighthouse','holo-terminal','energy-reactor','android-scout'],
+  };
+  function generateWorldPreset() {
+    if (!sandboxId || !window.CutRealCatalog) return;
+    const key = $('sandbox-world-preset')?.value || 'showcase'; const ids = WORLD_PRESETS[key] || WORLD_PRESETS.showcase;
+    recordUndoSnapshot(); clearConnections(); SceneManager.clear(); state.worldPreset = key;
+    ids.forEach((catalogId, index) => { const meta = window.CutRealCatalog.instantiate(catalogId, { color: state.catalogTint }); if (!meta) return; meta.position = [((index % 3) - 1) * 4, 0, (Math.floor(index / 3) - .5) * 4]; SceneManager.addObject(meta); });
+    logAction(`Mundo ${key}: ${state.objects.size} activos colocados`); scheduleSave(); renderEditorUI(); renderFutureUI();
+  }
+  function connectionKey(from, to) { return [from, to].sort().join('::'); }
+  function renderConnectionLines() {
+    connectionLines.forEach((line, key) => { const edge = state.connections.find(item => connectionKey(item.from, item.to) === key); const from = edge && SceneManager.getObject(edge.from); const to = edge && SceneManager.getObject(edge.to); if (!from || !to) { scene?.remove(line); line.geometry?.dispose?.(); line.material?.dispose?.(); connectionLines.delete(key); return; } const points = [from.mesh.position.clone().setY(from.mesh.position.y + 1), to.mesh.position.clone().setY(to.mesh.position.y + 1)]; line.geometry.setFromPoints(points); });
+    state.connections.forEach(edge => { const key = connectionKey(edge.from, edge.to); if (connectionLines.has(key) || !SceneManager.getObject(edge.from) || !SceneManager.getObject(edge.to) || !scene) return; const material = new THREE.LineBasicMaterial({ color: edge.type === 'energy' ? 0xff42bc : 0x42eaff, transparent: true, opacity: .78 }); const line = new THREE.Line(new THREE.BufferGeometry(), material); line.userData.sbxConnectionId = edge.id; scene.add(line); connectionLines.set(key, line); const from = SceneManager.getObject(edge.from), to = SceneManager.getObject(edge.to); line.geometry.setFromPoints([from.mesh.position.clone().setY(from.mesh.position.y + 1), to.mesh.position.clone().setY(to.mesh.position.y + 1)]); });
+  }
+  function clearConnections() { connectionLines.forEach(line => { scene?.remove(line); line.geometry?.dispose?.(); line.material?.dispose?.(); }); connectionLines.clear(); state.connections = []; }
+  function createConnection(fromId, toId, type = 'data') {
+    if (!fromId || !toId || fromId === toId || !SceneManager.getObject(fromId) || !SceneManager.getObject(toId)) return false;
+    const key = connectionKey(fromId, toId); if (state.connections.some(item => connectionKey(item.from, item.to) === key)) return false;
+    const edge = { id: `link_${Date.now().toString(36)}`, from: fromId, to: toId, type: type === 'energy' ? 'energy' : 'data' }; state.connections.push(edge);
+    const material = new THREE.LineBasicMaterial({ color: edge.type === 'energy' ? 0xff42bc : 0x42eaff, transparent: true, opacity: .78 }); const geometry = new THREE.BufferGeometry(); const line = new THREE.Line(geometry, material); line.userData.sbxConnectionId = edge.id; scene.add(line); connectionLines.set(key, line); renderConnectionLines(); logAction(`Enlace ${edge.type}: ${fromId} → ${toId}`); scheduleSave(); return true;
+  }
+  function toggleLinkMode() {
+    state.linkMode = !state.linkMode; state.linkSourceId = null; const button = $('sandbox-link-toggle'); if (button) { button.classList.toggle('active', state.linkMode); button.textContent = state.linkMode ? 'Elegí dos objetos…' : 'Enlazar objetos'; }
+    showToastSafe(state.linkMode ? 'Modo enlace activo: seleccioná dos objetos.' : 'Modo enlace cancelado.', '#55eaca');
+  }
+  function exportSceneJSON() {
+    const payload = { version: 2, exportedAt: new Date().toISOString(), scene: SceneManager.serialize(), environment: state.environment, quality: state.quality, connections: state.connections };
+    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); link.download = `cut-real-sandbox-${sandboxId || 'scene'}-${Date.now()}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); logAction('Escena exportada como JSON');
+  }
+  async function importSceneFile(file) {
+    if (!file) return;
+    try { const payload = JSON.parse(await file.text()); const list = Array.isArray(payload) ? payload : payload.scene; if (!Array.isArray(list)) throw new Error('El JSON no contiene una escena válida.'); recordUndoSnapshot(); clearConnections(); SceneManager.hydrate(list); state.environment = ENVIRONMENT_PRESETS[payload.environment] ? payload.environment : state.environment; state.quality = QUALITY_PRESETS[payload.quality] ? payload.quality : state.quality; state.connections = Array.isArray(payload.connections) ? payload.connections.slice(-80) : []; applySceneVisualState(); renderConnectionLines(); renderEditorUI(); renderFutureUI(); logAction(`Escena importada: ${state.objects.size} objetos`); await persistSandbox(true); } catch (error) { showToastSafe(`No se pudo importar: ${error.message}`, '#ff6666'); }
   }
 
   function setChatVisible(visible, persist = true) {
@@ -281,7 +426,63 @@
     logAction(`Cámara: ${preset}`); renderFutureUI();
   }
 
+  function toggleCameraRecording() {
+    state.cameraRecording = !state.cameraRecording;
+    if (cameraPathTimer) { clearInterval(cameraPathTimer); cameraPathTimer = null; }
+    if (state.cameraRecording) {
+      state.cameraPath = [{ position: camera.position.toArray(), target: controls.target.toArray() }];
+      cameraPathTimer = setInterval(() => { if (!camera || !controls || state.cameraPath.length >= 24) return; state.cameraPath.push({ position: camera.position.toArray(), target: controls.target.toArray() }); if (state.cameraPath.length >= 24) toggleCameraRecording(); }, 260);
+      logAction('Path de cámara: grabando');
+    } else { logAction(`Path de cámara: ${state.cameraPath.length} puntos guardados`); scheduleSave(); }
+    const button = $('sandbox-camera-record'); if (button) { button.classList.toggle('active', state.cameraRecording); button.textContent = state.cameraRecording ? '■ Stop' : '● Rec'; }
+  }
+  function playCameraPath() {
+    if (!camera || !controls || state.cameraPath.length < 2) { showToastSafe('Grabá al menos dos puntos de cámara primero.', '#ffaa44'); return; }
+    if (cameraPathPlayback) { clearInterval(cameraPathPlayback); cameraPathPlayback = null; state.cameraPlaying = false; return; }
+    state.cameraPlaying = true; let index = 0; let fromPosition = camera.position.toArray(); let fromTarget = controls.target.toArray(); let segmentStart = performance.now();
+    cameraPathPlayback = setInterval(() => { const progress = clamp((performance.now() - segmentStart) / 900, 0, 1); const ease = 1 - Math.pow(1 - progress, 3); const point = state.cameraPath[index]; camera.position.fromArray(fromPosition.map((v, i) => v + (point.position[i] - v) * ease)); controls.target.fromArray(fromTarget.map((v, i) => v + (point.target[i] - v) * ease)); controls.update(); if (progress >= 1) { fromPosition = point.position.slice(); fromTarget = point.target.slice(); index += 1; segmentStart = performance.now(); if (index >= state.cameraPath.length) { clearInterval(cameraPathPlayback); cameraPathPlayback = null; state.cameraPlaying = false; renderFutureUI(); } } }, 32);
+    logAction('Path de cámara: reproducción');
+  }
   function captureSceneSnapshot() { return JSON.parse(JSON.stringify(SceneManager.serialize())); }
+  function collectSceneMetrics(targetId = null) {
+    let vertices = 0, triangles = 0, meshes = 0;
+    const target = targetId ? SceneManager.getObject(targetId) : null;
+    const records = target ? [target] : Array.from(state.objects.values());
+    records.forEach(rec => rec.mesh?.traverse(child => {
+      if (!child.isMesh || !child.geometry) return;
+      meshes += 1;
+      const position = child.geometry.getAttribute?.('position');
+      vertices += position?.count || 0;
+      triangles += child.geometry.index ? child.geometry.index.count / 3 : Math.floor((position?.count || 0) / 3);
+    }));
+    return { objects: target ? 1 : state.objects.size, meshes, vertices, triangles: Math.floor(triangles), selected: target?.name || null };
+  }
+  function renderSceneAnalysis() {
+    const el = $('sandbox-analysis-content'); if (!el) return;
+    const selected = state.selectedObjectId ? collectSceneMetrics(state.selectedObjectId) : null;
+    const world = collectSceneMetrics();
+    const selectedLine = selected ? `<div class="sbx-analysis-focus"><b>Selección:</b> ${escapeHtml(selected.selected)} · ${selected.meshes} mallas · ${selected.vertices.toLocaleString('es-AR')} vértices · ${selected.triangles.toLocaleString('es-AR')} triángulos</div>` : '<div class="sbx-analysis-focus">Sin objeto seleccionado. Se muestran métricas globales.</div>';
+    el.innerHTML = `${selectedLine}<div class="sbx-analysis-grid"><div><span>Objetos</span><b>${world.objects}</b></div><div><span>Mallas</span><b>${world.meshes}</b></div><div><span>Vértices</span><b>${world.vertices.toLocaleString('es-AR')}</b></div><div><span>Triángulos</span><b>${world.triangles.toLocaleString('es-AR')}</b></div></div><small>Lectura directa de BufferGeometry en Three.js; no es una estimación.</small>`;
+  }
+  function createSceneSnapshot() {
+    if (!sandboxId) return null;
+    const snapshot = { id: `snap_${Date.now().toString(36)}`, createdAt: Date.now(), scene: captureSceneSnapshot(), cameraPreset: state.cameraPreset, label: `Snapshot ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` };
+    state.snapshots = [snapshot, ...state.snapshots.filter(item => item?.scene)].slice(0, MAX_FIRESTORE_SNAPSHOTS);
+    logAction(`Snapshot creado: ${snapshot.label}`); renderSaveState('saving'); void persistSandbox(true); renderFutureUI();
+    return snapshot;
+  }
+  function recoverLatestSnapshot() {
+    const snapshot = state.snapshots[0];
+    if (!snapshot?.scene) { showToastSafe('Todavía no hay snapshots para recuperar.', '#ffaa44'); return false; }
+    recordUndoSnapshot();
+    SceneManager.hydrate(snapshot.scene); state.selectedObjectId = null; state.cameraPreset = snapshot.cameraPreset || state.cameraPreset;
+    applySceneVisualState(); if (camera && controls) setCameraPreset(state.cameraPreset); renderEditorUI(); renderSceneStats();
+    logAction(`Snapshot recuperado: ${snapshot.label || snapshot.id}`); void persistSandbox(true); renderFutureUI(); return true;
+  }
+  function openSceneScanner() {
+    const panel = $('sandbox-analysis-panel'); if (panel) panel.hidden = false;
+    renderSceneAnalysis(); switchMobileTab('scene');
+  }
   function recordUndoSnapshot() {
     const current = captureSceneSnapshot();
     const previous = state.undoStack[state.undoStack.length - 1];
@@ -623,8 +824,8 @@
       if (Array.isArray(patch.scale)) { const s = patch.scale.map(n => clamp(Number(n), 0.1, 5)); rec.mesh.scale.set(s[0],s[1],s[2]); rec.scale = s; if (rec.animationBase) rec.animationBase.scale = s.slice(); }
       if (Array.isArray(patch.parts)) {
         while (rec.mesh.children.length) rec.mesh.remove(rec.mesh.children[0]);
-        patch.parts.slice(0,12).forEach(p => { const child = buildPartMesh(p); child.userData.catalogRole = p.role || ''; rec.mesh.add(child); });
-        rec.parts = patch.parts; rec.animationBase = null;
+        patch.parts.slice(0, rec.type === 'catalog_lowpoly' ? 24 : 12).forEach(p => { const child = buildPartMesh(p); child.userData.catalogRole = p.role || ''; rec.mesh.add(child); });
+        rec.parts = patch.parts.slice(0, rec.type === 'catalog_lowpoly' ? 24 : 12); rec.animationBase = null;
       }
       if (patch.animation) rec.animation = String(patch.animation).slice(0, 24);
       if (patch.animationSpeed != null) rec.animationSpeed = clamp(Number(patch.animationSpeed), .15, 3);
@@ -635,7 +836,8 @@
       const rec = state.objects.get(id);
       if (!rec) return false;
       scene.remove(rec.mesh);
-      state.objects.delete(id); renderSceneStats();
+      state.objects.delete(id);
+      state.connections = state.connections.filter(edge => edge.from !== id && edge.to !== id); renderConnectionLines(); renderSceneStats();
       return true;
     },
     moveObject(id, position, duration) {
@@ -699,7 +901,7 @@
       logAction(`Objeto duplicado: ${rec.name || id}`);
       return newId;
     },
-    clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); state.selectedObjectId = null; renderSceneStats(); },
+    clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); clearConnections(); state.selectedObjectId = null; renderSceneStats(); },
 
     inspect() {
       return { objectCount: state.objects.size, objects: Array.from(state.objects.values())
@@ -716,7 +918,7 @@
       }));
 
     },
-    hydrate(list) { this.clear(); (list || []).slice(0, MAX_OBJECTS).forEach(o => this.addObject(o)); },
+    hydrate(list) { const savedConnections = state.connections.slice(); this.clear(); state.connections = savedConnections; (list || []).slice(0, MAX_OBJECTS).forEach(o => this.addObject(o)); renderConnectionLines(); },
   };
 
     // ============================================================
@@ -828,6 +1030,18 @@
     $('sandbox-wire-toggle')?.classList.toggle('active', state.wireframe);
     $('sandbox-neon-toggle')?.classList.toggle('active', state.neonEnabled);
     $('sandbox-performance-toggle')?.classList.toggle('active', state.ecoMode);
+    const environment = $('sandbox-environment-select'); if (environment) environment.value = state.environment;
+    const quality = $('sandbox-quality-select'); if (quality) quality.value = state.quality;
+    const physics = $('sandbox-physics-toggle'); if (physics) physics.checked = state.physicsEnabled;
+    const gravity = $('sandbox-gravity-toggle'); if (gravity) gravity.checked = state.gravityEnabled;
+    const time = $('sandbox-time-scale'); if (time) time.value = state.timeScale;
+    const timeValue = $('sandbox-time-scale-value'); if (timeValue) timeValue.textContent = `${Number(state.timeScale).toFixed(1)}×`;
+    const pattern = $('sandbox-clone-pattern'); if (pattern) pattern.value = state.clonePattern;
+    const worldPreset = $('sandbox-world-preset'); if (worldPreset) worldPreset.value = state.worldPreset;
+    const snap = $('sandbox-snap-toggle'); if (snap) snap.checked = state.snapEnabled;
+    const link = $('sandbox-link-toggle'); if (link) { link.classList.toggle('active', state.linkMode); link.textContent = state.linkMode ? 'Elegí dos objetos…' : 'Enlazar objetos'; }
+    const record = $('sandbox-camera-record'); if (record) { record.classList.toggle('active', state.cameraRecording); record.textContent = state.cameraRecording ? '■ Stop' : '● Rec'; }
+    const play = $('sandbox-camera-play'); if (play) { play.classList.toggle('active', state.cameraPlaying); play.textContent = state.cameraPlaying ? '■ Stop' : '▶ Path'; }
     const undo = $('sandbox-undo-btn'); if (undo) undo.disabled = !state.undoStack.length;
     const redo = $('sandbox-redo-btn'); if (redo) redo.disabled = !state.redoStack.length;
   }
@@ -887,8 +1101,12 @@
     select(id) {
       if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), false);
       state.selectedObjectId = id && SceneManager.getObject(id) ? id : null;
-      if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
-      renderEditorUI();
+      if (state.linkMode && state.selectedObjectId) {
+        if (!state.linkSourceId) { state.linkSourceId = state.selectedObjectId; showToastSafe('Origen seleccionado. Elegí el segundo objeto.', '#55eaca'); }
+        else if (state.linkSourceId !== state.selectedObjectId) { createConnection(state.linkSourceId, state.selectedObjectId, $('sandbox-link-type')?.value || 'data'); state.linkMode = false; state.linkSourceId = null; const linkButton = $('sandbox-link-toggle'); if (linkButton) { linkButton.classList.remove('active'); linkButton.textContent = 'Enlazar objetos'; } }
+      }
+    if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
+    renderConnectionLines(); renderEditorUI();
     },
     applyFields() {
       const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
@@ -928,7 +1146,7 @@
     if (!canvas || canvas.dataset.editorBound) return;
     canvas.dataset.editorBound = '1';
     canvas.addEventListener('pointerdown', event => {
-      if (!state.editorMode || !raycaster || !camera) return;
+      if ((!state.editorMode && !state.linkMode) || !raycaster || !camera) return;
       const rect = canvas.getBoundingClientRect();
       const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
@@ -948,7 +1166,9 @@
       const dx = (event.clientX - editorDrag.startX) / 42;
       const dz = (event.clientY - editorDrag.startY) / 42;
       const next = [editorDrag.origin.x + dx, editorDrag.origin.y, editorDrag.origin.z + dz];
-      const p = clampVec(next); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; editorDrag.moved = true;
+      let p = clampVec(next);
+      if (state.snapEnabled) p = p.map(value => Math.round(value / state.snapSize) * state.snapSize);
+      rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; editorDrag.moved = true; renderConnectionLines();
       renderEditorUI();
     });
     const finishDrag = event => {
@@ -1360,30 +1580,90 @@
     return doc(window.db, 'chats', currentUser.uid, 'sandboxes', id);
   }
 
-  const scheduleSave = debounce(() => persistSandbox(false), SAVE_DEBOUNCE_MS);
+  function renderSaveState(status, detail = '') {
+    state.saveState = status;
+    const el = $('sandbox-save-state'); if (!el) return;
+    const labels = { idle: 'Sin cambios', saving: 'Guardando…', saved: 'Guardado', error: 'Error al guardar' };
+    el.textContent = detail || labels[status] || status;
+    el.className = `sbx-save-state sbx-save-${status}`;
+    if (status === 'error') el.title = detail || 'La última escritura falló; se reintentará.';
+  }
 
-  async function persistSandbox() {
-    if (!currentUser || !sandboxId) return;
+  function buildPersistencePayload() {
+    return {
+      updatedAt: Date.now(),
+      messages: state.messages.slice(-120),
+      memory: state.memory,
+      actionLog: state.actionLog.slice(-80).map(a => a.text + '|' + a.ts),
+      scene: SceneManager.serialize(),
+      snapshots: state.snapshots.slice(0, MAX_FIRESTORE_SNAPSHOTS),
+      environment: state.environment,
+      quality: state.quality,
+      physicsEnabled: state.physicsEnabled,
+      gravityEnabled: state.gravityEnabled,
+      worldPaused: state.worldPaused,
+      timeScale: state.timeScale,
+      snapEnabled: state.snapEnabled,
+      snapSize: state.snapSize,
+      clonePattern: state.clonePattern,
+      connectionType: state.connectionType,
+      worldPreset: state.worldPreset,
+      connections: state.connections.slice(-80),
+      cameraPath: state.cameraPath.slice(-24),
+      behaviorPreset: state.behaviorPreset,
+      editorMode: state.editorMode,
+      selectedObjectId: state.selectedObjectId,
+      chatVisible: state.chatVisible,
+      gridVisible: state.gridVisible,
+      wireframe: state.wireframe,
+      neonEnabled: state.neonEnabled,
+      ecoMode: state.ecoMode,
+      cameraPreset: state.cameraPreset,
+      autonomyEnabled: state.autonomyEnabled,
+      apiUsage: state.apiUsage,
+    };
+  }
+
+  function waitMs(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+  const scheduleSave = debounce(() => { void persistSandbox(false); }, SAVE_DEBOUNCE_MS);
+
+  async function persistSandbox(immediate = false) {
+    if (!currentUser || !sandboxId || !window.firestore || !window.db) return false;
+    if (saveInFlight) {
+      saveQueued = true;
+      if (immediate) await saveInFlight;
+      return false;
+    }
+    const sequence = ++saveSequence;
+    const targetSandboxId = sandboxId;
+    renderSaveState('saving');
+    const payload = buildPersistencePayload();
+    saveInFlight = (async () => {
+      let lastError = null;
+      for (let attempt = 0; attempt <= SAVE_RETRY_DELAYS.length; attempt++) {
+        try {
+          const { setDoc } = window.firestore;
+          await setDoc(sandboxDoc(targetSandboxId), payload, { merge: true });
+          return true;
+        } catch (error) {
+          lastError = error;
+          if (attempt < SAVE_RETRY_DELAYS.length) await waitMs(SAVE_RETRY_DELAYS[attempt]);
+        }
+      }
+      throw lastError || new Error('No se pudo guardar la escena.');
+    })();
     try {
-      const { setDoc } = window.firestore;
-      await setDoc(sandboxDoc(sandboxId), {
-        updatedAt: Date.now(),
-        messages: state.messages.slice(-120),
-        memory: state.memory,
-        actionLog: state.actionLog.slice(-80).map(a => a.text + '|' + a.ts),
-        scene: SceneManager.serialize(),
-        editorMode: state.editorMode,
-        selectedObjectId: state.selectedObjectId,
-        chatVisible: state.chatVisible,
-        gridVisible: state.gridVisible,
-        wireframe: state.wireframe,
-        neonEnabled: state.neonEnabled,
-        ecoMode: state.ecoMode,
-        cameraPreset: state.cameraPreset,
-        autonomyEnabled: state.autonomyEnabled,
-        apiUsage: state.apiUsage,
-      }, { merge: true });
-    } catch (e) { console.warn('[Sandbox] Error guardando:', e); }
+      await saveInFlight;
+      if (sandboxId === targetSandboxId) renderSaveState('saved', `Guardado · ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`);
+      return true;
+    } catch (error) {
+      console.warn('[Sandbox] Error guardando:', error);
+      if (sandboxId === targetSandboxId) renderSaveState('error', 'Error al guardar · reintentá');
+      return false;
+    } finally {
+      saveInFlight = null;
+      if (saveQueued && sequence === saveSequence) { saveQueued = false; void persistSandbox(true); }
+    }
   }
 
   async function loadSandboxList() {
@@ -1411,7 +1691,7 @@
     const { doc, setDoc } = window.firestore;
     const ref = doc(sandboxCollection());
     const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], editorMode: false, selectedObjectId: null, chatVisible: true, gridVisible: true, wireframe: false, neonEnabled: true, ecoMode: false, cameraPreset: 'hero', autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], snapshots: [], environment: 'lab', quality: 'balanced', physicsEnabled: false, gravityEnabled: true, worldPaused: false, timeScale: 1, snapEnabled: false, snapSize: 1, clonePattern: 'line', connectionType: 'data', worldPreset: 'showcase', connections: [], cameraPath: [], behaviorPreset: 'idle', editorMode: false, selectedObjectId: null, chatVisible: true, gridVisible: true, wireframe: false, neonEnabled: true, ecoMode: false, cameraPreset: 'hero', autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
 
     await loadSandboxList();
     await openSandboxById(ref.id);
@@ -1428,6 +1708,21 @@
     state.memory = data.memory || {};
     state.actionLog = (data.actionLog || []).map(s => { const [text,ts]=String(s).split('|'); return { text, ts:+ts||Date.now() }; });
     state.apiUsage = data.apiUsage || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null };
+    state.snapshots = Array.isArray(data.snapshots) ? data.snapshots.slice(0, MAX_FIRESTORE_SNAPSHOTS) : [];
+    state.environment = ENVIRONMENT_PRESETS[data.environment] ? data.environment : 'lab';
+    state.quality = QUALITY_PRESETS[data.quality] ? data.quality : 'balanced';
+    state.physicsEnabled = data.physicsEnabled === true;
+    state.gravityEnabled = data.gravityEnabled !== false;
+    state.worldPaused = data.worldPaused === true;
+    const storedTimeScale = Number(data.timeScale); state.timeScale = Number.isFinite(storedTimeScale) ? clamp(storedTimeScale, 0, 2) : 1;
+    state.snapEnabled = data.snapEnabled === true;
+    state.snapSize = clamp(Number(data.snapSize), .1, 4) || 1;
+    state.clonePattern = ['line','grid','ring'].includes(data.clonePattern) ? data.clonePattern : 'line';
+    state.connectionType = data.connectionType === 'energy' ? 'energy' : 'data';
+    state.worldPreset = WORLD_PRESETS[data.worldPreset] ? data.worldPreset : 'showcase';
+    state.connections = Array.isArray(data.connections) ? data.connections.slice(-80) : [];
+    state.cameraPath = Array.isArray(data.cameraPath) ? data.cameraPath.slice(-24) : [];
+    state.behaviorPreset = String(data.behaviorPreset || 'idle').slice(0, 24);
     state.editorMode = data.editorMode === true;
     state.chatVisible = data.chatVisible !== false;
     state.gridVisible = data.gridVisible !== false;
@@ -1437,6 +1732,7 @@
     state.cameraPreset = data.cameraPreset || 'hero';
     state.undoStack = []; state.redoStack = [];
     state.selectedObjectId = null;
+    renderSaveState('saved', 'Sincronizado');
     renderUsageHUD();
     state.autonomyEnabled = false;
 
@@ -1480,10 +1776,10 @@
     if (!sandboxId && sandboxListCache.length) await openSandboxById(sandboxListCache[0].id);
     setChatVisible(state.chatVisible, false); applySceneVisualState(); renderFutureUI();
   }
-  function closeSandboxPanel() {
-    const overlay = $('sandbox-overlay'); if (overlay) overlay.style.display = 'none';
+  async function closeSandboxPanel() {
     pauseAutonomy();
-    persistSandbox(true);
+    await persistSandbox(true);
+    const overlay = $('sandbox-overlay'); if (overlay) overlay.style.display = 'none';
   }
 
   function sendUserMessage() {
@@ -1530,15 +1826,36 @@
     $('sandbox-camera-hero')?.addEventListener('click', () => setCameraPreset('hero'));
     $('sandbox-camera-top')?.addEventListener('click', () => setCameraPreset('top'));
     $('sandbox-camera-orbit')?.addEventListener('click', () => setCameraPreset('orbit'));
+    $('sandbox-camera-record')?.addEventListener('click', toggleCameraRecording);
+    $('sandbox-camera-play')?.addEventListener('click', playCameraPath);
     $('sandbox-focus-selected')?.addEventListener('click', () => Editor.focus());
     $('sandbox-grid-toggle')?.addEventListener('click', () => { state.gridVisible = !state.gridVisible; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
     $('sandbox-wire-toggle')?.addEventListener('click', () => { state.wireframe = !state.wireframe; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
     $('sandbox-neon-toggle')?.addEventListener('click', () => { state.neonEnabled = !state.neonEnabled; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
-    $('sandbox-performance-toggle')?.addEventListener('click', () => { state.ecoMode = !state.ecoMode; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-performance-toggle')?.addEventListener('click', () => { state.ecoMode = !state.ecoMode; state.quality = state.ecoMode ? 'eco' : 'balanced'; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-environment-select')?.addEventListener('change', event => applyEnvironment(event.target.value));
+    $('sandbox-quality-select')?.addEventListener('change', event => { state.quality = QUALITY_PRESETS[event.target.value] ? event.target.value : 'balanced'; applyQualitySettings(); renderFutureUI(); });
+    $('sandbox-physics-toggle')?.addEventListener('change', event => { state.physicsEnabled = !!event.target.checked; scheduleSave(); logAction(`Física ligera: ${state.physicsEnabled ? 'ON' : 'OFF'}`); renderFutureUI(); });
+    $('sandbox-gravity-toggle')?.addEventListener('change', event => { state.gravityEnabled = !!event.target.checked; scheduleSave(); logAction(`Gravedad: ${state.gravityEnabled ? 'ON' : 'OFF'}`); });
+    $('sandbox-time-scale')?.addEventListener('input', event => { state.timeScale = clamp(Number(event.target.value), 0, 2); const out = $('sandbox-time-scale-value'); if (out) out.textContent = `${state.timeScale.toFixed(1)}×`; scheduleSave(); });
+    $('sandbox-clone-pattern')?.addEventListener('change', event => { state.clonePattern = ['line','grid','ring'].includes(event.target.value) ? event.target.value : 'line'; scheduleSave(); });
+    $('sandbox-clone-btn')?.addEventListener('click', cloneSelectedWithPattern);
+    $('sandbox-world-preset')?.addEventListener('change', event => { state.worldPreset = event.target.value; scheduleSave(); });
+    $('sandbox-world-generate')?.addEventListener('click', generateWorldPreset);
+    $('sandbox-link-toggle')?.addEventListener('click', toggleLinkMode);
+    $('sandbox-link-type')?.addEventListener('change', event => { state.connectionType = event.target.value === 'energy' ? 'energy' : 'data'; scheduleSave(); });
+    $('sandbox-export-btn')?.addEventListener('click', exportSceneJSON);
+    $('sandbox-import-btn')?.addEventListener('click', () => $('sandbox-import-input')?.click());
+    $('sandbox-import-input')?.addEventListener('change', event => { void importSceneFile(event.target.files?.[0]); event.target.value = ''; });
+    $('sandbox-snap-toggle')?.addEventListener('change', event => { state.snapEnabled = !!event.target.checked; scheduleSave(); });
     $('sandbox-undo-btn')?.addEventListener('click', undoScene);
     $('sandbox-redo-btn')?.addEventListener('click', redoScene);
     $('sandbox-screenshot-btn')?.addEventListener('click', takeSceneScreenshot);
     $('sandbox-clear-btn')?.addEventListener('click', clearSceneFromDock);
+    $('sandbox-snapshot-btn')?.addEventListener('click', createSceneSnapshot);
+    $('sandbox-recover-btn')?.addEventListener('click', recoverLatestSnapshot);
+    $('sandbox-scan-btn')?.addEventListener('click', openSceneScanner);
+    $('sandbox-analysis-close')?.addEventListener('click', () => { const panel = $('sandbox-analysis-panel'); if (panel) panel.hidden = true; });
     $('sandbox-catalog-btn')?.addEventListener('click', openCatalogPanel);
     $('sandbox-catalog-close')?.addEventListener('click', closeCatalogPanel);
     $('sandbox-tab-catalog')?.addEventListener('click', openCatalogPanel);
@@ -1552,6 +1869,9 @@
     $('sandbox-animation-save')?.addEventListener('click', applyAnimationControls);
     renderCatalog(); renderFutureUI();
 
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void persistSandbox(true); });
+    window.addEventListener('beforeunload', () => { void persistSandbox(true); });
+    window.addEventListener('pagehide', () => { void persistSandbox(true); });
   }
   function switchMobileTab(tab) {
     const overlay = $('sandbox-overlay');
