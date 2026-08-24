@@ -37,6 +37,7 @@
   const SAVE_DEBOUNCE_MS       = 1500;
   const WORLD_BOUND            = 12;   // clamp de coordenadas
   const RATE_LIMIT_RETRY_MS    = 20000; // espera al pegar contra un límite de consumo del admin
+  const MAX_HISTORY_SNAPSHOTS  = 24;
 
   let currentUser = null;
   let sandboxId   = null;
@@ -57,10 +58,21 @@
     editorMode: false,
     selectedObjectId: null,
     catalogTint: '#33ff77',
+    chatVisible: true,
+    gridVisible: true,
+    wireframe: false,
+    neonEnabled: true,
+    ecoMode: false,
+    cameraPreset: 'hero',
+    undoStack: [],
+    redoStack: [],
   };
 
     let scene, camera, renderer, controls, animFrame, threeReady = false;
+  let gridHelper = null;
+  let neonLights = [];
   let raycaster = null;
+  let lastStatsPaint = 0;
   let editorDrag = null;
 
   let sandboxListCache = [];
@@ -97,7 +109,8 @@
   // ============================================================
   function initThree(canvas) {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    scene.background = new THREE.Color(0x02070a);
+    scene.fog = new THREE.Fog(0x02070a, 16, 52);
 
     camera = new THREE.PerspectiveCamera(55, (canvas.clientWidth||300)/(canvas.clientHeight||300), 0.1, 200);
     camera.position.set(9, 7, 9);
@@ -106,13 +119,16 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     resizeRenderer();
 
-    const grid = new THREE.GridHelper(24, 24, 0xffffff, 0x1a3322);
-    grid.material.opacity = 0.28; grid.material.transparent = true;
-    scene.add(grid);
+    gridHelper = new THREE.GridHelper(24, 24, 0x65f5d6, 0x173c38);
+    gridHelper.material.opacity = 0.28; gridHelper.material.transparent = true;
+    scene.add(gridHelper);
 
-    scene.add(new THREE.AmbientLight(0x224422, 1.1));
-    const p1 = new THREE.PointLight(0x33ff77, 1.4, 60); p1.position.set(6,10,6); scene.add(p1);
-    const p2 = new THREE.PointLight(0x2266ff, 0.5, 60); p2.position.set(-8,6,-6); scene.add(p2);
+    scene.add(new THREE.HemisphereLight(0x8ffff0, 0x020407, 0.8));
+    const p1 = new THREE.PointLight(0x33ff77, 1.7, 60); p1.position.set(6,10,6); scene.add(p1);
+    const p2 = new THREE.PointLight(0x2266ff, 0.65, 60); p2.position.set(-8,6,-6); scene.add(p2);
+    const p3 = new THREE.PointLight(0xff42bc, 0.35, 45); p3.position.set(0,4,-10); scene.add(p3);
+    neonLights = [p1, p2, p3];
+    applySceneVisualState();
 
         controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -219,7 +235,78 @@
     if (controls) controls.update();
     if (!state.editorMode) state.objects.forEach(o => { if (o.mesh && o.type !== 'catalog_lowpoly') o.mesh.rotation.y += 0.0022; });
     animateCatalogObjects(performance.now());
+    if (performance.now() - lastStatsPaint > 600) { renderSceneStats(); lastStatsPaint = performance.now(); }
     if (renderer && scene && camera) renderer.render(scene, camera);
+  }
+
+  function renderSceneStats() {
+    const el = $('sandbox-scene-stats'); if (!el) return;
+    let vertices = 0, faces = 0;
+    state.objects.forEach(rec => rec.mesh?.traverse(child => {
+      if (!child.isMesh || !child.geometry) return;
+      const pos = child.geometry.getAttribute?.('position'); vertices += pos?.count || 0;
+      faces += Math.floor((pos?.count || 0) / 3);
+    }));
+    el.textContent = `${state.objects.size} objetos · ${vertices.toLocaleString('es-AR')} vértices · ${faces.toLocaleString('es-AR')} tris`;
+  }
+
+  function applyWireframe() {
+    state.objects.forEach(rec => rec.mesh?.traverse(child => { if (child.isMesh && child.material) child.material.wireframe = !!state.wireframe; }));
+    $('sandbox-wire-toggle')?.classList.toggle('active', state.wireframe);
+  }
+
+  function applySceneVisualState() {
+    if (gridHelper) gridHelper.visible = state.gridVisible;
+    $('sandbox-grid-toggle')?.classList.toggle('active', state.gridVisible);
+    $('sandbox-neon-toggle')?.classList.toggle('active', state.neonEnabled);
+    $('sandbox-performance-toggle')?.classList.toggle('active', state.ecoMode);
+    if (neonLights.length) neonLights.forEach((light, index) => { light.intensity = state.neonEnabled ? [1.7,.65,.35][index] : [0.75,.22,.08][index]; });
+    if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.ecoMode ? 1 : 2));
+    applyWireframe();
+  }
+
+  function setChatVisible(visible, persist = true) {
+    state.chatVisible = !!visible;
+    $('sandbox-overlay')?.classList.toggle('sbx-chat-collapsed', !state.chatVisible);
+    const btn = $('sandbox-chat-toggle'); if (btn) btn.textContent = state.chatVisible ? '◧ Ocultar chat' : '◨ Mostrar chat';
+    if (persist) { scheduleSave(); renderFutureUI(); }
+  }
+
+  function setCameraPreset(preset) {
+    if (!camera || !controls) return;
+    state.cameraPreset = preset;
+    const target = new THREE.Vector3(0, 1, 0);
+    const positions = { hero: [9,7,9], top: [0,15,.01], orbit: [-9,6,-9] };
+    camera.position.set(...(positions[preset] || positions.hero)); controls.target.copy(target); controls.update();
+    logAction(`Cámara: ${preset}`); renderFutureUI();
+  }
+
+  function captureSceneSnapshot() { return JSON.parse(JSON.stringify(SceneManager.serialize())); }
+  function recordUndoSnapshot() {
+    const current = captureSceneSnapshot();
+    const previous = state.undoStack[state.undoStack.length - 1];
+    if (previous && JSON.stringify(previous) === JSON.stringify(current)) return;
+    state.undoStack.push(current); if (state.undoStack.length > MAX_HISTORY_SNAPSHOTS) state.undoStack.shift(); state.redoStack = [];
+    renderFutureUI();
+  }
+  function restoreSceneSnapshot(snapshot) {
+    SceneManager.hydrate(Array.isArray(snapshot) ? snapshot : []); state.selectedObjectId = null; renderEditorUI(); renderSceneStats(); scheduleSave();
+  }
+  function undoScene() {
+    if (!state.undoStack.length) return;
+    const current = captureSceneSnapshot(); state.redoStack.push(current); const snapshot = state.undoStack.pop(); restoreSceneSnapshot(snapshot); logAction('Undo: escena restaurada'); renderFutureUI();
+  }
+  function redoScene() {
+    if (!state.redoStack.length) return;
+    const current = captureSceneSnapshot(); state.undoStack.push(current); const snapshot = state.redoStack.pop(); restoreSceneSnapshot(snapshot); logAction('Redo: escena restaurada'); renderFutureUI();
+  }
+  function takeSceneScreenshot() {
+    if (!renderer?.domElement) return;
+    renderer.render(scene, camera); const link = document.createElement('a'); link.download = `cut-real-sandbox-${Date.now()}.png`; link.href = renderer.domElement.toDataURL('image/png'); link.click(); logAction('Captura PNG guardada');
+  }
+  function clearSceneFromDock() {
+    if (!state.objects.size || !confirm('¿Vaciar todos los objetos de esta escena?')) return;
+    recordUndoSnapshot(); SceneManager.clear(); state.selectedObjectId = null; renderEditorUI(); scheduleSave(); logAction('Escena vaciada desde NEXUS'); renderFutureUI();
   }
 
   const GEOMS = {
@@ -492,6 +579,10 @@
   const SceneManager = {
     addObject(meta) {
       if (state.objects.size >= MAX_OBJECTS) throw new Error('Límite de objetos alcanzado (' + MAX_OBJECTS + ').');
+      if (meta.type === 'catalog_lowpoly' && meta.catalogId && !Array.isArray(meta.parts)) {
+        const catalogMeta = window.CutRealCatalog?.instantiate(meta.catalogId, { color: meta.color, animation: meta.animation, animationSpeed: meta.animationSpeed, animationPlaying: meta.animationPlaying });
+        if (catalogMeta) meta = { ...catalogMeta, ...meta, parts: catalogMeta.parts };
+      }
       const id = meta.id || genId();
             const group = new THREE.Group();
       const pos = suggestedScenePosition(meta.position);
@@ -504,7 +595,7 @@
 
       if (meta.type === 'text') group.add(buildTextSprite(meta.text, meta.color));
 
-      else (meta.parts || []).slice(0, 12).forEach(p => {
+      else (meta.parts || []).slice(0, meta.type === 'catalog_lowpoly' ? 24 : 12).forEach(p => {
         const child = buildPartMesh(p);
         child.userData.catalogRole = p.role || '';
         group.add(child);
@@ -521,6 +612,7 @@
         animationPlaying: meta.animationPlaying !== false, animationBase: null,
 
       });
+      applyWireframe(); renderSceneStats();
       return id;
     },
     updateObject(id, patch) {
@@ -537,13 +629,13 @@
       if (patch.animation) rec.animation = String(patch.animation).slice(0, 24);
       if (patch.animationSpeed != null) rec.animationSpeed = clamp(Number(patch.animationSpeed), .15, 3);
       if (patch.animationPlaying != null) rec.animationPlaying = !!patch.animationPlaying;
-      return true;
+      applyWireframe(); renderSceneStats(); return true;
     },
     deleteObject(id) {
       const rec = state.objects.get(id);
       if (!rec) return false;
       scene.remove(rec.mesh);
-      state.objects.delete(id);
+      state.objects.delete(id); renderSceneStats();
       return true;
     },
     moveObject(id, position, duration) {
@@ -594,7 +686,7 @@
         }
       });
       if (safeColor(color)) { rec.color = color; rec.parts = Array.isArray(rec.parts) ? rec.parts.map(partData => ({ ...partData, color })) : rec.parts; }
-      return true;
+      renderSceneStats(); return true;
     },
     getObject(id) { return state.objects.get(id) || null; },
     duplicateObject(id) {
@@ -607,7 +699,7 @@
       logAction(`Objeto duplicado: ${rec.name || id}`);
       return newId;
     },
-    clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); },
+    clear() { state.objects.forEach(rec => scene.remove(rec.mesh)); state.objects.clear(); state.selectedObjectId = null; renderSceneStats(); },
 
     inspect() {
       return { objectCount: state.objects.size, objects: Array.from(state.objects.values())
@@ -615,7 +707,7 @@
     },
     serialize() {
             return Array.from(state.objects.values()).map(o => ({
-        id: o.id, name: o.name, type: o.type, parts: o.parts, text: o.text,
+        id: o.id, name: o.name, type: o.type, parts: (o.type === 'catalog_lowpoly' && o.catalogId) ? null : o.parts, text: o.text,
         position: o.animationBase?.position?.slice?.() || [o.mesh.position.x, o.mesh.position.y, o.mesh.position.z],
         rotation: o.animationBase?.rotation?.slice?.() || [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
         scale: o.animationBase?.scale?.slice?.() || [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
@@ -691,7 +783,7 @@
         <div class="sbx-catalog-thumb"><canvas data-catalog-preview="${escapeHtml(item.id)}" aria-label="Mini vista de ${escapeHtml(item.name)}"></canvas><span class="sbx-catalog-kind">${escapeHtml(item.category)}</span></div>
         <div class="sbx-catalog-card-body"><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description)}</p><div class="sbx-catalog-card-foot"><span class="sbx-catalog-motion">◌ ${escapeHtml(item.animation)}</span><button class="sbx-place-btn" data-catalog-place="${escapeHtml(item.id)}">+ Colocar</button></div></div>
       </article>`).join('');
-    grid.querySelectorAll('[data-catalog-preview]').forEach(canvas => catalog.renderThumbnail(canvas, canvas.dataset.catalogPreview, state.catalogTint));
+    grid.querySelectorAll('[data-catalog-preview]').forEach(canvas => catalog.renderThumbnail(canvas, canvas.dataset.catalogPreview));
   }
 
   function openCatalogPanel() {
@@ -706,6 +798,7 @@
     if (!sandboxId) { showToastSafe('Creá o abrí un Sandbox antes de colocar un modelo.', '#ff8844'); return null; }
     const catalog = window.CutRealCatalog; const meta = catalog?.instantiate(catalogId, { color: state.catalogTint });
     if (!meta) return null;
+    recordUndoSnapshot();
     meta.position = suggestedScenePosition();
     const id = SceneManager.addObject(meta);
       if (typeof Editor !== 'undefined') Editor.select(id); else { state.selectedObjectId = id; renderEditorUI(); }
@@ -724,6 +817,19 @@
     if (output) output.textContent = `${Number(speed?.value || 1).toFixed(2)}×`;
     const toggle = $('sandbox-animation-toggle'); if (toggle) { toggle.disabled = !supported; toggle.textContent = supported && rec.animationPlaying ? '⏸ Pausar' : '▶ Reproducir'; }
     const save = $('sandbox-animation-save'); if (save) save.disabled = !supported;
+  }
+
+  function renderFutureUI() {
+    const stats = $('sandbox-scene-stats');
+    if (stats) renderSceneStats();
+    const chatBtn = $('sandbox-chat-toggle'); if (chatBtn) chatBtn.textContent = state.chatVisible ? '◧ Ocultar chat' : '◨ Mostrar chat';
+    ['hero','top','orbit'].forEach(preset => $('sandbox-camera-' + preset)?.classList.toggle('active', state.cameraPreset === preset));
+    $('sandbox-grid-toggle')?.classList.toggle('active', state.gridVisible);
+    $('sandbox-wire-toggle')?.classList.toggle('active', state.wireframe);
+    $('sandbox-neon-toggle')?.classList.toggle('active', state.neonEnabled);
+    $('sandbox-performance-toggle')?.classList.toggle('active', state.ecoMode);
+    const undo = $('sandbox-undo-btn'); if (undo) undo.disabled = !state.undoStack.length;
+    const redo = $('sandbox-redo-btn'); if (redo) redo.disabled = !state.redoStack.length;
   }
 
   function applyAnimationControls() {
@@ -787,6 +893,7 @@
     applyFields() {
       const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
       if (!rec) return;
+      recordUndoSnapshot();
       const position = ['sandbox-editor-x','sandbox-editor-y','sandbox-editor-z'].map((id, i) => editorInputValue(id, rec.mesh.position.toArray()[i]));
       const rotation = ['sandbox-editor-rx','sandbox-editor-ry','sandbox-editor-rz'].map((id, i) => THREE.MathUtils.degToRad(editorInputValue(id, 0)));
       const s = clamp(editorInputValue('sandbox-editor-scale', 1), 0.1, 5);
@@ -798,12 +905,14 @@
     },
     duplicate() {
       if (!state.selectedObjectId) return;
+      recordUndoSnapshot();
       const id = SceneManager.duplicateObject(state.selectedObjectId);
       this.select(id); scheduleSave();
     },
     remove() {
       const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
       if (!rec) return;
+      recordUndoSnapshot();
       SceneManager.deleteObject(rec.id); state.selectedObjectId = null;
       logAction(`Editor: eliminado ${rec.name}`); renderEditorUI(); scheduleSave();
     },
@@ -828,6 +937,7 @@
       const id = findObjectIdFromHit(hit);
       if (!id) { Editor.select(null); return; }
       Editor.select(id);
+      recordUndoSnapshot();
       editorDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: SceneManager.getObject(id).mesh.position.clone(), moved: false };
       controls.enabled = false;
       canvas.setPointerCapture?.(event.pointerId);
@@ -901,7 +1011,7 @@
     },
     retrieve_memory: ({ key }) => ({ value: state.memory[key] ?? null }),
     wait: ({ seconds }) => { logAction(`Esperando ${clamp(seconds||3,1,20)}s`); return { ok: true }; },
-    clear_scene: () => { SceneManager.clear(); logAction('Escena vaciada'); return { ok: true }; },
+    clear_scene: () => { recordUndoSnapshot(); SceneManager.clear(); renderEditorUI(); logAction('Escena vaciada'); scheduleSave(); return { ok: true }; },
     set_agent_state: ({ state: label, color }) => {
       state.agentState = { label: sanitizeText(label, 24), color: safeColor(color) || state.agentState.color };
       renderAgentStateHUD(); return { ok: true };
@@ -1264,6 +1374,12 @@
         scene: SceneManager.serialize(),
         editorMode: state.editorMode,
         selectedObjectId: state.selectedObjectId,
+        chatVisible: state.chatVisible,
+        gridVisible: state.gridVisible,
+        wireframe: state.wireframe,
+        neonEnabled: state.neonEnabled,
+        ecoMode: state.ecoMode,
+        cameraPreset: state.cameraPreset,
         autonomyEnabled: state.autonomyEnabled,
         apiUsage: state.apiUsage,
       }, { merge: true });
@@ -1295,7 +1411,7 @@
     const { doc, setDoc } = window.firestore;
     const ref = doc(sandboxCollection());
     const name = 'Sandbox ' + new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) + ' ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], editorMode: false, selectedObjectId: null, autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
+        await setDoc(ref, { name, createdAt: Date.now(), updatedAt: Date.now(), messages: [], memory: {}, actionLog: [], scene: [], editorMode: false, selectedObjectId: null, chatVisible: true, gridVisible: true, wireframe: false, neonEnabled: true, ecoMode: false, cameraPreset: 'hero', autonomyEnabled: false, apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null } });
 
     await loadSandboxList();
     await openSandboxById(ref.id);
@@ -1313,6 +1429,13 @@
     state.actionLog = (data.actionLog || []).map(s => { const [text,ts]=String(s).split('|'); return { text, ts:+ts||Date.now() }; });
     state.apiUsage = data.apiUsage || { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null };
     state.editorMode = data.editorMode === true;
+    state.chatVisible = data.chatVisible !== false;
+    state.gridVisible = data.gridVisible !== false;
+    state.wireframe = data.wireframe === true;
+    state.neonEnabled = data.neonEnabled !== false;
+    state.ecoMode = data.ecoMode === true;
+    state.cameraPreset = data.cameraPreset || 'hero';
+    state.undoStack = []; state.redoStack = [];
     state.selectedObjectId = null;
     renderUsageHUD();
     state.autonomyEnabled = false;
@@ -1327,7 +1450,10 @@
         SceneManager.hydrate(data.scene || []);
     state.selectedObjectId = data.selectedObjectId && SceneManager.getObject(data.selectedObjectId) ? data.selectedObjectId : null;
     if (state.selectedObjectId) setObjectHighlight(SceneManager.getObject(state.selectedObjectId), true);
-    setStatus('idle'); updateAutonomyUI(); renderAgentStateHUD(); renderEditorUI(); renderSandboxList();
+    if (camera && controls) setCameraPreset(state.cameraPreset);
+    setChatVisible(state.chatVisible, false);
+    applySceneVisualState(); renderSceneStats();
+    setStatus('idle'); updateAutonomyUI(); renderAgentStateHUD(); renderEditorUI(); renderSandboxList(); renderFutureUI();
 
   }
 
@@ -1352,6 +1478,7 @@
     resizeRenderer();
     await loadSandboxList();
     if (!sandboxId && sandboxListCache.length) await openSandboxById(sandboxListCache[0].id);
+    setChatVisible(state.chatVisible, false); applySceneVisualState(); renderFutureUI();
   }
   function closeSandboxPanel() {
     const overlay = $('sandbox-overlay'); if (overlay) overlay.style.display = 'none';
@@ -1396,9 +1523,22 @@
       if (event.key === 'Escape') Editor.select(null);
     });
     renderEditorUI();
-    $('sandbox-tab-chat')?.addEventListener('click', () => switchMobileTab('chat'));
+    $('sandbox-tab-chat')?.addEventListener('click', () => { setChatVisible(true); switchMobileTab('chat'); });
 
     $('sandbox-tab-scene')?.addEventListener('click', () => switchMobileTab('scene'));
+    $('sandbox-chat-toggle')?.addEventListener('click', () => setChatVisible(!state.chatVisible));
+    $('sandbox-camera-hero')?.addEventListener('click', () => setCameraPreset('hero'));
+    $('sandbox-camera-top')?.addEventListener('click', () => setCameraPreset('top'));
+    $('sandbox-camera-orbit')?.addEventListener('click', () => setCameraPreset('orbit'));
+    $('sandbox-focus-selected')?.addEventListener('click', () => Editor.focus());
+    $('sandbox-grid-toggle')?.addEventListener('click', () => { state.gridVisible = !state.gridVisible; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-wire-toggle')?.addEventListener('click', () => { state.wireframe = !state.wireframe; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-neon-toggle')?.addEventListener('click', () => { state.neonEnabled = !state.neonEnabled; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-performance-toggle')?.addEventListener('click', () => { state.ecoMode = !state.ecoMode; applySceneVisualState(); scheduleSave(); renderFutureUI(); });
+    $('sandbox-undo-btn')?.addEventListener('click', undoScene);
+    $('sandbox-redo-btn')?.addEventListener('click', redoScene);
+    $('sandbox-screenshot-btn')?.addEventListener('click', takeSceneScreenshot);
+    $('sandbox-clear-btn')?.addEventListener('click', clearSceneFromDock);
     $('sandbox-catalog-btn')?.addEventListener('click', openCatalogPanel);
     $('sandbox-catalog-close')?.addEventListener('click', closeCatalogPanel);
     $('sandbox-tab-catalog')?.addEventListener('click', openCatalogPanel);
@@ -1410,7 +1550,8 @@
     $('sandbox-animation-speed')?.addEventListener('input', event => { const output = $('sandbox-animation-speed-value'); if (output) output.textContent = `${Number(event.target.value).toFixed(2)}×`; applyAnimationControls(); });
     $('sandbox-animation-toggle')?.addEventListener('click', toggleSelectedAnimation);
     $('sandbox-animation-save')?.addEventListener('click', applyAnimationControls);
-    renderCatalog();
+    renderCatalog(); renderFutureUI();
+
   }
   function switchMobileTab(tab) {
     const overlay = $('sandbox-overlay');
@@ -1431,6 +1572,8 @@
     registerTool: registerExternalTool,
     bridge: WorkspaceBridge,
     catalog: { list: () => window.CutRealCatalog?.items || [], place: placeCatalogModel, render: renderCatalog, setAnimation: (id, patch) => { const result = SceneManager.setAnimation(id, patch); scheduleSave(); renderAnimationUI(); return result; } },
+    persist: () => persistSandbox(true),
+    setChatVisible,
     getCurrentSandboxId: () => sandboxId,
     getCurrentUser: () => currentUser,
   };
