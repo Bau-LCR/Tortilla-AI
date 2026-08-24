@@ -13,6 +13,7 @@ const DEFAULT_TIMEOUT_MS = 45000;
 
 const json = (res, status, body) => res.status(status).json(body);
 const clean = (value, max = 400) => String(value == null ? '' : value).slice(0, max);
+const redactSecrets = value => String(value == null ? '' : value).replace(/\b(?:sk-[A-Za-z0-9_-]+|sk-or-v1-[A-Za-z0-9_-]+|AIza[0-9A-Za-z_-]+|gsk_[0-9A-Za-z_-]+)\b/g, '[API KEY REDACTED]');
 const now = () => Date.now();
 
 function parseJsonEnv(name) {
@@ -83,7 +84,7 @@ function providerEndpoint(provider, model) {
 
 function summarizeError(status, body) {
   const detail = body?.error?.message || body?.message || body?.error || `HTTP ${status}`;
-  const text = String(detail).slice(0, 500);
+  const text = redactSecrets(String(detail).slice(0, 500));
   if (status === 401 || status === 403 || /invalid.*key|authentication|unauthorized/i.test(text)) return { type: 'authentication', message: text };
   if (status === 408 || status === 504 || /timeout|timed out/i.test(text)) return { type: 'timeout', message: text };
   if (status === 429 || /rate.?limit|quota|too many/i.test(text)) return { type: 'rate_limit', message: text };
@@ -196,7 +197,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
   const start = now();
   emit({ type: 'AI_STARTED', nodeId: node.id, status: 'processing', at: start });
   if (!item) {
-    const error = { type: 'authentication', message: `No hay una SUPER API key habilitada para ${node.provider}/${node.model || 'modelo indicado'}.` };
+    const error = { type: 'configuration', message: `No hay una SUPER API key habilitada para ${node.provider}/${node.model || 'modelo indicado'}. Revisá SUPER_AI_KEYS_JSON y el SUPER key ID ${node.keyId || '(vacío)'}.` };
     emit({ type: 'AI_ERROR', nodeId: node.id, status: 'error', error: error.message, errorType: error.type, at: now() });
     return { nodeId: node.id, role: node.role, provider: node.provider, model: node.model, status: 'error', error, latencyMs: now() - start, retries: 0 };
   }
@@ -272,12 +273,14 @@ async function collaborate(body) {
   const allResults = steps.flatMap(step => step.results);
   const agreement = analyzeAgreement(allResults);
   const finalResult = allResults.filter(result => result.status === 'completed' && result.text).slice(-1)[0];
-  const final = finalResult?.text || synthesis || 'No fue posible producir una respuesta final válida.';
-  emit({ type: 'PIPELINE_COMPLETED', status: 'completed', at: now(), final: true });
+  const failureDetails = allResults.filter(result => result.status === 'error').map(result => `${result.provider || 'proveedor'} / ${result.model || 'modelo'}: ${clean(result.error?.message || 'fallo sin detalle', 260)}`).slice(0, 6);
+  const failureMessage = finalResult ? null : failureDetails.length ? `SUPER no pudo completar la sesión. ${failureDetails.join(' | ')}` : 'SUPER no pudo producir una respuesta final válida; revisá la configuración de los nodos.';
+  const final = finalResult?.text || synthesis || failureMessage;
+  emit({ type: finalResult ? 'PIPELINE_COMPLETED' : 'PIPELINE_FAILED', status: finalResult ? 'completed' : 'error', error: failureMessage || undefined, at: now(), final: Boolean(finalResult) });
   return {
-    ok: Boolean(finalResult), mode, rounds, final, steps, events, consensus: agreement.label, consensusScore: agreement.score, disagreements: agreement.disagreements,
+    ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, consensus: agreement.label, consensusScore: agreement.score, disagreements: agreement.disagreements,
     metrics: { durationMs: now() - startedAt, totalTokens: allResults.reduce((sum, result) => sum + Number(result.tokens || 0), 0), estimatedCost: allResults.some(result => result.estimatedCost == null) ? null : allResults.reduce((sum, result) => sum + Number(result.estimatedCost || 0), 0), completed: allResults.filter(result => result.status === 'completed').length, failed: allResults.filter(result => result.status === 'error').length, skipped: nodes.length - activeNodes.length },
-    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.'],
+    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
   };
 }
 
