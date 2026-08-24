@@ -15,9 +15,9 @@
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min));
 
   const defaultNodes = [
-    { id: uid('ai'), role: 'PRIMARY ANALYST', provider: 'openai', model: 'gpt-4o-mini', keyId: '', enabled: true },
-    { id: uid('ai'), role: 'CRITICAL REVIEWER', provider: 'openai', model: 'gpt-4o-mini', keyId: '', enabled: true },
-    { id: uid('ai'), role: 'EDITOR / SYNTHESIZER', provider: 'openai', model: 'gpt-4o-mini', keyId: '', enabled: true },
+    { id: uid('ai'), role: 'PRIMARY ANALYST', provider: 'openai', model: 'gpt-4o-mini', keyId: 'super-openai-1', enabled: true },
+    { id: uid('ai'), role: 'CRITICAL REVIEWER', provider: 'gemini', model: 'gemini-2.0-flash', keyId: 'super-gemini-1', enabled: true },
+    { id: uid('ai'), role: 'EDITOR / SYNTHESIZER', provider: 'groq', model: 'llama-3.3-70b-versatile', keyId: 'super-groq-1', enabled: true },
   ];
   const state = {
     open: false, running: false, paused: false, cancelled: false, selectedNodeId: null,
