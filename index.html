@@ -871,6 +871,8 @@
     <button id="sandbox-tab-catalog">◫ Catálogo</button>
     <button id="sandbox-tab-workspace">🧩 Workspace</button>
     </div>
+    <nav id="sandbox-mode-bar" class="sbx-mode-bar" aria-label="Modos NEXUS"><span>MODE</span><button data-sandbox-mode="editor" class="active">EDITOR</button><button data-sandbox-mode="player">PLAYER</button><button data-sandbox-mode="god">GOD</button><button data-sandbox-mode="drone">DRONE</button><button data-sandbox-mode="cinematic">CINEMATIC</button><button data-sandbox-mode="ai">AI</button><span id="sandbox-mode-hint">Editor: seleccioná y manipulá objetos</span></nav>
+    <div id="sandbox-mobile-joystick" class="sbx-mobile-joystick" aria-label="Joystick virtual para Player Mode"><span></span></div>
 
     <div class="sbx-body">
         <aside class="sbx-panel-left">
@@ -908,6 +910,17 @@
                 <div class="sbx-sim-row"><label>Patrón<select id="sandbox-clone-pattern"><option value="line">Línea</option><option value="grid">Matriz</option><option value="ring">Anillo</option></select></label><label>Copias<input id="sandbox-clone-count" type="number" min="1" max="12" step="1" value="3"></label><button id="sandbox-clone-btn" title="Clonar el objeto seleccionado según el patrón">Clonar patrón</button></div>
                 <div class="sbx-sim-row"><label>Mundo<select id="sandbox-world-preset"><option value="showcase">Showcase</option><option value="nature">Bioma</option><option value="fleet">Flota</option><option value="cyber-city">Cyber City</option></select></label><button id="sandbox-world-generate" title="Generar mundo desde activos reales del catálogo">Generar mundo</button><button id="sandbox-link-toggle" title="Seleccionar dos objetos para crear un enlace de datos o energía">Enlazar objetos</button><select id="sandbox-link-type" title="Tipo de conexión"><option value="data">Datos</option><option value="energy">Energía</option></select></div>
                 <div class="sbx-sim-row"><button id="sandbox-export-btn" title="Exportar escena JSON">Exportar JSON</button><button id="sandbox-import-btn" title="Importar escena JSON">Importar JSON</button><input id="sandbox-import-input" type="file" accept="application/json,.json" hidden></div>
+            </section>
+
+            <section id="sandbox-dimensions-panel" class="sbx-dimensions-panel" aria-label="NEXUS Worlds y portales">
+                <div class="sbx-dimension-head"><div><span class="sbx-eyebrow">NEXUS PORTAL // DIMENSION SYSTEM</span><strong>World Network</strong></div><span id="sandbox-dimension-active-status">NEXUS-001 · EARTH</span></div>
+                <div class="sbx-dimension-controls"><label>Dimensión<select id="sandbox-dimension-select" aria-label="Seleccionar dimensión"></select></label><label>Nombre<input id="sandbox-dimension-name" type="text" maxlength="40" placeholder="Nombre del mundo"></label></div>
+                <div class="sbx-dimension-actions"><button id="sandbox-dimension-rename">Renombrar</button><button id="sandbox-dimension-new" class="sbx-editor-primary">＋ Crear dimensión</button><button id="sandbox-dimension-duplicate">⧉ Duplicar</button><button id="sandbox-dimension-delete" class="sbx-editor-danger">⌫ Eliminar</button></div>
+                <div class="sbx-dimension-controls"><label>Clima<select id="sandbox-climate-select"><option value="clear">Despejado</option><option value="rain">Lluvia</option><option value="fog">Niebla</option><option value="storm">Tormenta</option><option value="snow">Nieve</option><option value="dust">Polvo marciano</option></select></label><label>Hora <input id="sandbox-world-hour" type="range" min="0" max="24" step="1" value="14"><output id="sandbox-world-hour-value">14:00</output></label></div>
+                <div class="sbx-dimension-controls"><label>Preset<select id="sandbox-dimension-preset"><option value="earth">EARTH · 1G</option><option value="aether">AETHER · 0.2G</option><option value="void">VOID · 0G</option><option value="mars">MARS · 0.38G</option><option value="cyber-city">CYBER CITY · lluvia</option></select></label><button id="sandbox-dimension-apply-preset">Aplicar preset</button><label>Portal destino<select id="sandbox-portal-target"></select></label></div>
+                <div class="sbx-dimension-actions"><button id="sandbox-portal-create" class="sbx-editor-primary">◉ Crear NEXUS Gate</button><button id="sandbox-portal-connect">Conectar portal seleccionado</button><button id="sandbox-portal-enter">Entrar al portal seleccionado</button></div>
+                <div id="sandbox-dimension-map" class="sbx-dimension-map" aria-live="polite"></div>
+                <div id="sandbox-dimension-info" class="sbx-dimension-info">Seleccioná una dimensión para ver su estado real.</div>
             </section>
 
             <section id="sandbox-editor-toolbar" class="sbx-editor-toolbar" hidden aria-label="Editor de objetos 3D">
@@ -1051,6 +1064,7 @@
     <button id="chat-focus-btn" class="chat-extra-btn" title="Activar modo enfoque">⌗ Enfoque</button>
     <button id="assistant-notify-btn" class="chat-extra-btn" title="Permitir avisos de asistencia cuando Cut-real responda">🔔 Avisarme</button>
     <button id="dictate-btn" class="chat-extra-btn" title="Dictar un mensaje con el micrófono">🎙 Dictar</button>
+    <button id="agent-mode-btn" class="chat-extra-btn" title="Abrir CUT-REAL AGENT">◉ Agent</button>
     <span id="voice-call-status" class="voice-call-status" aria-live="polite">Voz lista</span>
 </div>
 <div class="input-area">
@@ -1084,6 +1098,23 @@
             <button id="voice-call-speaker" class="voice-call-action" aria-label="Activar o silenciar altavoz"><span>◖</span><small>Altavoz</small></button>
             <button id="voice-call-end" class="voice-call-action voice-call-end" aria-label="Finalizar llamada"><span>×</span><small>Finalizar</small></button>
         </footer>
+    </section>
+</div>
+
+<!-- CUT-REAL AGENT / panel adicional del chat normal -->
+<div id="agent-mode-panel" class="agent-mode-panel" hidden aria-hidden="true">
+    <div class="agent-mode-backdrop"></div>
+    <section class="agent-mode-card" role="dialog" aria-modal="true" aria-labelledby="agent-mode-title">
+        <header class="agent-mode-header"><div><span class="voice-call-eyebrow">CUT-REAL AI · ACTION LAYER</span><h2 id="agent-mode-title">CUT-REAL AGENT</h2><p>El Chat Mode no cambia. Activá este panel solo cuando quieras ejecutar acciones disponibles.</p></div><button id="agent-mode-close" class="voice-call-close" aria-label="Cerrar Agent Mode">×</button></header>
+        <div class="agent-mode-switch" role="tablist" aria-label="Modo de conversación"><button id="agent-chat-tab" class="active" role="tab">CHAT MODE</button><button id="agent-tab" role="tab">AGENT MODE</button></div>
+        <label class="agent-task-label" for="agent-task-input">¿Qué querés que haga?</label>
+        <textarea id="agent-task-input" rows="3" placeholder="Ej.: abrí mi Sandbox, iniciá una llamada o activá avisos de asistencia…"></textarea>
+        <div class="agent-mode-actions"><button id="agent-execute-btn" class="agent-primary">▶ Ejecutar</button><button id="agent-pause-btn">Ⅱ Pausar</button><button id="agent-stop-btn">■ Detener</button><button id="agent-undo-btn">↶ Undo</button></div>
+        <div class="agent-status-box"><span>AGENT STATUS</span><strong id="agent-status-label">IDLE</strong></div>
+        <section class="agent-plan-box"><div class="agent-box-title">TASK PLAN</div><ol id="agent-plan-list"><li>Escribí una tarea para crear un plan verificable.</li></ol></section>
+        <section class="agent-activity-box"><div class="agent-box-title">AGENT ACTIVITY</div><div id="agent-activity-log" aria-live="polite"></div></section>
+        <section class="agent-command-center"><div class="agent-box-title">COMMAND CENTER</div><div class="agent-center-tabs"><button data-agent-center="task" class="active">TASK</button><button data-agent-center="activity">ACTIVITY</button><button data-agent-center="tools">TOOLS</button><button data-agent-center="memory">MEMORY</button><button data-agent-center="diagnostics">DIAGNOSTICS</button><button data-agent-center="history">HISTORY</button></div><div id="agent-center-content" class="agent-center-content"></div></section>
+        <p id="agent-result-note" class="agent-result-note">Las acciones no disponibles se marcarán como no ejecutadas; no se inventan resultados.</p>
     </section>
 </div>
 
