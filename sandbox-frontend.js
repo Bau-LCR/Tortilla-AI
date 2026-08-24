@@ -56,6 +56,7 @@
     apiUsage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0, reportedCost: 0, last: null },
     editorMode: false,
     selectedObjectId: null,
+    catalogTint: '#33ff77',
   };
 
     let scene, camera, renderer, controls, animFrame, threeReady = false;
@@ -132,11 +133,92 @@
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
 
+  function rememberAnimationBase(rec) {
+    if (!rec || rec.animationBase) return;
+    rec.animationBase = {
+      position: rec.mesh.position.toArray(),
+      rotation: rec.mesh.rotation.toArray(),
+      children: new Map(),
+    };
+    rec.mesh.traverse(child => {
+      if (child === rec.mesh) return;
+      rec.animationBase.children.set(child, { position: child.position.toArray(), rotation: child.rotation.toArray(), scale: child.scale.toArray() });
+    });
+  }
+
+  function resetAnimationTransforms(rec) {
+    if (!rec?.animationBase) return;
+    const base = rec.animationBase;
+    rec.mesh.position.set(...base.position); rec.mesh.rotation.set(...base.rotation);
+    base.children.forEach((value, child) => {
+      if (!child.parent) return;
+      child.position.set(...value.position); child.rotation.set(...value.rotation); child.scale.set(...value.scale);
+    });
+  }
+
+  function animateCatalogObject(rec, now) {
+    if (!rec?.mesh || !rec.animationPlaying) return;
+    rememberAnimationBase(rec);
+    resetAnimationTransforms(rec);
+    const t = now * 0.001 * clamp(Number(rec.animationSpeed) || 1, .15, 3);
+    const wave = Math.sin(t * 3.6), slow = Math.sin(t * 1.8), pulse = .45 + .55 * (Math.sin(t * 4) + 1) / 2;
+    const animation = rec.animation || 'idle';
+    const base = rec.animationBase;
+    const childByRole = role => {
+      let found = null; rec.mesh.traverse(child => { if (!found && child.userData?.catalogRole === role) found = child; }); return found;
+    };
+    const rotateRole = (role, x = 0, y = 0, z = 0) => { const child = childByRole(role); if (child) { child.rotation.x += x; child.rotation.y += y; child.rotation.z += z; } };
+    const rotateRoles = (roles, x = 0, y = 0, z = 0) => roles.forEach(role => rotateRole(role, x, y, z));
+    if (animation === 'walk' || animation === 'drive') {
+      rotateRoles(['leg_left','leg_front_left','leg_back_left','wheel_fl','wheel_bl'], wave * .42, 0, 0);
+      rotateRoles(['leg_right','leg_front_right','leg_back_right','wheel_fr','wheel_br'], -wave * .42, 0, 0);
+      rotateRoles(['arm_left'], -wave * .18, 0, 0); rotateRoles(['arm_right'], wave * .18, 0, 0);
+      rec.mesh.position.y = base.position[1] + Math.abs(Math.sin(t * 3.6)) * .035;
+    } else if (animation === 'wave') {
+      rotateRole('arm_right', 0, 0, -.65 + wave * .42); rotateRole('hand_right', 0, 0, -.65 + wave * .42);
+    } else if (animation === 'breathe' || animation === 'breath' || animation === 'idle') {
+      ['body','chest','torso','head'].forEach(role => { const child = childByRole(role); if (child) child.scale.y *= 1 + slow * .035; });
+      rec.mesh.position.y = base.position[1] + slow * .025;
+    } else if (animation === 'pulse') {
+      rec.mesh.traverse(child => { if (child.isMesh && child.material) { child.material.emissiveIntensity = .18 + pulse * .65; } });
+      rec.mesh.scale.setScalar(1 + Math.sin(t * 4) * .018);
+    } else if (animation === 'spin') {
+      rec.mesh.rotation.y = base.rotation[1] + t * .85;
+    } else if (animation === 'hover' || animation === 'float') {
+      rec.mesh.position.y = base.position[1] + Math.sin(t * 2.2) * .16;
+      rec.mesh.rotation.z = base.rotation[2] + Math.sin(t * 2.2) * .045;
+    } else if (animation === 'fly') {
+      rec.mesh.position.y = base.position[1] + Math.sin(t * 2.2) * .22;
+      rec.mesh.rotation.x = base.rotation[0] + Math.sin(t * 2.2) * .1;
+      rotateRoles(['wing_left','wing_right'], wave * .28, 0, 0);
+    } else if (animation === 'sway') {
+      rec.mesh.rotation.z = base.rotation[2] + Math.sin(t * 1.5) * .12;
+    } else if (animation === 'dance') {
+      rec.mesh.rotation.y = base.rotation[1] + Math.sin(t * 2.5) * .28;
+      rec.mesh.rotation.z = base.rotation[2] + Math.sin(t * 5) * .12;
+      rec.mesh.position.y = base.position[1] + Math.abs(Math.sin(t * 2.5)) * .16;
+    } else if (animation === 'cast') {
+      rotateRole('arm_right', 0, 0, -.5 + wave * .2); rotateRole('staff', 0, wave * .7, 0);
+      rec.mesh.traverse(child => { if (child.userData?.catalogRole === 'orb' && child.material) child.material.emissiveIntensity = 1 + pulse; });
+    } else if (animation === 'scan') {
+      rec.mesh.rotation.y = base.rotation[1] + t * .42;
+      rec.mesh.traverse(child => { if (child.userData?.catalogRole?.includes('sensor') && child.material) child.material.emissiveIntensity = .2 + pulse; });
+    } else if (animation === 'launch') {
+      rec.mesh.position.y = base.position[1] + Math.max(0, Math.sin(t * 1.4)) * .5;
+    } else if (animation === 'orbit') {
+      rec.mesh.rotation.y = base.rotation[1] + t * .52; rec.mesh.position.x = base.position[0] + Math.cos(t * .8) * .22; rec.mesh.position.z = base.position[2] + Math.sin(t * .8) * .22;
+    }
+  }
+
+  function animateCatalogObjects(now) {
+    state.objects.forEach(rec => { if (rec.type === 'catalog_lowpoly') animateCatalogObject(rec, now); });
+  }
+
   function animate() {
     animFrame = requestAnimationFrame(animate);
     if (controls) controls.update();
-        if (!state.editorMode) state.objects.forEach(o => { if (o.mesh) o.mesh.rotation.y += 0.0022; });
-
+    if (!state.editorMode) state.objects.forEach(o => { if (o.mesh && o.type !== 'catalog_lowpoly') o.mesh.rotation.y += 0.0022; });
+    animateCatalogObjects(performance.now());
     if (renderer && scene && camera) renderer.render(scene, camera);
   }
 
@@ -422,13 +504,21 @@
 
       if (meta.type === 'text') group.add(buildTextSprite(meta.text, meta.color));
 
-      else (meta.parts || []).slice(0, 12).forEach(p => group.add(buildPartMesh(p)));
+      else (meta.parts || []).slice(0, 12).forEach(p => {
+        const child = buildPartMesh(p);
+        child.userData.catalogRole = p.role || '';
+        group.add(child);
+      });
 
       scene.add(group);
       state.objects.set(id, {
                 id, name: meta.name || meta.text || id, type: meta.type || 'primitive_group',
         parts: meta.parts || null, text: meta.text || null, position: pos,
         rotation, scale, color: meta.color || null, mesh: group,
+        catalogId: meta.catalogId || null, catalogCategory: meta.catalogCategory || null,
+        catalogDescription: meta.catalogDescription || null,
+        animation: meta.animation || 'idle', animationSpeed: clamp(Number(meta.animationSpeed) || 1, .15, 3),
+        animationPlaying: meta.animationPlaying !== false, animationBase: null,
 
       });
       return id;
@@ -436,15 +526,17 @@
     updateObject(id, patch) {
       const rec = state.objects.get(id);
       if (!rec) throw new Error('Objeto no encontrado: ' + id);
-            if (patch.position) { const p = clampVec(patch.position); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; }
-      if (Array.isArray(patch.rotation)) { rec.mesh.rotation.set(...patch.rotation.map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4))); rec.rotation = patch.rotation.slice(0,3); }
-      if (Array.isArray(patch.scale)) { const s = patch.scale.map(n => clamp(Number(n), 0.1, 5)); rec.mesh.scale.set(s[0],s[1],s[2]); rec.scale = s; }
+            if (patch.position) { const p = clampVec(patch.position); rec.mesh.position.set(p[0],p[1],p[2]); rec.position = p; if (rec.animationBase) rec.animationBase.position = p.slice(); }
+      if (Array.isArray(patch.rotation)) { const nextRotation = patch.rotation.slice(0,3).map(n => clamp(Number(n), -Math.PI * 4, Math.PI * 4)); rec.mesh.rotation.set(...nextRotation); rec.rotation = nextRotation; if (rec.animationBase) rec.animationBase.rotation = nextRotation.slice(); }
+      if (Array.isArray(patch.scale)) { const s = patch.scale.map(n => clamp(Number(n), 0.1, 5)); rec.mesh.scale.set(s[0],s[1],s[2]); rec.scale = s; if (rec.animationBase) rec.animationBase.scale = s.slice(); }
       if (Array.isArray(patch.parts)) {
-
         while (rec.mesh.children.length) rec.mesh.remove(rec.mesh.children[0]);
-        patch.parts.slice(0,12).forEach(p => rec.mesh.add(buildPartMesh(p)));
-        rec.parts = patch.parts;
+        patch.parts.slice(0,12).forEach(p => { const child = buildPartMesh(p); child.userData.catalogRole = p.role || ''; rec.mesh.add(child); });
+        rec.parts = patch.parts; rec.animationBase = null;
       }
+      if (patch.animation) rec.animation = String(patch.animation).slice(0, 24);
+      if (patch.animationSpeed != null) rec.animationSpeed = clamp(Number(patch.animationSpeed), .15, 3);
+      if (patch.animationPlaying != null) rec.animationPlaying = !!patch.animationPlaying;
       return true;
     },
     deleteObject(id) {
@@ -457,19 +549,19 @@
     moveObject(id, position, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
       const target = clampVec(position);
-            return this._tween(rec.mesh.position, target, duration, () => { rec.position = target; });
+            return this._tween(rec.mesh.position, target, duration, () => { rec.position = target; if (rec.animationBase) rec.animationBase.position = target.slice(); });
 
     },
     rotateObject(id, rotation, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
             const target = (rotation||[0,0,0]).map(n => clamp(Number(n), -Math.PI*4, Math.PI*4));
-      return this._tween(rec.mesh.rotation, target, duration, () => { rec.rotation = target; });
+      return this._tween(rec.mesh.rotation, target, duration, () => { rec.rotation = target; if (rec.animationBase) rec.animationBase.rotation = target.slice(); });
 
     },
     scaleObject(id, scaleArr, duration) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
             const target = (scaleArr||[1,1,1]).map(n => clamp(Number(n), 0.1, 5));
-      return this._tween(rec.mesh.scale, target, duration, () => { rec.scale = target; });
+      return this._tween(rec.mesh.scale, target, duration, () => { rec.scale = target; if (rec.animationBase) rec.animationBase.scale = target.slice(); });
 
     },
     _tween(vecLike, target, duration, onDone) {
@@ -487,7 +579,12 @@
       requestAnimationFrame(step);
       return true;
     },
-        changeAppearance(id, { color, opacity, wireframe }) {
+        setAnimation(id, patch = {}) {
+      const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
+      this.updateObject(id, { animation: patch.animation || rec.animation, animationSpeed: patch.animationSpeed ?? rec.animationSpeed, animationPlaying: patch.animationPlaying ?? rec.animationPlaying });
+      return { animation: rec.animation, animationSpeed: rec.animationSpeed, animationPlaying: rec.animationPlaying };
+    },
+    changeAppearance(id, { color, opacity, wireframe }) {
       const rec = state.objects.get(id); if (!rec) throw new Error('Objeto no encontrado: ' + id);
       rec.mesh.traverse(child => {
         if (child.isMesh) {
@@ -496,7 +593,7 @@
           if (wireframe != null) child.material.wireframe = !!wireframe;
         }
       });
-      if (safeColor(color)) rec.color = color;
+      if (safeColor(color)) { rec.color = color; rec.parts = Array.isArray(rec.parts) ? rec.parts.map(partData => ({ ...partData, color })) : rec.parts; }
       return true;
     },
     getObject(id) { return state.objects.get(id) || null; },
@@ -519,9 +616,11 @@
     serialize() {
             return Array.from(state.objects.values()).map(o => ({
         id: o.id, name: o.name, type: o.type, parts: o.parts, text: o.text,
-        position: [o.mesh.position.x, o.mesh.position.y, o.mesh.position.z],
-        rotation: [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
-        scale: [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
+        position: o.animationBase?.position?.slice?.() || [o.mesh.position.x, o.mesh.position.y, o.mesh.position.z],
+        rotation: o.animationBase?.rotation?.slice?.() || [o.mesh.rotation.x, o.mesh.rotation.y, o.mesh.rotation.z],
+        scale: o.animationBase?.scale?.slice?.() || [o.mesh.scale.x, o.mesh.scale.y, o.mesh.scale.z], color: o.color,
+        catalogId: o.catalogId, catalogCategory: o.catalogCategory, catalogDescription: o.catalogDescription,
+        animation: o.animation, animationSpeed: o.animationSpeed, animationPlaying: o.animationPlaying,
       }));
 
     },
@@ -564,6 +663,84 @@
     return Number.isFinite(value) ? value : fallback;
   }
 
+  let catalogQuery = '';
+  let catalogCategory = 'all';
+
+  function catalogItemsForView() {
+    const catalog = window.CutRealCatalog;
+    if (!catalog?.items) return [];
+    const query = String(catalogQuery || '').trim().toLowerCase();
+    return catalog.items.filter(item => {
+      const matchesCategory = catalogCategory === 'all' || item.category === catalogCategory;
+      const haystack = [item.name, item.description, item.category, ...(item.tags || [])].join(' ').toLowerCase();
+      return matchesCategory && (!query || haystack.includes(query));
+    });
+  }
+
+  function renderCatalog() {
+    const grid = $('sandbox-catalog-grid');
+    const catalog = window.CutRealCatalog;
+    if (!grid || !catalog) return;
+    const items = catalogItemsForView();
+    const count = $('sandbox-catalog-count'); if (count) count.textContent = catalog.count || catalog.items.length;
+    if (!items.length) {
+      grid.innerHTML = '<div class="sbx-catalog-empty">No hay assets con ese filtro. Probá otra búsqueda.</div>'; return;
+    }
+    grid.innerHTML = items.map(item => `
+      <article class="sbx-catalog-card" data-catalog-id="${escapeHtml(item.id)}">
+        <div class="sbx-catalog-thumb"><canvas data-catalog-preview="${escapeHtml(item.id)}" aria-label="Mini vista de ${escapeHtml(item.name)}"></canvas><span class="sbx-catalog-kind">${escapeHtml(item.category)}</span></div>
+        <div class="sbx-catalog-card-body"><h3>${escapeHtml(item.name)}</h3><p>${escapeHtml(item.description)}</p><div class="sbx-catalog-card-foot"><span class="sbx-catalog-motion">◌ ${escapeHtml(item.animation)}</span><button class="sbx-place-btn" data-catalog-place="${escapeHtml(item.id)}">+ Colocar</button></div></div>
+      </article>`).join('');
+    grid.querySelectorAll('[data-catalog-preview]').forEach(canvas => catalog.renderThumbnail(canvas, canvas.dataset.catalogPreview, state.catalogTint));
+  }
+
+  function openCatalogPanel() {
+    const panel = $('sandbox-catalog-panel'); if (!panel) return;
+    panel.hidden = false; renderCatalog(); switchMobileTab('catalog');
+  }
+  function closeCatalogPanel() {
+    const panel = $('sandbox-catalog-panel'); if (panel) panel.hidden = true;
+    switchMobileTab('scene');
+  }
+  function placeCatalogModel(catalogId) {
+    if (!sandboxId) { showToastSafe('Creá o abrí un Sandbox antes de colocar un modelo.', '#ff8844'); return null; }
+    const catalog = window.CutRealCatalog; const meta = catalog?.instantiate(catalogId, { color: state.catalogTint });
+    if (!meta) return null;
+    meta.position = suggestedScenePosition();
+    const id = SceneManager.addObject(meta);
+      if (typeof Editor !== 'undefined') Editor.select(id); else { state.selectedObjectId = id; renderEditorUI(); }
+    logAction(`Catálogo: colocado ${meta.name}`); scheduleSave();
+    const rec = SceneManager.getObject(id); if (rec) setObjectHighlight(rec, true);
+    return id;
+  }
+
+  function renderAnimationUI() {
+    const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+    const supported = !!rec && rec.type === 'catalog_lowpoly';
+    const label = $('sandbox-animation-selected'); if (label) label.textContent = supported ? `${rec.name} · ${rec.animation || 'idle'}` : 'Seleccioná un modelo del catálogo para animarlo';
+    const select = $('sandbox-animation-select'); if (select) { select.disabled = !supported; if (supported) select.value = rec.animation || 'idle'; }
+    const speed = $('sandbox-animation-speed'); const output = $('sandbox-animation-speed-value');
+    if (speed) { speed.disabled = !supported; if (supported) speed.value = rec.animationSpeed || 1; }
+    if (output) output.textContent = `${Number(speed?.value || 1).toFixed(2)}×`;
+    const toggle = $('sandbox-animation-toggle'); if (toggle) { toggle.disabled = !supported; toggle.textContent = supported && rec.animationPlaying ? '⏸ Pausar' : '▶ Reproducir'; }
+    const save = $('sandbox-animation-save'); if (save) save.disabled = !supported;
+  }
+
+  function applyAnimationControls() {
+    const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+    if (!rec || rec.type !== 'catalog_lowpoly') return;
+    SceneManager.setAnimation(rec.id, { animation: $('sandbox-animation-select')?.value || rec.animation, animationSpeed: Number($('sandbox-animation-speed')?.value || 1) });
+    logAction(`Animación actualizada: ${rec.name}`); scheduleSave(); renderAnimationUI();
+  }
+
+  function toggleSelectedAnimation() {
+    const rec = state.selectedObjectId ? SceneManager.getObject(state.selectedObjectId) : null;
+    if (!rec || rec.type !== 'catalog_lowpoly') return;
+    SceneManager.setAnimation(rec.id, { animationPlaying: !rec.animationPlaying });
+    if (!rec.animationPlaying) resetAnimationTransforms(rec);
+    scheduleSave(); renderAnimationUI();
+  }
+
   function renderEditorUI() {
     const button = $('sandbox-editor-btn');
     const toolbar = $('sandbox-editor-toolbar');
@@ -587,6 +764,7 @@
     };
     Object.entries(fields).forEach(([id, value]) => { const el = $(id); if (el && document.activeElement !== el) el.value = value; });
     ['sandbox-editor-apply','sandbox-editor-duplicate','sandbox-editor-delete','sandbox-editor-focus'].forEach(id => { const el=$(id); if(el) el.disabled=!rec; });
+    renderAnimationUI();
   }
 
   const Editor = {
@@ -666,7 +844,7 @@
     const finishDrag = event => {
       if (!editorDrag || editorDrag.pointerId !== event.pointerId) return;
       controls.enabled = true; canvas.releasePointerCapture?.(event.pointerId);
-      if (editorDrag.moved) { logAction(`Editor: movido ${state.selectedObjectId}`); scheduleSave(); }
+      if (editorDrag.moved) { const moved = SceneManager.getObject(state.selectedObjectId); if (moved?.animationBase) moved.animationBase.position = moved.mesh.position.toArray(); logAction(`Editor: movido ${state.selectedObjectId}`); scheduleSave(); }
       editorDrag = null;
     };
     canvas.addEventListener('pointerup', finishDrag);
@@ -1221,11 +1399,28 @@
     $('sandbox-tab-chat')?.addEventListener('click', () => switchMobileTab('chat'));
 
     $('sandbox-tab-scene')?.addEventListener('click', () => switchMobileTab('scene'));
+    $('sandbox-catalog-btn')?.addEventListener('click', openCatalogPanel);
+    $('sandbox-catalog-close')?.addEventListener('click', closeCatalogPanel);
+    $('sandbox-tab-catalog')?.addEventListener('click', openCatalogPanel);
+    $('sandbox-catalog-search')?.addEventListener('input', event => { catalogQuery = event.target.value; renderCatalog(); });
+    $('sandbox-catalog-category')?.addEventListener('change', event => { catalogCategory = event.target.value; renderCatalog(); });
+    $('sandbox-catalog-color')?.addEventListener('input', event => { if (safeColor(event.target.value)) { state.catalogTint = event.target.value; renderCatalog(); if (state.selectedObjectId) { SceneManager.changeAppearance(state.selectedObjectId, { color: state.catalogTint }); renderEditorUI(); scheduleSave(); } } });
+    $('sandbox-catalog-grid')?.addEventListener('click', event => { const button = event.target.closest('[data-catalog-place]'); if (button) placeCatalogModel(button.dataset.catalogPlace); });
+    $('sandbox-animation-select')?.addEventListener('change', applyAnimationControls);
+    $('sandbox-animation-speed')?.addEventListener('input', event => { const output = $('sandbox-animation-speed-value'); if (output) output.textContent = `${Number(event.target.value).toFixed(2)}×`; applyAnimationControls(); });
+    $('sandbox-animation-toggle')?.addEventListener('click', toggleSelectedAnimation);
+    $('sandbox-animation-save')?.addEventListener('click', applyAnimationControls);
+    renderCatalog();
   }
   function switchMobileTab(tab) {
-    $('sandbox-overlay')?.classList.toggle('sbx-show-scene', tab === 'scene');
+    const overlay = $('sandbox-overlay');
+    const catalogPanel = $('sandbox-catalog-panel');
+    if (catalogPanel) catalogPanel.hidden = tab !== 'catalog';
+    overlay?.classList.toggle('sbx-show-scene', tab === 'scene' || tab === 'catalog');
+    overlay?.classList.toggle('sbx-show-catalog', tab === 'catalog');
     $('sandbox-tab-chat')?.classList.toggle('active', tab === 'chat');
     $('sandbox-tab-scene')?.classList.toggle('active', tab === 'scene');
+    $('sandbox-tab-catalog')?.classList.toggle('active', tab === 'catalog');
   }
 
   document.addEventListener('DOMContentLoaded', bindUI);
@@ -1235,6 +1430,7 @@
     open: openSandboxById, remove: removeSandbox, onAuthReady,
     registerTool: registerExternalTool,
     bridge: WorkspaceBridge,
+    catalog: { list: () => window.CutRealCatalog?.items || [], place: placeCatalogModel, render: renderCatalog, setAnimation: (id, patch) => { const result = SceneManager.setAnimation(id, patch); scheduleSave(); renderAnimationUI(); return result; } },
     getCurrentSandboxId: () => sandboxId,
     getCurrentUser: () => currentUser,
   };
