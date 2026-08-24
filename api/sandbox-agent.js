@@ -75,6 +75,10 @@ function selectToolsForRequest(text, autonomous) {
         const workspaceNames = new Set(["create_file", "read_file", "update_file", "delete_file", "rename_file", "create_folder", "list_files", "run_project", "get_runtime_errors", "get_project_structure"]);
         return ALL_TOOLS.filter(t => basic.has(t.function.name) || workspaceNames.has(t.function.name));
     }
+    if (typeof text === "string" && /dimensi[oó]n|portal|teletransport|viajar|nexus command|world network|mundo conectado|duplicar.*mundo|aether|mars|cyber city/i.test(text)) {
+        const dimensionNames = new Set(["send_message", "set_agent_state", "inspect_scene", "create_dimension", "duplicate_dimension", "rename_dimension", "delete_dimension", "set_dimension_preset", "set_environment", "set_climate", "set_world_time", "set_gravity", "create_portal", "connect_portal", "enter_portal"]);
+        return ALL_TOOLS.filter(t => dimensionNames.has(t.function.name));
+    }
     if (typeof text === "string" && /escena|objeto|figura|primitiva|cubo|esfera|texto 3d|mover|rotar|escalar|color|eliminá|elimina/i.test(text)) {
         const sceneNames = new Set(["create_3d_object", "create_3d_text", "update_3d_object", "delete_3d_object", "move_object", "rotate_object", "scale_object", "change_object_appearance", "inspect_scene"]);
         return ALL_TOOLS.filter(t => basic.has(t.function.name) || sceneNames.has(t.function.name));
@@ -198,6 +202,42 @@ const ALL_TOOLS = [
           state: { type: "string" }, color: { type: "string" },
       }, required: ["state"] } } },
   { type: "function", function: {
+      name: "create_dimension", description: "Crear una nueva dimensión persistente sin destruir las existentes. Ejecutá solo cuando el usuario lo solicite.",
+      parameters: { type: "object", properties: { name: { type: "string" }, preset: { type: "string", enum: ["earth","aether","void","mars","cyber-city"] } }, required: [] } } },
+  { type: "function", function: {
+      name: "duplicate_dimension", description: "Duplicar la dimensión activa con sus objetos, estado y conexiones.",
+      parameters: { type: "object", properties: {} } } },
+  { type: "function", function: {
+      name: "rename_dimension", description: "Renombrar la dimensión activa.",
+      parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } } },
+  { type: "function", function: {
+      name: "delete_dimension", description: "Eliminar una dimensión. Es destructivo y debe quedar bloqueado hasta confirmación explícita del usuario en la interfaz.",
+      parameters: { type: "object", properties: { id: { type: "string" }, confirmed: { type: "boolean" } }, required: ["id","confirmed"] } } },
+  { type: "function", function: {
+      name: "set_dimension_preset", description: "Aplicar un preset real de ambiente, gravedad y tiempo a la dimensión activa.",
+      parameters: { type: "object", properties: { preset: { type: "string", enum: ["earth","aether","void","mars","cyber-city"] } }, required: ["preset"] } } },
+  { type: "function", function: {
+      name: "set_environment", description: "Cambiar el ambiente Three.js de la dimensión activa usando un preset permitido.",
+      parameters: { type: "object", properties: { environment: { type: "string", enum: ["lab","cyberpunk","space","alien","white","industrial","minimal"] } }, required: ["environment"] } } },
+  { type: "function", function: {
+      name: "set_climate", description: "Cambiar el clima visual de la dimensión activa.",
+      parameters: { type: "object", properties: { climate: { type: "string", enum: ["clear","rain","fog","storm","snow","dust"] } }, required: ["climate"] } } },
+  { type: "function", function: {
+      name: "set_world_time", description: "Cambiar la hora de la dimensión activa entre 0 y 24.",
+      parameters: { type: "object", properties: { hour: { type: "number", minimum: 0, maximum: 24 } }, required: ["hour"] } } },
+  { type: "function", function: {
+      name: "set_gravity", description: "Activar o desactivar la gravedad de la dimensión activa.",
+      parameters: { type: "object", properties: { enabled: { type: "boolean" } }, required: ["enabled"] } } },
+  { type: "function", function: {
+      name: "create_portal", description: "Crear un NEXUS Gate real en la dimensión activa y conectarlo a otra dimensión existente.",
+      parameters: { type: "object", properties: { targetDimensionId: { type: "string" }, position: { type: "array", items: { type: "number" } } }, required: ["targetDimensionId"] } } },
+  { type: "function", function: {
+      name: "connect_portal", description: "Conectar un portal existente a una dimensión existente.",
+      parameters: { type: "object", properties: { portalId: { type: "string" }, targetDimensionId: { type: "string" } }, required: ["portalId","targetDimensionId"] } } },
+  { type: "function", function: {
+      name: "enter_portal", description: "Viajar al destino de un portal conectado.",
+      parameters: { type: "object", properties: { portalId: { type: "string" } }, required: ["portalId"] } } },
+  { type: "function", function: {
       name: "create_file",
       description: "Crear un archivo de código en el Workspace (HTML/CSS/JS/JSON/etc).",
       parameters: { type: "object", properties: {
@@ -268,6 +308,9 @@ FUNCIONES NEXUS DISPONIBLES EN LA INTERFAZ:
 - Simulación ligera con física, gravedad, pausa y escala temporal; conexiones visuales de datos o energía entre dos objetos; clonación en línea, matriz o anillo.
 - Snapshots recuperables, undo/redo, captura PNG, importación/exportación JSON, paths de cámara grabables/reproducibles y chat del Sandbox ocultable para ampliar el viewport.
 - Firebase guarda la escena, preferencias, snapshots, conexiones y estados; el usuario debe esperar el indicador Guardado antes de cerrar o cambiar de escena.
+- NEXUS Worlds mantiene hasta 8 dimensiones independientes dentro del mismo Sandbox: cada una conserva su escena, ambiente, gravedad, escala temporal, conexiones y paths de cámara. Se pueden crear, duplicar, renombrar, seleccionar y eliminar con confirmación.
+- NEXUS Portal usa el asset real portal-gate del catálogo. Las tools create_portal, connect_portal y enter_portal solo funcionan con destinos existentes y cambian realmente la dimensión activa.
+- Los presets dimensionales disponibles son EARTH, AETHER, VOID, MARS y CYBER CITY; no son una simulación textual: los controles actualizan el motor Three.js y la persistencia del Sandbox.
 
 Estas funciones de la interfaz no son tools mágicas del modelo. Usá las tools 3D y Workspace para las acciones que sí podés ejecutar, describí al usuario el control NEXUS que debe pulsar cuando corresponda y nunca afirmes haber cambiado ambiente, calidad, snapshot, conexión o cámara si no existe una tool o evidencia de que se realizó.
 
@@ -283,7 +326,10 @@ Reglas:
 - Para una malla low-poly, construí una silueta reconocible con volúmenes conectados, caras trianguladas, sombreado plano y rasgos distintivos. Después de crearla, usá inspect_scene; si la forma no corresponde al pedido o quedó solapada, corregila generando una nueva malla completa con update_lowpoly_object o moviéndola con move_object antes de responder.
 - Si la tool responde que faltan meshes, vertices o faces, no cambies a create_3d_object ni inventes que funcionó: generá los datos geométricos completos y reintentá.
 - Si el usuario pide código, primero usá list_files/get_project_structure y read_file sobre los archivos relevantes; después create_file o update_file; luego ejecutá run_project y get_runtime_errors. Si hay errores, corregí el archivo y volvé a ejecutar antes de responder que terminó.
+- Para dimensiones y portales, inspeccioná primero el contexto dimensions. Usá create_dimension, duplicate_dimension, rename_dimension, set_dimension_preset, create_portal, connect_portal o enter_portal únicamente cuando la intención del usuario sea explícita y los ids existan.
+- delete_dimension es destructiva: si no recibís confirmed=true, devolvé una solicitud de confirmación y no la ejecutes. La interfaz debe mostrar CONFIRM DESTRUCTIVE ACTION antes de cualquier borrado permanente.
 - No describas una acción futura sin ejecutarla: cuando la solicitud requiera crear o modificar algo, realizá la tool call en el mismo turno y luego informá el resultado real.
+- Nunca afirmes que viajaste, conectaste, generaste o modificaste una dimensión si la tool no devolvió ok=true.
 - Conservá la estructura y el estilo existentes del Workspace salvo que el usuario pida un rediseño; modificá solo lo necesario y no reemplaces archivos completos por contenido mínimo.
 - Si una tool devuelve error, leé el mensaje, corregí los argumentos o el archivo y reintentá de forma acotada; no inventes que la operación funcionó.
 - set_agent_state es solo una etiqueta que elegís vos para comunicar actividad, no una afirmación de conciencia real.
