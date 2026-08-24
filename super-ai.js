@@ -55,8 +55,27 @@
     if (!state.providers.length) { list.innerHTML = '<div class="super-empty">No hay claves SUPER configuradas en el backend. Configurá SUPER_AI_KEYS_JSON o SUPER_AI_* en Vercel.</div>'; return; }
     list.innerHTML = state.providers.map(item => `<div class="super-provider-row"><span class="super-health super-health-${item.enabled ? 'online' : 'offline'}">${item.enabled ? 'ONLINE' : 'OFFLINE'}</span><strong>${esc(providerLabel(item.provider))}</strong><span>${esc(item.model)}</span><span class="super-key-mask">${esc(item.maskedKey)}</span><small>${esc(item.displayName)}</small></div>`).join('');
   }
+  function syncNodesToProviders() {
+    const available = state.providers.filter(item => item?.enabled !== false && item.id && item.model);
+    if (available.length < 2 || !state.nodes.length) return false;
+    const preferredProviders = ['openai', 'gemini', 'groq'];
+    const targets = preferredProviders.map(provider => available.find(item => item.provider === provider)).filter(Boolean);
+    available.forEach(item => { if (!targets.some(target => target.id === item.id)) targets.push(item); });
+    const usableTargets = targets.slice(0, Math.min(MAX_NODES, Math.max(2, state.nodes.length)));
+    let changed = false;
+    state.nodes = state.nodes.map((node, index) => {
+      const configured = available.find(item => item.id === node.keyId && item.provider === node.provider && item.model === node.model);
+      if (configured) return node;
+      const target = usableTargets[index] || usableTargets[index % usableTargets.length];
+      if (!target) return node;
+      if (node.provider !== target.provider || node.model !== target.model || node.keyId !== target.id) changed = true;
+      return { ...node, provider: target.provider, model: target.model, keyId: target.id };
+    });
+    if (changed) saveConfig();
+    return changed;
+  }
   async function loadProviders() {
-    try { const res = await fetch('/api/super-ai', { headers: { Accept: 'application/json' } }); const data = await res.json(); state.providers = Array.isArray(data.providers) ? data.providers : []; renderProviders(); renderNodeEditor(); } catch (error) { state.providers = []; renderProviders(); }
+    try { const res = await fetch('/api/super-ai', { headers: { Accept: 'application/json' } }); const data = await res.json(); state.providers = Array.isArray(data.providers) ? data.providers : []; const repaired = syncNodesToProviders(); renderProviders(); renderNodeEditor(); if (repaired) notify('Nodos SUPER sincronizados con OpenAI, Gemini y Groq.', '#54e6b0'); } catch (error) { state.providers = []; renderProviders(); }
   }
   async function testConnection() {
     const provider = $('super-test-provider')?.value; const model = $('super-test-model')?.value.trim(); const apiKey = $('super-test-key')?.value || '';
@@ -69,7 +88,7 @@
   function addNode() { if (state.nodes.length >= MAX_NODES) return notify(`Máximo de ${MAX_NODES} modelos en esta interfaz.`, '#ffae62'); const index = state.nodes.length + 1; state.nodes.push({ id: uid('ai'), role: `AI ${String(index).padStart(2, '0')}`, provider: state.providers[0]?.provider || 'openai', model: state.providers[0]?.model || 'gpt-4o-mini', keyId: state.providers[0]?.id || '', enabled: true }); saveConfig(); renderAll(); }
   function removeNode(id) { if (state.nodes.length <= 2) return notify('SUPER necesita al menos 2 modelos habilitados.', '#ffae62'); state.nodes = state.nodes.filter(node => node.id !== id); saveConfig(); renderAll(); }
   function moveNode(id, direction) { const index = state.nodes.findIndex(node => node.id === id); const next = index + direction; if (index < 0 || next < 0 || next >= state.nodes.length) return; [state.nodes[index], state.nodes[next]] = [state.nodes[next], state.nodes[index]]; saveConfig(); renderAll(); }
-  function updateNode(id, patch) { const node = state.nodes.find(item => item.id === id); if (!node) return; Object.assign(node, patch); saveConfig(); renderPipeline(); }
+  function updateNode(id, patch) { const node = state.nodes.find(item => item.id === id); if (!node) return; const nextPatch = { ...patch }; if (('provider' in nextPatch || 'model' in nextPatch) && !('keyId' in nextPatch)) nextPatch.keyId = ''; Object.assign(node, nextPatch); saveConfig(); renderPipeline(); }
 
   function renderNodeEditor() {
     const el = $('super-node-editor'); if (!el) return;
