@@ -857,6 +857,7 @@
                         <button id="sandbox-step-btn" class="sbx-btn" title="Ejecutar un paso manual">⏭ Paso</button>
             <button id="sandbox-editor-btn" class="sbx-btn sbx-btn-editor" title="Seleccionar y editar objetos 3D">✎ Modo Editor</button>
             <button id="sandbox-catalog-btn" class="sbx-btn sbx-btn-catalog" title="Abrir catálogo de modelos low-poly">◫ Catálogo <span id="sandbox-catalog-count">37</span></button>
+            <button id="sandbox-chat-toggle" class="sbx-btn" title="Ocultar o mostrar el chat del Sandbox">◧ Ocultar chat</button>
             <button id="sandbox-workspace-btn" class="sbx-btn" title="Abrir Workspace">🧩 Workspace</button>
 
             <button id="sandbox-close-btn" class="sbx-btn sbx-btn-close" title="Cerrar Sandbox">✕</button>
@@ -889,6 +890,15 @@
         </main>
         <main class="sbx-panel-right">
             <canvas id="sandbox-canvas"></canvas>
+
+            <section id="sandbox-future-dock" class="sbx-future-dock" aria-label="Sistemas futuristas de escena">
+                <div class="sbx-future-head"><div><span class="sbx-eyebrow">NEXUS CONTROL // SCENE OS</span><strong>Centro de mando</strong></div><span id="sandbox-scene-stats">0 objetos · 0 vértices</span></div>
+                <div class="sbx-future-groups">
+                    <div class="sbx-future-group"><span>CAM</span><button id="sandbox-camera-hero" title="Cámara hero">Hero</button><button id="sandbox-camera-top" title="Vista cenital">Top</button><button id="sandbox-camera-orbit" title="Vista orbital">Orbit</button><button id="sandbox-focus-selected" title="Enfocar selección">Focus</button></div>
+                    <div class="sbx-future-group"><span>FX</span><button id="sandbox-grid-toggle" title="Mostrar u ocultar rejilla">Grid</button><button id="sandbox-wire-toggle" title="Modo wireframe">Wire</button><button id="sandbox-neon-toggle" title="Iluminación neon">Neon</button><button id="sandbox-performance-toggle" title="Modo rendimiento móvil">Eco</button></div>
+                    <div class="sbx-future-group"><span>FLOW</span><button id="sandbox-undo-btn" title="Deshacer">↶</button><button id="sandbox-redo-btn" title="Rehacer">↷</button><button id="sandbox-screenshot-btn" title="Guardar captura PNG">▣ PNG</button><button id="sandbox-clear-btn" title="Vaciar escena">⌫ Clear</button></div>
+                </div>
+            </section>
 
             <section id="sandbox-editor-toolbar" class="sbx-editor-toolbar" hidden aria-label="Editor de objetos 3D">
                 <div class="sbx-editor-head">
@@ -1018,6 +1028,14 @@
 </div>
 
 <!-- ÁREA DE ENTRADA -->
+<div id="chat-extra-toolbar" class="chat-extra-toolbar" aria-label="Controles avanzados de Cut-real AI">
+    <button id="voice-call-btn" class="chat-extra-btn chat-call-btn" title="Iniciar conversación por voz">◉ Llamada de voz</button>
+    <button id="chat-read-last-btn" class="chat-extra-btn" title="Leer en voz alta la última respuesta">🔊 Leer última</button>
+    <button id="chat-copy-last-btn" class="chat-extra-btn" title="Copiar la última respuesta">⧉ Copiar última</button>
+    <button id="chat-export-btn" class="chat-extra-btn" title="Descargar la conversación como texto">⇩ Exportar</button>
+    <button id="chat-focus-btn" class="chat-extra-btn" title="Activar modo enfoque">⌗ Enfoque</button>
+    <span id="voice-call-status" class="voice-call-status" aria-live="polite">Voz lista</span>
+</div>
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
     <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
