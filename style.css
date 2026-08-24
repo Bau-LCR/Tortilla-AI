@@ -4764,3 +4764,23 @@ body.voice-call-open { overflow: hidden; }
 #voice-call-modal[data-voice-state="error"] .voice-call-core { border-color: rgba(255,137,112,.82); box-shadow: 0 0 30px rgba(255,95,90,.5), 0 0 110px rgba(255,95,90,.16), inset 0 0 35px rgba(255,200,180,.24); }
 .sbx-analysis-panel .sbx-catalog-header { margin-bottom: 8px; }
 .sbx-analysis-panel .sbx-catalog-header button { border: 1px solid rgba(255,255,255,.13); border-radius: 8px; color: #d5ffff; background: rgba(255,255,255,.06); cursor: pointer; }
+
+
+/* Orb azul de referencia en la llamada: se anula visualmente el núcleo verde anterior sin retirar compatibilidad. */
+.voice-call-orb-shell { position: relative; z-index: 3; display: grid; place-items: center; width: clamp(210px, 48vw, 310px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 35% 28%, rgba(4,13,31,.98), rgba(0,2,8,.98) 62%, rgba(0,0,0,.98)); box-shadow: 0 0 0 1px rgba(70,122,255,.24), 0 0 26px rgba(23,79,255,.25), 0 0 96px rgba(4,41,181,.17), inset 0 0 36px rgba(0,0,0,.94); overflow: hidden; }
+#voice-call-orb-canvas { display: block; width: 100%; height: 100%; max-width: 310px; max-height: 310px; border-radius: 50%; }
+.voice-call-orb-label { position: absolute; bottom: 8%; color: rgba(171,195,232,.54); font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .24em; text-transform: uppercase; text-shadow: 0 0 12px rgba(60,118,255,.5); pointer-events: none; }
+.voice-call-voice-note { margin-top: 5px !important; color: rgba(159,186,232,.58) !important; font-size: 11px !important; }
+.voice-call-modal[data-orb-state="thinking"] .voice-call-orb-shell { box-shadow: 0 0 0 1px rgba(83,173,255,.42), 0 0 34px rgba(83,173,255,.5), 0 0 120px rgba(83,173,255,.2), inset 0 0 36px rgba(0,0,0,.94); }
+.voice-call-modal[data-orb-state="speaking"] .voice-call-orb-shell { box-shadow: 0 0 0 1px rgba(105,153,255,.55), 0 0 36px rgba(38,99,255,.65), 0 0 135px rgba(21,67,238,.28), inset 0 0 36px rgba(0,0,0,.94); }
+.voice-call-modal[data-orb-state="error"] .voice-call-orb-shell { box-shadow: 0 0 0 1px rgba(255,137,112,.58), 0 0 34px rgba(255,95,90,.35), 0 0 110px rgba(255,95,90,.12), inset 0 0 36px rgba(0,0,0,.94); }
+@media (max-width: 600px) { .voice-call-orb-shell { width: min(76vw, 290px); } .voice-call-voice-note { font-size: 10px !important; } }
+@media (prefers-reduced-motion: reduce) { .voice-call-orb-shell { transition: none; } }
+
+
+/* Asistencia y capacidad auditiva del chat normal. */
+#assistant-notify-btn.active, #dictate-btn.active { color: #9aeaff; border-color: rgba(83,173,255,.65); background: rgba(83,173,255,.14); box-shadow: 0 0 16px rgba(83,173,255,.16); }
+#dictate-btn.active { animation: assistant-listening-pulse 1.2s ease-in-out infinite; }
+@keyframes assistant-listening-pulse { 50% { box-shadow: 0 0 0 5px rgba(83,173,255,.07), 0 0 18px rgba(83,173,255,.28); } }
+@media (max-width: 600px) { #assistant-notify-btn, #dictate-btn { min-width: 42px; padding-inline: 8px; } }
+@media (prefers-reduced-motion: reduce) { #dictate-btn.active { animation: none; } }
