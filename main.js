@@ -48,6 +48,8 @@ document.addEventListener("DOMContentLoaded", function () {
     let voiceRecognition = null;
     let voiceRecognitionStarting = false;
     let voiceRecognitionError = false;
+    let voiceNoSpeechRetries = 0;
+    let voiceLanguageFallbackTried = false;
     let voiceCallMuted = false;
     let voiceSpeakerMuted = false;
     let voiceMicStream = null;
@@ -1003,7 +1005,7 @@ function createAiActionBtns(respuestaIA, intent) {
      * @param {string} text  Texto completo de la respuesta de la IA
      */
     function speakResponse(text) {
-        if (!window.LoquendoSpeak) return;
+        if (!window.LoquendoSpeak) { if (voiceCallActive) { voiceRecognitionError = true; setVoiceCallStatus('Salida de voz no disponible · revisá que loquendo.js haya cargado', true); } return; }
         if (voiceCallActive) setVoiceCallTranscript(text);
 
         // Mostrar orb si no está visible
@@ -1013,6 +1015,7 @@ function createAiActionBtns(respuestaIA, intent) {
         if (voiceCallActive && voiceSpeakerMuted) {
             voiceCallBusy = false;
             setVoiceCallStatus('Respuesta lista · altavoz silenciado', true);
+            setTimeout(() => { if (voiceCallActive && !voiceCallMuted && !voiceSpeakerMuted) startVoiceListening(); }, 300);
             return;
         }
         setVoiceCallStatus(voiceCallActive ? 'Hablando…' : 'Voz lista', voiceCallActive);
@@ -1074,16 +1077,20 @@ function createAiActionBtns(respuestaIA, intent) {
         window.CutRealOrb?.setInputLevel(0);
     }
 
+    function getVoiceRecognitionLanguage() {
+        const lang = String(navigator.language || '').toLowerCase();
+        return /^es-(ar|cl|co|mx|pe|uy|ve)/.test(lang) ? navigator.language : 'es-ES';
+    }
     function buildVoiceRecognition() {
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) return null;
         const recognition = new Recognition();
-        recognition.lang = 'es-419'; recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1;
+        recognition.lang = getVoiceRecognitionLanguage(); recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1;
         recognition.onstart = () => { voiceRecognitionStarting = false; setVoiceCallStatus('Escuchando…', true); };
         recognition.onresult = event => {
             const phrase = event.results?.[0]?.[0]?.transcript?.trim();
             if (!phrase || !voiceCallActive || voiceCallMuted) return;
-            voiceCallBusy = true;
+            voiceCallBusy = true; voiceNoSpeechRetries = 0;
             input.value = phrase;
             setVoiceCallTranscript(`Tú: ${phrase}`);
             setVoiceCallStatus(`Procesando: ${phrase.slice(0, 34)}${phrase.length > 34 ? '…' : ''}`, true);
@@ -1093,22 +1100,27 @@ function createAiActionBtns(respuestaIA, intent) {
         recognition.onerror = event => {
             voiceRecognitionStarting = false;
             if (!voiceCallActive || event.error === 'aborted') return;
+            if (event.error === 'language-not-supported' && !voiceLanguageFallbackTried) {
+                voiceLanguageFallbackTried = true; voiceRecognition = null; setVoiceCallStatus('Ajustando idioma del micrófono…', true); setTimeout(startVoiceListening, 220); return;
+            }
             if (event.error === 'no-speech') {
-                voiceRecognitionError = true;
-                setVoiceCallStatus('No detecté voz · pulsá Micrófono para reanudar', true);
+                if (voiceNoSpeechRetries < 2) {
+                    voiceNoSpeechRetries += 1; setVoiceCallStatus(`No detecté voz · reintentando (${voiceNoSpeechRetries}/2)…`, true);
+                } else { voiceRecognitionError = true; setVoiceCallStatus('No detecté voz · pulsá Micrófono para reanudar', true); }
                 return;
             }
             voiceRecognitionError = true;
             const message = event.error === 'not-allowed' || event.error === 'service-not-allowed'
-                ? 'Permiso de micrófono rechazado'
-                : `Micrófono detenido (${event.error || 'error desconocido'})`;
-            stopVoiceCall();
-            setVoiceCallStatus(message, false);
+                ? 'Permiso de micrófono rechazado · habilitalo en el navegador y pulsá Micrófono'
+                : event.error === 'audio-capture'
+                    ? 'No se encontró un micrófono disponible · conectalo y pulsá Micrófono'
+                    : `Micrófono detenido (${event.error || 'error desconocido'}) · pulsá Micrófono para reintentar`;
+            setVoiceCallStatus(message, true);
             showToast(message, '#ff8844', '◉');
         };
         recognition.onend = () => {
             voiceRecognitionStarting = false;
-            if (voiceCallActive && !voiceCallMuted && !voiceRecognitionError && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, 350);
+            if (voiceCallActive && !voiceCallMuted && !voiceRecognitionError && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, voiceNoSpeechRetries ? 520 : 350);
         };
         return recognition;
     }
@@ -1120,22 +1132,26 @@ function createAiActionBtns(respuestaIA, intent) {
             if (!voiceRecognition) setVoiceCallStatus('Micrófono no compatible en este navegador', true);
             return;
         }
-        try { voiceRecognitionStarting = true; voiceRecognition.start(); } catch (error) { voiceRecognitionStarting = false; if (error.name !== 'InvalidStateError') console.warn('[VoiceCall] start', error); }
+        try { voiceRecognitionStarting = true; voiceRecognition.start(); } catch (error) { voiceRecognitionStarting = false; if (error.name !== 'InvalidStateError') { voiceRecognitionError = true; setVoiceCallStatus(error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : 'No se pudo iniciar el micrófono · pulsá Micrófono para reintentar', true); console.warn('[VoiceCall] start', error); } }
     }
 
     function startVoiceCall() {
-        if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return; }
+        if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return false; }
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return; }
-        voiceCallActive = true; voiceCallBusy = false; voiceRecognitionError = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
+        if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return false; }
+        voiceCallActive = true; voiceCallBusy = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
+        if (window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
         setVoiceCallTranscript('La conversación aparecerá aquí.');
         setVoiceCallModal(true);
-        setVoiceCallStatus('Llamada activa · preparando micrófono…', true);
-        void startVoiceInputMeter(); startVoiceListening();
+        setVoiceCallStatus('Llamada activa · escuchando…', true);
+        // SpeechRecognition ya administra la captura. No abrimos getUserMedia en paralelo:
+        // algunos navegadores bloquean o silencian la segunda captura.
+        startVoiceListening();
+        return true;
     }
 
     function stopVoiceCall() {
-        voiceCallActive = false; voiceCallBusy = false; voiceRecognitionStarting = false;
+        voiceCallActive = false; voiceCallBusy = false; voiceRecognitionStarting = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false;
         try { voiceRecognition?.stop(); } catch (_) {}
         stopVoiceInputMeter();
         if (window.LoquendoStop) window.LoquendoStop();
@@ -1146,10 +1162,10 @@ function createAiActionBtns(respuestaIA, intent) {
 
     function toggleVoiceMic() {
         if (!voiceCallActive) return;
-        if (voiceRecognitionError) { voiceRecognitionError = false; voiceCallMuted = false; syncVoiceCallActions(); setVoiceCallStatus('Escuchando…', true); void startVoiceInputMeter(); startVoiceListening(); return; }
+        if (voiceRecognitionError) { voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; syncVoiceCallActions(); setVoiceCallStatus('Escuchando…', true); voiceRecognition = null; startVoiceListening(); return; }
         voiceCallMuted = !voiceCallMuted; syncVoiceCallActions();
         if (voiceCallMuted) { try { voiceRecognition?.stop(); } catch (_) {} stopVoiceInputMeter(); setVoiceCallStatus('Micrófono apagado · altavoz activo', true); }
-        else { setVoiceCallStatus('Escuchando…', true); void startVoiceInputMeter(); startVoiceListening(); }
+        else { setVoiceCallStatus('Escuchando…', true); startVoiceListening(); }
     }
 
     function toggleVoiceSpeaker() {
@@ -1161,6 +1177,51 @@ function createAiActionBtns(respuestaIA, intent) {
     }
 
     function toggleVoiceCall() { voiceCallActive ? stopVoiceCall() : startVoiceCall(); }
+
+    // ===================================================================
+    //  CUT-REAL AGENT — capa explícita sobre el chat normal
+    // ===================================================================
+    let agentRunning = false, agentPaused = false, agentStopped = false, agentUndoFn = null;
+    function setAgentPanel(open) { const panel = document.getElementById('agent-mode-panel'); if (!panel) return; panel.hidden = !open; panel.setAttribute('aria-hidden', String(!open)); document.body.classList.toggle('agent-mode-open', open); }
+    function setAgentStatus(label, tone = 'idle') { const el = document.getElementById('agent-status-label'); if (el) { el.textContent = label; el.dataset.tone = tone; } }
+    function addAgentActivity(text) { const log = document.getElementById('agent-activity-log'); if (!log) return; const line = document.createElement('div'); line.className = 'agent-activity-line'; line.textContent = `${new Date().toLocaleTimeString('es-AR')}  ${text}`; log.prepend(line); while (log.children.length > 24) log.lastElementChild.remove(); renderAgentCenter('activity'); }
+    function renderAgentCenter(tab = 'task') { const content = document.getElementById('agent-center-content'); if (!content) return; document.querySelectorAll('[data-agent-center]').forEach(button => button.classList.toggle('active', button.dataset.agentCenter === tab)); const rows = (items) => items.map(item => `<div class="agent-data-row"><span>${escapeHtml(item[0])}</span><b class="agent-ok">${escapeHtml(item[1])}</b></div>`).join(''); let html = ''; if (tab === 'tools') html = rows([['LLM route','/api/chat → Groq'],['Voice','SpeechRecognition + speechSynthesis'],['Sandbox','window.openSandbox()'],['Notifications','Notification API']]); else if (tab === 'memory') html = rows([['Chat turns', String(historial.length - 1)],['Last response', lastAssistantResponse ? 'available' : 'none'],['Selected model', String(selectedModel)],['Notifications', assistantNotificationsEnabled ? 'enabled' : 'disabled']]); else if (tab === 'diagnostics') html = rows([['Online', navigator.onLine ? 'yes' : 'no'],['Secure context', window.isSecureContext ? 'yes' : 'no'],['Speech input', (window.SpeechRecognition || window.webkitSpeechRecognition) ? 'available' : 'unavailable'],['Audio output', window.speechSynthesis ? 'available' : 'unavailable'],['Viewport', `${innerWidth}×${innerHeight}`]]); else if (tab === 'history') { let history = []; try { history = JSON.parse(localStorage.getItem('cutreal_agent_history') || '[]'); } catch (_) {} html = history.length ? history.slice(-8).reverse().map(item => `<div class="agent-data-row"><span>${escapeHtml(item.task)}</span><b>${escapeHtml(item.result)}</b></div>`).join('') : '<span>No hay tareas registradas.</span>'; } else if (tab === 'activity') { const log = document.getElementById('agent-activity-log'); html = log?.innerHTML || '<span>Sin actividad.</span>'; } else html = '<span>El plan y el estado de la tarea aparecen arriba. Las acciones destructivas siempre requieren confirmación.</span>'; content.innerHTML = html; }
+    function renderAgentPlan(steps) { const list = document.getElementById('agent-plan-list'); if (!list) return; list.innerHTML = steps.map(step => `<li>${escapeHtml(step.label)}</li>`).join(''); }
+    function buildAgentPlan(task) {
+        const text = String(task || '').toLowerCase(); const steps = [];
+        if (/llamada|voz|hablar|escuchar|micr[oó]fono/.test(text)) steps.push({ label: 'Comprobar compatibilidad y permisos de llamada', run: () => startVoiceCall(), undo: () => stopVoiceCall() });
+        if (/sandbox|escena|mundo 3d|nexus/.test(text)) steps.push({ label: 'Abrir el Sandbox existente', run: () => { if (!window.openSandbox) throw new Error('La interfaz Sandbox no está cargada.'); window.openSandbox(); }, undo: () => window.closeSandbox?.() });
+        if (/avis|notific|asistencia/.test(text)) steps.push({ label: 'Solicitar permiso de notificaciones de asistencia', run: () => requestAssistantNotifications() });
+        if (/leer|voz alta|respuesta/.test(text) && lastAssistantResponse) steps.push({ label: 'Reproducir la última respuesta con el perfil de voz activo', run: () => speakResponse(lastAssistantResponse), undo: () => window.LoquendoStop?.() });
+        if (/b[aá]sico|basic/.test(text)) steps.push({ label: 'Seleccionar el modelo Básico de Groq', run: () => setModel('basic') });
+        else if (/pro/.test(text)) steps.push({ label: 'Seleccionar el modelo Pro de Groq', run: () => setModel('pro') });
+        if (/diagn[oó]stic|rendimiento|responsive|problema|revis/.test(text)) steps.push({ label: 'Medir estado real de la interfaz y conexión', run: () => { const result = `viewport=${innerWidth}×${innerHeight}, online=${navigator.onLine}, dpr=${window.devicePixelRatio || 1}, memoria=${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : 'no expuesta'}`; addAgentActivity(`Diagnóstico real: ${result}`); const note = document.getElementById('agent-result-note'); if (note) note.textContent = `Diagnóstico: ${result}.`; return result; } });
+        if (!steps.length) steps.push({ label: 'Analizar la solicitud y comprobar qué acción está disponible', run: () => { throw new Error('No hay una acción segura implementada para esta solicitud. Usá Chat Mode para una respuesta informativa.'); } });
+        return steps;
+    }
+    const agentWait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    async function executeAgentTask() {
+        if (agentRunning) return; const field = document.getElementById('agent-task-input'); const task = field?.value.trim(); if (!task) { showToast('Escribí una tarea para el agente', '#ff8844', '◉'); return; }
+        agentRunning = true; agentPaused = false; agentStopped = false; agentUndoFn = null; setAgentStatus('ANALYZING…', 'thinking'); addAgentActivity('Analizando la tarea solicitada.');
+        const plan = buildAgentPlan(task); renderAgentPlan(plan); setAgentStatus('PLANNING…', 'planning'); addAgentActivity(`Plan creado con ${plan.length} acción(es) verificables.`);
+        let done = 0, failed = 0;
+        for (const step of plan) {
+            while (agentPaused && !agentStopped) { setAgentStatus('PAUSED', 'paused'); await agentWait(120); }
+            if (agentStopped) break;
+            setAgentStatus('EXECUTING…', 'executing'); addAgentActivity(`Ejecutando: ${step.label}`);
+            try { const outcome = await step.run(); if (outcome === false) throw new Error('La acción no fue confirmada por el sistema.'); done += 1; if (step.undo) agentUndoFn = step.undo; addAgentActivity(`Completada: ${step.label}`); }
+            catch (error) { failed += 1; addAgentActivity(`ACTION FAILED: ${error.message}`); }
+            await agentWait(80);
+        }
+        if (agentStopped) { setAgentStatus('STOPPED', 'failed'); addAgentActivity('Ejecución detenida por el usuario.'); }
+        else { setAgentStatus('VERIFYING…', 'verifying'); addAgentActivity(`Verificando resultado: ${done} completada(s), ${failed} fallida(s).`); await agentWait(90); setAgentStatus(failed ? 'PARTIAL' : 'COMPLETED', failed ? 'failed' : 'completed'); const note = document.getElementById('agent-result-note'); if (note) note.textContent = failed ? `Resultado parcial: ${done} acción(es) ejecutada(s) y ${failed} no ejecutada(s).` : `Tarea completada: ${done} acción(es) ejecutada(s) y registrada(s).`; }
+        try { const history = JSON.parse(localStorage.getItem('cutreal_agent_history') || '[]'); history.push({ task, result: agentStopped ? 'STOPPED' : failed ? 'PARTIAL' : 'COMPLETED', at: Date.now() }); localStorage.setItem('cutreal_agent_history', JSON.stringify(history.slice(-20))); } catch (_) {}
+        renderAgentCenter('history'); agentRunning = false;
+    }
+    function toggleAgentPause() { if (!agentRunning) return; agentPaused = !agentPaused; setAgentStatus(agentPaused ? 'PAUSED' : 'EXECUTING…', agentPaused ? 'paused' : 'executing'); addAgentActivity(agentPaused ? 'Agente pausado por el usuario.' : 'Agente reanudado.'); }
+    function stopAgentTask() { agentStopped = true; agentPaused = false; if (!agentRunning) { setAgentStatus('IDLE'); return; } addAgentActivity('Solicitud de detención recibida.'); }
+    async function undoAgentTask() { if (typeof agentUndoFn !== 'function') { showToast('No hay una acción reversible disponible', '#ff8844', '↶'); return; } try { await agentUndoFn(); agentUndoFn = null; addAgentActivity('Undo Agent Task ejecutado.'); setAgentStatus('COMPLETED', 'completed'); } catch (error) { addAgentActivity(`UNDO FAILED: ${error.message}`); setAgentStatus('FAILED', 'failed'); } }
+    function openAgentMode() { setAgentPanel(true); setAgentStatus('IDLE'); renderAgentCenter('task'); document.getElementById('agent-task-input')?.focus(); }
 
     // ── DETECCIÓN DE BÚSQUEDA WEB (frontend) ─────────────────
 function needsWebSearchFrontend(msg) {
@@ -1409,6 +1470,17 @@ function needsWebSearchFrontend(msg) {
     document.getElementById('voice-call-btn')?.addEventListener('click', toggleVoiceCall);
     document.getElementById('assistant-notify-btn')?.addEventListener('click', requestAssistantNotifications);
     document.getElementById('dictate-btn')?.addEventListener('click', toggleDictation);
+    document.getElementById('agent-mode-btn')?.addEventListener('click', openAgentMode);
+    document.getElementById('agent-mode-close')?.addEventListener('click', () => setAgentPanel(false));
+    document.querySelector('#agent-mode-panel .agent-mode-backdrop')?.addEventListener('click', () => setAgentPanel(false));
+    document.getElementById('agent-chat-tab')?.addEventListener('click', () => { setAgentPanel(false); input.focus(); });
+    document.getElementById('agent-tab')?.addEventListener('click', () => document.getElementById('agent-task-input')?.focus());
+    document.getElementById('agent-execute-btn')?.addEventListener('click', executeAgentTask);
+    document.getElementById('agent-pause-btn')?.addEventListener('click', toggleAgentPause);
+    document.getElementById('agent-stop-btn')?.addEventListener('click', stopAgentTask);
+    document.getElementById('agent-undo-btn')?.addEventListener('click', undoAgentTask);
+    document.querySelectorAll('[data-agent-center]').forEach(button => button.addEventListener('click', () => renderAgentCenter(button.dataset.agentCenter)));
+    document.getElementById('agent-task-input')?.addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); executeAgentTask(); } });
     document.getElementById('voice-call-close')?.addEventListener('click', stopVoiceCall);
     document.getElementById('voice-call-end')?.addEventListener('click', stopVoiceCall);
     document.getElementById('voice-call-mic')?.addEventListener('click', toggleVoiceMic);
