@@ -169,6 +169,20 @@
         S.isSpeaking   = true;
 
         const estMs = estimateDurationMs(cleanText);
+        let finished = false;
+        let watchdog = null;
+        const finishSpeech = () => {
+            if (finished) return;
+            finished = true;
+            if (watchdog) clearTimeout(watchdog);
+            S.isSpeaking = false;
+            S.currentUtter = null;
+            clearInterval(S._volTimer);
+            if (window.CutRealOrb) window.CutRealOrb.setVolume(0);
+            const stopBtn = document.getElementById('loquendo-stop');
+            if (stopBtn) stopBtn.style.display = 'none';
+            if (onEnd) onEnd();
+        };
 
         utter.onstart = () => {
             S.isSpeaking = true;
@@ -177,27 +191,11 @@
             if (stopBtn) stopBtn.style.display = 'inline-flex';
         };
 
-        utter.onend = () => {
-            S.isSpeaking   = false;
-            S.currentUtter = null;
-            clearInterval(S._volTimer);
-            if (window.CutRealOrb) window.CutRealOrb.setVolume(0);
-            const stopBtn = document.getElementById('loquendo-stop');
-            if (stopBtn) stopBtn.style.display = 'none';
-            if (onEnd) onEnd();
-        };
+        utter.onend = finishSpeech;
 
         utter.onerror = (e) => {
-            if (e.error !== 'interrupted' && e.error !== 'canceled') {
-                console.warn('[Loquendo] TTS error:', e.error);
-            }
-            S.isSpeaking   = false;
-            S.currentUtter = null;
-            clearInterval(S._volTimer);
-            if (window.CutRealOrb) window.CutRealOrb.setVolume(0);
-            const stopBtn = document.getElementById('loquendo-stop');
-            if (stopBtn) stopBtn.style.display = 'none';
-            if (onEnd) onEnd();
+            if (e.error !== 'interrupted' && e.error !== 'canceled') console.warn('[Loquendo] TTS error:', e.error);
+            finishSpeech();
         };
 
         utter.onboundary = (e) => {
@@ -207,7 +205,11 @@
             }
         };
 
+        try { S.synth.resume(); } catch (_) {}
         S.synth.speak(utter);
+        // Algunos navegadores dejan la cola en pausa o no emiten onend después de un error.
+        watchdog = setTimeout(() => { try { if (S.currentUtter === utter && (!S.synth.speaking || S.synth.paused)) finishSpeech(); } catch (_) { finishSpeech(); } }, Math.max(7000, estMs + 4500));
+        setTimeout(() => { try { if (S.isSpeaking && S.synth.paused) S.synth.resume(); } catch (_) {} }, 180);
 
         // Fix Safari
         if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
@@ -215,6 +217,11 @@
                 if (S.synth.speaking) S.synth.resume();
             }, 120);
         }
+    };
+
+    window.LoquendoUnlock = function () {
+        if (!S.synth) return false;
+        try { S.synth.cancel(); S.synth.resume(); return true; } catch (_) { return false; }
     };
 
     window.LoquendoSetMode = function (mode) {
