@@ -226,6 +226,8 @@
         try { localStorage.setItem('cutreal_loquendo_mode', mode); } catch (_) {}
         const select = document.getElementById('loquendo-style'); if (select) select.value = mode;
         const status = document.getElementById('voice-call-status'); if (status) status.textContent = CFG.profiles[mode].label;
+        const modalStatus = document.getElementById('voice-call-modal-status'); if (modalStatus) modalStatus.textContent = `${CFG.profiles[mode].label} · voz local del navegador`;
+        const modal = document.getElementById('voice-call-modal'); if (modal) modal.dataset.voiceProfile = mode;
         return true;
     };
     window.LoquendoGetMode = function () { return CFG.mode; };
