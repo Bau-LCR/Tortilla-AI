@@ -4975,3 +4975,16 @@ body.agent-mode-open { overflow: hidden; }
 @media (min-width: 700px) { .agent-mode-card { padding-right: 185px; } .agent-mode-actions { grid-template-columns: repeat(4,1fr); } .agent-super-action { grid-column: 1 / -1; } }
 @media (max-width: 699px) { .agent-orb-panel { position: relative; top: auto; right: auto; width: auto; margin: 12px 0; flex-direction: row; justify-content: flex-start; pointer-events: none; } .agent-orb-panel .agent-orb-visual { width: 58px; height: 58px; flex: 0 0 58px; } .agent-orb-panel small { max-width: 140px; text-align: left; }.agent-orb-panel strong { margin-left: 2px; }.agent-orb-kicker { align-self: flex-start; margin-right: auto; } #super-open-btn.super-nav-floating { display: inline-block !important; } }
 @media (prefers-reduced-motion: reduce) { .agent-orb-visual { animation: none; } }
+
+
+/* SUPER: diagnóstico visible de fallos por proveedor, añadido sin reemplazar estilos existentes. */
+.super-error-card { margin: 0 0 10px; padding: 11px 12px; border: 1px solid rgba(255,113,131,.45); border-radius: 10px; color: #ffd8dd; background: rgba(92,18,35,.2); box-shadow: inset 0 0 18px rgba(255,74,104,.04); }
+.super-error-card strong { display: block; color: #ff91a0; font: 900 10px ui-monospace,monospace; letter-spacing: .12em; }
+.super-error-card p { margin: 7px 0; color: #ffd8dd; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.super-error-card small { display: block; margin-top: 8px; color: #d3a9b0; font-size: 10px; line-height: 1.4; }
+.super-error-card details { margin-top: 8px; border-top: 1px solid rgba(255,125,145,.16); padding-top: 7px; }
+.super-error-card summary { color: #ffb2bd; cursor: pointer; font: 800 9px ui-monospace,monospace; letter-spacing: .06em; }
+.super-error-card ul { margin: 7px 0 0; padding-left: 18px; color: #f0c4ca; font-size: 10px; line-height: 1.5; }
+.super-error-card li { margin: 3px 0; overflow-wrap: anywhere; }
+.super-timeline-event.super-state-error span { color: #ffb4bf; }
+@media (max-width: 760px) { .super-error-card { padding: 10px; } .super-error-card p { font-size: 10px; } }
