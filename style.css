@@ -4643,3 +4643,49 @@ kbd {
   .sbx-catalog-kind { top:8px; left:8px; font-size:7px; }
   .sbx-catalog-card h3 { font-size:11px; }
 }
+
+
+/* ================================================================
+   NEXUS OS // Sandbox 3D + Chat voice console
+   Capa aditiva, responsive y compatible con el estilo existente.
+   ================================================================ */
+.sbx-future-dock { position:absolute; right:16px; bottom:16px; z-index:18; width:min(620px,calc(100% - 32px)); padding:13px 15px; color:#ddfff4; border:1px solid rgba(101,245,214,.32); border-radius:15px; background:linear-gradient(135deg,rgba(3,18,20,.88),rgba(5,10,20,.82)); box-shadow:0 18px 38px rgba(0,0,0,.45),0 0 28px rgba(55,255,190,.07); backdrop-filter:blur(15px); }
+.sbx-future-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.sbx-future-head strong { display:block; margin-top:3px; color:#effff9; font-size:13px; letter-spacing:.04em; }
+.sbx-future-head > span { color:#78b8a5; font:10px ui-monospace,monospace; text-align:right; }
+.sbx-future-groups { display:flex; gap:8px; flex-wrap:wrap; }
+.sbx-future-group { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid rgba(101,245,214,.12); border-radius:9px; background:rgba(4,18,18,.7); }
+.sbx-future-group > span { padding:0 5px; color:#548e81; font:700 9px ui-monospace,monospace; letter-spacing:.1em; }
+.sbx-future-group button { min-height:28px; border:1px solid transparent; border-radius:6px; padding:4px 7px; color:#a8d9ca; background:transparent; font:10px ui-monospace,monospace; cursor:pointer; transition:all .16s ease-out; }
+.sbx-future-group button:hover,.sbx-future-group button.active { color:#06130f; border-color:#65f5d6; background:#65f5d6; box-shadow:0 0 12px rgba(101,245,214,.28); }
+.sbx-future-group button:disabled { opacity:.35; cursor:not-allowed; }
+.sbx-chat-collapsed .sbx-panel-left { display:none; }
+.sbx-chat-collapsed .sbx-panel-right { flex:1; }
+.sbx-chat-collapsed .sbx-future-dock { width:min(760px,calc(100% - 32px)); }
+#loquendo-style { max-width:154px; min-height:30px; margin:0 4px; padding:4px 8px; border:1px solid rgba(68,136,255,.24); border-radius:7px; color:#aac6ff; background:rgba(68,136,255,.07); font-size:11px; }
+#loquendo-style:focus { outline:1px solid #6699ff; }
+.chat-extra-toolbar { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap; width:min(1100px,94%); margin:0 auto 8px; }
+.chat-extra-btn { min-height:30px; border:1px solid rgba(68,136,255,.2); border-radius:8px; padding:5px 9px; color:#9db9f0; background:rgba(68,136,255,.05); font-size:11px; cursor:pointer; transition:all .16s ease-out; }
+.chat-extra-btn:hover,.chat-extra-btn.active { color:#fff; border-color:#6699ff; background:rgba(68,136,255,.16); box-shadow:0 0 13px rgba(68,136,255,.2); }
+.chat-call-btn { color:#98ffd0; border-color:rgba(65,255,174,.26); background:rgba(65,255,174,.06); }
+.chat-call-btn.active { color:#08150e; border-color:#65f5b5; background:#65f5b5; box-shadow:0 0 16px rgba(65,255,174,.34); }
+.voice-call-status { min-height:16px; color:#7790b9; font:10px ui-monospace,monospace; }
+.voice-call-status.active { color:#65f5b5; text-shadow:0 0 10px rgba(65,255,174,.4); }
+.chat-focus-mode #chat { max-width:860px; margin-left:auto; margin-right:auto; }
+.chat-focus-mode .main-header,.chat-focus-mode .input-area,.chat-focus-mode #chat-extra-toolbar { max-width:900px; margin-left:auto; margin-right:auto; }
+@media (max-width:900px) {
+  .sbx-future-dock { right:8px; bottom:8px; width:calc(100% - 16px); padding:10px; }
+  .sbx-future-groups { gap:5px; }
+  .sbx-future-group { flex:1 1 100%; justify-content:space-between; }
+  .sbx-future-group button { flex:1; min-height:34px; }
+  .sbx-future-head { align-items:flex-start; flex-direction:column; gap:4px; }
+  .sbx-future-head > span { text-align:left; }
+  .sbx-chat-collapsed .sbx-panel-right { display:block; }
+  .chat-extra-toolbar { width:calc(100% - 16px); gap:5px; margin-bottom:6px; }
+  .chat-extra-btn { flex:1 1 calc(50% - 5px); min-height:36px; }
+  .voice-call-status { flex:1 1 100%; text-align:center; }
+  #loquendo-style { max-width:132px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sbx-future-group button,.chat-extra-btn { transition:none; }
+}
