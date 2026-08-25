@@ -60,7 +60,7 @@
   function syncNodesToProviders() {
     const available = state.providers.filter(item => item?.enabled !== false && item.id && item.model);
     if (available.length < 2 || !state.nodes.length) return false;
-    const preferredProviders = ['openai', 'gemini', 'groq', 'sambanova'];
+    const preferredProviders = ['openai', 'gemini', 'groq', 'mistral'];
     const preferred = preferredProviders.map(provider => available.find(item => item.provider === provider)).filter(Boolean);
     available.forEach(item => { if (!preferred.some(target => target.id === item.id)) preferred.push(item); });
     const usedIds = new Set(); let changed = false;
@@ -76,8 +76,8 @@
       usedIds.add(target.id); if (node.provider !== target.provider || node.model !== target.model || node.keyId !== target.id) changed = true;
       return { ...node, provider: target.provider, model: target.model, keyId: target.id };
     });
-    const samba = available.find(item => item.provider === 'sambanova');
-    if (samba && !usedIds.has(samba.id) && state.nodes.length < MAX_NODES) { const finalIndex = Math.max(0, state.nodes.length - 1); state.nodes.splice(finalIndex, 0, { id: uid('ai'), role: 'KNOWLEDGE RESEARCHER', provider: samba.provider, model: samba.model, keyId: samba.id, enabled: true }); changed = true; }
+    const extraProviders = [{ provider: 'mistral', role: 'FREE-TIER REVIEWER' }];
+    extraProviders.forEach(extra => { const item = available.find(candidate => candidate.provider === extra.provider); if (item && !usedIds.has(item.id) && !state.nodes.some(node => node.provider === item.provider) && state.nodes.length < MAX_NODES) { const finalIndex = Math.max(0, state.nodes.length - 1); state.nodes.splice(finalIndex, 0, { id: uid('ai'), role: extra.role, provider: item.provider, model: item.model, keyId: item.id, enabled: true }); usedIds.add(item.id); changed = true; } });
     if (changed) saveConfig();
     return changed;
   }
@@ -99,7 +99,7 @@
 
   function renderNodeEditor() {
     const el = $('super-node-editor'); if (!el) return;
-    const providerOptions = ['openai', 'gemini', 'groq', 'sambanova', 'xai', 'mistral', 'deepseek', 'openrouter'];
+    const providerOptions = ['openai', 'gemini', 'groq', 'mistral', 'xai', 'deepseek', 'openrouter'];
     el.innerHTML = state.nodes.map((node, index) => `<div class="super-node-config" data-super-node="${esc(node.id)}"><div class="super-node-order">${String(index + 1).padStart(2, '0')}</div><div class="super-node-fields"><label>Rol<input data-field="role" value="${esc(node.role)}" maxlength="80"></label><label>Proveedor<select data-field="provider">${providerOptions.map(provider => `<option value="${provider}" ${provider === node.provider ? 'selected' : ''}>${providerLabel(provider)}</option>`).join('')}</select></label><label>Modelo<input data-field="model" value="${esc(node.model)}" maxlength="150" placeholder="modelo configurado"></label><label>SUPER key ID<input data-field="keyId" value="${esc(node.keyId)}" maxlength="80" placeholder="ID backend"></label></div><div class="super-node-actions"><button data-move="-1" title="Mover arriba">↑</button><button data-move="1" title="Mover abajo">↓</button><button data-remove="1" title="Quitar modelo">−</button></div></div>`).join('');
     el.querySelectorAll('.super-node-config').forEach(row => row.querySelectorAll('[data-field]').forEach(field => field.addEventListener('change', () => updateNode(row.dataset.superNode, { [field.dataset.field]: field.value }))));
     el.querySelectorAll('[data-move]').forEach(button => button.addEventListener('click', () => moveNode(button.closest('.super-node-config').dataset.superNode, Number(button.dataset.move))));
