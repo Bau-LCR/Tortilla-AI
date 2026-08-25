@@ -13,11 +13,13 @@
   const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const uid = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min));
+  const MODEL_MIGRATIONS = { gemini: { 'gemini-2.0-flash': 'gemini-3.6-flash', 'gemini-2.0-flash-lite': 'gemini-3.6-flash', 'gemini-2.5-flash': 'gemini-3.6-flash', 'gemini-2.5-flash-lite': 'gemini-3.5-flash-lite' }, groq: { 'llama-3.3-70b-versatile': 'openai/gpt-oss-20b', 'llama-3.1-8b-instant': 'openai/gpt-oss-20b' } };
+  function normalizeModel(provider, value) { const model = String(value || '').trim(); return MODEL_MIGRATIONS[String(provider || '').toLowerCase()]?.[model] || model; }
 
   const defaultNodes = [
     { id: uid('ai'), role: 'PRIMARY ANALYST', provider: 'openai', model: 'gpt-4o-mini', keyId: 'super-openai-1', enabled: true },
-    { id: uid('ai'), role: 'CRITICAL REVIEWER', provider: 'gemini', model: 'gemini-2.5-flash', keyId: 'super-gemini-1', enabled: true },
-    { id: uid('ai'), role: 'EDITOR / SYNTHESIZER', provider: 'groq', model: 'llama-3.1-8b-instant', keyId: 'super-groq-1', enabled: true },
+    { id: uid('ai'), role: 'CRITICAL REVIEWER', provider: 'gemini', model: 'gemini-3.6-flash', keyId: 'super-gemini-1', enabled: true },
+    { id: uid('ai'), role: 'EDITOR / SYNTHESIZER', provider: 'groq', model: 'openai/gpt-oss-20b', keyId: 'super-groq-1', enabled: true },
   ];
   const state = {
     open: false, running: false, paused: false, cancelled: false, selectedNodeId: null,
@@ -33,7 +35,7 @@
     if (!saved) return;
     state.mode = ['sequential', 'parallel', 'hybrid'].includes(saved.mode) ? saved.mode : state.mode;
     state.rounds = clamp(saved.rounds, 1, 5); state.maxTokens = clamp(saved.maxTokens, 128, 3000); state.maxTokensTotal = clamp(saved.maxTokensTotal, 1000, 50000); state.maxRetries = clamp(saved.maxRetries, 0, 3); state.maxBudget = saved.maxBudget ?? ''; state.fallbackEnabled = saved.fallbackEnabled !== false;
-    if (Array.isArray(saved.nodes) && saved.nodes.length) state.nodes = saved.nodes.slice(0, MAX_NODES).map(node => ({ ...node, id: node.id || uid('ai'), enabled: node.enabled !== false }));
+    if (Array.isArray(saved.nodes) && saved.nodes.length) state.nodes = saved.nodes.slice(0, MAX_NODES).map(node => ({ ...node, id: node.id || uid('ai'), provider: String(node.provider || 'openai').toLowerCase(), model: normalizeModel(node.provider, node.model), enabled: node.enabled !== false }));
   }
   function saveConfig() { saveJSON(STORAGE_CONFIG, { mode: state.mode, rounds: state.rounds, maxTokens: state.maxTokens, maxTokensTotal: state.maxTokensTotal, maxRetries: state.maxRetries, maxBudget: state.maxBudget, fallbackEnabled: state.fallbackEnabled, nodes: state.nodes }); }
   function loadHistory() { const saved = readJSON(STORAGE_HISTORY, []); state.history = Array.isArray(saved) ? saved.slice(0, 30) : []; }
@@ -88,7 +90,7 @@
   function addNode() { if (state.nodes.length >= MAX_NODES) return notify(`Máximo de ${MAX_NODES} modelos en esta interfaz.`, '#ffae62'); const index = state.nodes.length + 1; state.nodes.push({ id: uid('ai'), role: `AI ${String(index).padStart(2, '0')}`, provider: state.providers[0]?.provider || 'openai', model: state.providers[0]?.model || 'gpt-4o-mini', keyId: state.providers[0]?.id || '', enabled: true }); saveConfig(); renderAll(); }
   function removeNode(id) { if (state.nodes.length <= 2) return notify('SUPER necesita al menos 2 modelos habilitados.', '#ffae62'); state.nodes = state.nodes.filter(node => node.id !== id); saveConfig(); renderAll(); }
   function moveNode(id, direction) { const index = state.nodes.findIndex(node => node.id === id); const next = index + direction; if (index < 0 || next < 0 || next >= state.nodes.length) return; [state.nodes[index], state.nodes[next]] = [state.nodes[next], state.nodes[index]]; saveConfig(); renderAll(); }
-  function updateNode(id, patch) { const node = state.nodes.find(item => item.id === id); if (!node) return; const nextPatch = { ...patch }; if (('provider' in nextPatch || 'model' in nextPatch) && !('keyId' in nextPatch)) nextPatch.keyId = ''; Object.assign(node, nextPatch); saveConfig(); renderPipeline(); }
+  function updateNode(id, patch) { const node = state.nodes.find(item => item.id === id); if (!node) return; const nextPatch = { ...patch }; if ('provider' in nextPatch) nextPatch.provider = String(nextPatch.provider || 'openai').toLowerCase(); if ('model' in nextPatch) nextPatch.model = normalizeModel(nextPatch.provider || node.provider, nextPatch.model); if (('provider' in nextPatch || 'model' in nextPatch) && !('keyId' in nextPatch)) nextPatch.keyId = ''; Object.assign(node, nextPatch); saveConfig(); renderPipeline(); }
 
   function renderNodeEditor() {
     const el = $('super-node-editor'); if (!el) return;
