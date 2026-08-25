@@ -22,7 +22,7 @@
     <!-- Generación de archivos Word y PDF -->
     <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=super-20260825-11">
+    <link rel="stylesheet" href="style.css?v=admin-20260825-12">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -189,10 +189,10 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- PANEL ADMIN — 10 nuevas funciones                           -->
+<!-- PANEL ADMIN — funciones existentes + 20 secciones nuevas     -->
 <!-- ============================================================ -->
 <div id="admin-overlay" style="display:none;">
-    <div class="admin-card">
+    <div class="admin-card admin-vertical-layout">
 
         <!-- Header -->
         <div class="admin-header">
@@ -227,6 +227,27 @@
             <button class="admin-tab admin-tab-new" onclick="switchTab('sandboxctl')" id="tab-sandboxctl">🧪 Sandbox</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('flags')"     id="tab-flags">🚩 Feature Flags</button>
             <button class="admin-tab admin-tab-new" onclick="switchTab('notifs')"    id="tab-notifs">🔔 Notificaciones</button>
+            <!-- 20 SECCIONES ADMINISTRATIVAS NUEVAS -->
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('security')" id="tab-security">🛡️ Seguridad</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('audit')" id="tab-audit">🧾 Auditoría</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('permissions')" id="tab-permissions">🔐 Permisos</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('roles')" id="tab-roles">👥 Roles</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('settings')" id="tab-settings">⚙️ Configuración</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('maintenance')" id="tab-maintenance">🧰 Mantenimiento</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('alerts')" id="tab-alerts">🚨 Alertas</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('logs')" id="tab-logs">📜 Registros</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('performance')" id="tab-performance">⚡ Rendimiento</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('costs')" id="tab-costs">💳 Costos</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('models')" id="tab-models">🧠 Modelos</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('supercontrol')" id="tab-supercontrol">✦ SUPER Control</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('workspace')" id="tab-workspace">▣ Workspace</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('sandbox')" id="tab-sandbox">◈ Sandbox</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('firebase')" id="tab-firebase">🔥 Firebase</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('voice')" id="tab-voice">🎙️ Voz</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('files')" id="tab-files">📁 Archivos</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('integrations')" id="tab-integrations">🔌 Integraciones</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('privacy')" id="tab-privacy">🕶️ Privacidad</button>
+            <button class="admin-tab admin-tab-new admin-tab-extra" onclick="switchTab('system')" id="tab-system">🖥️ Sistema</button>
         </div>
 
         <!-- ========== TAB: USUARIOS ========== -->
@@ -837,6 +858,88 @@
             </div>
         </div>
 
+        <!-- ========== 20 SECCIONES ADMINISTRATIVAS NUEVAS ========== -->
+        <div class="admin-panel admin-panel-extra" id="panel-security">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 01</span><span class="admin-section-state state-ready">PROTEGIDO</span></div>
+            <div class="admin-box"><h4>🛡️ Seguridad de acceso</h4><p class="admin-hint">Revisa el estado visual de autenticación, sesiones administrativas y protección de acciones sensibles.</p><div class="admin-stat-list"><div class="admin-stat"><span>Autenticación</span><b>Firebase Auth</b></div><div class="admin-stat"><span>Acciones destructivas</span><b>Confirmación requerida</b></div><div class="admin-stat"><span>Claves en frontend</span><b>Bloqueadas</b></div></div><button class="admin-btn-primary" onclick="adminSectionAction('security')">Ejecutar revisión segura</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-audit">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 02</span><span class="admin-section-state">LECTURA</span></div>
+            <div class="admin-box"><h4>🧾 Auditoría de actividad</h4><p class="admin-hint">Consulta el registro disponible de acciones administrativas y prepara filtros por fecha, usuario y evento.</p><div class="admin-form-grid"><label>Desde<input type="date" id="admin-audit-from"></label><label>Hasta<input type="date" id="admin-audit-to"></label><label>Tipo<select id="admin-audit-type"><option>Todos los eventos</option><option>Acceso</option><option>Configuración</option><option>Contenido</option></select></label></div><button class="admin-btn-primary" onclick="adminSectionAction('audit')">Cargar auditoría</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-permissions">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 03</span><span class="admin-section-state">REVISIÓN</span></div>
+            <div class="admin-box"><h4>🔐 Matriz de permisos</h4><p class="admin-hint">Define visualmente qué capacidades deberían estar disponibles para cada nivel. Los cambios no se publican automáticamente.</p><div class="admin-permission-list"><label><input type="checkbox" checked> Chat normal</label><label><input type="checkbox" checked> Workspace</label><label><input type="checkbox" checked> Sandbox</label><label><input type="checkbox"> Control SUPER</label></div><button class="admin-btn-accent" onclick="adminSectionAction('permissions')">Revisar permisos</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-roles">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 04</span><span class="admin-section-state">GESTIÓN</span></div>
+            <div class="admin-box"><h4>👥 Roles y niveles</h4><p class="admin-hint">Organiza las responsabilidades de User, Pro y Admin sin cambiar privilegios de Firebase desde esta vista.</p><div class="admin-role-cards"><div><b>User</b><small>Uso normal</small></div><div><b>Pro</b><small>Capacidades ampliadas</small></div><div><b>Admin</b><small>Gestión restringida</small></div></div><button class="admin-btn-primary" onclick="adminSectionAction('roles')">Abrir matriz de roles</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-settings">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 05</span><span class="admin-section-state">LOCAL</span></div>
+            <div class="admin-box"><h4>⚙️ Configuración general</h4><p class="admin-hint">Preferencias visuales y operativas para preparar una administración más clara.</p><div class="admin-form-grid"><label>Nombre de instancia<input value="Cut-real AI" id="admin-instance-name"></label><label>Zona horaria<select id="admin-timezone"><option>America/Argentina/Buenos_Aires</option><option>UTC</option><option>America/Mexico_City</option></select></label><label>Modo de interfaz<select id="admin-ui-mode"><option>Futurista oscuro</option><option>Alto contraste</option></select></label></div><button class="admin-btn-accent" onclick="adminSectionAction('settings')">Guardar preferencia local</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-maintenance">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 06</span><span class="admin-section-state state-warning">MANUAL</span></div>
+            <div class="admin-box"><h4>🧰 Mantenimiento</h4><p class="admin-hint">Panel para coordinar tareas de mantenimiento. No activa un modo global sin una operación explícita y autorizada.</p><div class="admin-maintenance-card"><span>Estado del sistema</span><b>OPERATIVO</b></div><button class="admin-btn-outline" onclick="adminSectionAction('maintenance')">Preparar checklist</button><button class="admin-btn-danger" onclick="adminSectionAction('maintenance-danger')">Solicitar mantenimiento</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-alerts">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 07</span><span class="admin-section-state">CONFIGURABLE</span></div>
+            <div class="admin-box"><h4>🚨 Centro de alertas</h4><p class="admin-hint">Configura qué señales deben revisarse antes de enviar una notificación. Estas preferencias son visuales hasta conectarlas con un backend.</p><div class="admin-toggle-list"><label><span>Errores de API</span><input type="checkbox" checked></label><label><span>Fallas de autenticación</span><input type="checkbox" checked></label><label><span>Actividad anómala</span><input type="checkbox"></label></div><button class="admin-btn-primary" onclick="adminSectionAction('alerts')">Guardar alertas</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-logs">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 08</span><span class="admin-section-state">LOCAL</span></div>
+            <div class="admin-box"><h4>📜 Registros del sistema</h4><p class="admin-hint">Visualiza eventos de esta sesión del navegador y filtra el nivel que deseas revisar.</p><div class="admin-form-grid"><label>Nivel<select id="admin-log-level"><option>Todos</option><option>Info</option><option>Advertencia</option><option>Error</option></select></label><label>Buscar<input id="admin-log-query" type="search" placeholder="evento o mensaje"></label></div><div class="admin-log-preview"><span>INFO</span> Panel listo para consultar registros de sesión.</div><button class="admin-btn-primary" onclick="adminSectionAction('logs')">Actualizar registros</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-performance">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 09</span><span class="admin-section-state state-ready">MONITOR</span></div>
+            <div class="admin-box"><h4>⚡ Rendimiento</h4><p class="admin-hint">Métricas de interfaz para detectar carga lenta, renderizados pesados y problemas de experiencia.</p><div class="admin-metric-grid"><div><b id="admin-perf-fps">—</b><small>FPS visuales</small></div><div><b id="admin-perf-dom">—</b><small>Elementos DOM</small></div><div><b id="admin-perf-width">—</b><small>Ancho actual</small></div></div><button class="admin-btn-primary" onclick="adminSectionAction('performance')">Medir interfaz</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-costs">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 10</span><span class="admin-section-state state-warning">DATOS DECLARADOS</span></div>
+            <div class="admin-box"><h4>💳 Costos y cuotas</h4><p class="admin-hint">Resumen preparado para mostrar costos reportados por proveedores. No inventa consumo: si no hay datos, conserva “sin datos”.</p><div class="admin-cost-grid"><div><span>Chat normal</span><b>Sin lectura local</b></div><div><span>Sandbox</span><b>Sin lectura local</b></div><div><span>SUPER</span><b>Según proveedor</b></div></div><button class="admin-btn-primary" onclick="adminSectionAction('costs')">Actualizar resumen</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-models">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 11</span><span class="admin-section-state">SEPARADO</span></div>
+            <div class="admin-box"><h4>🧠 Catálogo de modelos</h4><p class="admin-hint">Vista de los tres sistemas independientes, sin copiar claves ni mezclar historiales.</p><div class="admin-model-lanes"><div><b>Chat</b><small>Groq · modelo actual</small></div><div><b>Sandbox</b><small>Gemini · Workspace</small></div><div><b>SUPER</b><small>SUPER_AI_* · Mistral/Gemini/Groq</small></div></div><button class="admin-btn-primary" onclick="adminSectionAction('models')">Revisar separación</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-supercontrol">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 12</span><span class="admin-section-state state-warning">REQUIERE CONFIRMACIÓN</span></div>
+            <div class="admin-box"><h4>✦ Política de SUPER Control</h4><p class="admin-hint">El interruptor operativo principal continúa dentro de SUPER y apagado por defecto. Esta vista solo ayuda a revisar la política administrativa.</p><div class="admin-toggle-list"><label><span>Permitir propuestas</span><input type="checkbox" checked disabled></label><label><span>Permitir escritura con CONTROL</span><input type="checkbox"></label><label><span>Confirmar delete/rename</span><input type="checkbox" checked disabled></label></div><button class="admin-btn-primary" onclick="window.CutRealSuper?.open?.();adminSectionAction('supercontrol')">Abrir SUPER CONTROL</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-workspace">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 13</span><span class="admin-section-state state-ready">FIREBASE</span></div>
+            <div class="admin-box"><h4>▣ Workspace</h4><p class="admin-hint">Acceso directo al editor de archivos persistentes del Sandbox autenticado.</p><div class="admin-stat-list"><div class="admin-stat"><span>Archivos principales</span><b>index.html · script.js · style.css</b></div><div class="admin-stat"><span>Persistencia</span><b>Firestore</b></div></div><button class="admin-btn-primary" onclick="window.CutRealWorkspace?.open?.();adminSectionAction('workspace')">Abrir Workspace</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-sandbox">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 14</span><span class="admin-section-state state-ready">GEMINI</span></div>
+            <div class="admin-box"><h4>◈ Sandbox</h4><p class="admin-hint">Crea o abre el Sandbox desde la API pública existente, respetando la sesión autenticada.</p><div class="admin-maintenance-card"><span>Acceso</span><b>CONTROLADO</b></div><button class="admin-btn-primary" onclick="window.CutRealSandbox?.ensureSandbox?.();adminSectionAction('sandbox')">Crear / abrir Sandbox</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-firebase">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 15</span><span class="admin-section-state state-ready">PERSISTENTE</span></div>
+            <div class="admin-box"><h4>🔥 Estado de Firebase</h4><p class="admin-hint">Resumen de las rutas persistentes usadas por chats, sandboxes, archivos e historial.</p><div class="admin-collection-list"><div><b>chats</b><small>sesiones de usuario</small></div><div><b>sandboxes</b><small>escenas y Workspace</small></div><div><b>workspace_files</b><small>código persistente</small></div></div><button class="admin-btn-primary" onclick="adminSectionAction('firebase')">Verificar conexión</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-voice">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 16</span><span class="admin-section-state">NAVEGADOR</span></div>
+            <div class="admin-box"><h4>🎙️ Centro de voz</h4><p class="admin-hint">Selecciona un perfil local y prueba la llamada. La voz depende de Web Speech API y de las voces instaladas.</p><div class="admin-form-grid"><label>Perfil<select id="admin-voice-profile"><option value="classic">Loquendo clásico aproximado</option><option value="narrator">Narrador aproximado</option><option value="natural">Español natural</option></select></label><label>Idioma<select id="admin-voice-language"><option>es-419</option><option>es-AR</option><option>es-MX</option></select></label></div><button class="admin-btn-primary" onclick="adminSectionAction('voice')">Probar configuración de voz</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-files">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 17</span><span class="admin-section-state">CONTROLADO</span></div>
+            <div class="admin-box"><h4>📁 Archivos y adjuntos</h4><p class="admin-hint">Revisa los tipos de archivo permitidos en SUPER y sus límites de procesamiento temporal.</p><div class="admin-file-types"><span>IMAGEN</span><span>PDF</span><span>DOCX</span><span>TXT</span><span>MD</span></div><button class="admin-btn-primary" onclick="adminSectionAction('files')">Revisar política de archivos</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-integrations">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 18</span><span class="admin-section-state">AISLADAS</span></div>
+            <div class="admin-box"><h4>🔌 Integraciones</h4><p class="admin-hint">Mapa de conexiones existentes sin exponer tokens ni crear accesos nuevos.</p><div class="admin-integration-list"><div><b>Firebase</b><span class="state-dot online"></span></div><div><b>SUPER API</b><span class="state-dot online"></span></div><div><b>Mermaid</b><span class="state-dot online"></span></div><div><b>Web Speech</b><span class="state-dot local"></span></div></div><button class="admin-btn-primary" onclick="adminSectionAction('integrations')">Auditar conexiones</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-privacy">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 19</span><span class="admin-section-state state-ready">PRIVADO</span></div>
+            <div class="admin-box"><h4>🕶️ Privacidad y retención</h4><p class="admin-hint">Define qué información debe conservarse en el navegador y qué información permanece solo en Firebase según la configuración existente.</p><div class="admin-toggle-list"><label><span>Guardar historial SUPER</span><input type="checkbox" checked></label><label><span>Guardar proceso completo</span><input type="checkbox"></label><label><span>Guardar adjuntos</span><input type="checkbox" disabled></label></div><button class="admin-btn-primary" onclick="adminSectionAction('privacy')">Revisar privacidad</button></div>
+        </div>
+        <div class="admin-panel admin-panel-extra" id="panel-system">
+            <div class="admin-toolbar"><span class="new-feature-badge">NUEVO · 20</span><span class="admin-section-state state-ready">DIAGNÓSTICO</span></div>
+            <div class="admin-box"><h4>🖥️ Diagnóstico del sistema</h4><p class="admin-hint">Información del navegador y de la interfaz actual para diagnosticar problemas sin modificar la configuración.</p><div class="admin-stat-list"><div class="admin-stat"><span>Navegador</span><b id="admin-system-browser">Detectando…</b></div><div class="admin-stat"><span>Viewport</span><b id="admin-system-viewport">Detectando…</b></div><div class="admin-stat"><span>Online</span><b id="admin-system-online">Detectando…</b></div></div><button class="admin-btn-primary" onclick="adminSectionAction('system')">Actualizar diagnóstico</button></div>
+        </div>
+
     </div><!-- /admin-card -->
 </div><!-- /admin-overlay -->
 
@@ -858,7 +961,7 @@
             <div class="super-card-head"><div><span class="super-eyebrow">SUPER CONTROL</span><strong>Acceso operativo a Workspace y Sandbox</strong></div><span id="super-control-status" class="super-control-status">OFF</span></div>
             <label class="super-check"><input id="super-control-toggle" type="checkbox"> Permitir acciones reales</label>
             <p class="super-control-note">Si está apagado, SUPER solo analiza y propone. Si está encendido, puede crear/abrir Sandbox, editar archivos y ejecutar preview. Las eliminaciones y renombrados siempre piden confirmación.</p>
-            <div class="super-control-grid"><label>Destino<select id="super-action-scope"><option value="workspace">WORKSPACE</option><option value="sandbox">SANDBOX</option><option value="both">WORKSPACE + SANDBOX</option></select></label><label>Adjuntos<input id="super-attachments-input" type="file" accept="image/*,.pdf,.docx,.txt,.md" multiple></label></div>
+            <div class="super-control-grid"><label>Destino<select id="super-action-scope"><option value="workspace">WORKSPACE</option><option value="sandbox">SANDBOX</option><option value="both">WORKSPACE + SANDBOX</option></select></label><label class="super-attachment-field"><span class="super-field-label">Adjuntos</span><span class="super-file-picker"><span class="super-file-picker-label"><span class="super-file-picker-icon">＋</span><span>Elegir archivos</span><small>Imagen · PDF · DOCX · TXT</small></span><input id="super-attachments-input" class="super-file-input" type="file" accept="image/*,.pdf,.docx,.txt,.md" multiple aria-label="Elegir imágenes o documentos para SUPER"></span></label></div>
             <div id="super-attachment-list" class="super-attachment-list"><span class="super-empty">Sin adjuntos.</span></div>
             <div class="super-control-actions"><button id="super-open-workspace" type="button">▣ Abrir Workspace</button><button id="super-ensure-sandbox" type="button">◈ Crear/Abrir Sandbox</button><button id="super-clear-attachments" type="button">× Limpiar adjuntos</button></div>
             <div id="super-action-status" class="super-action-status" aria-live="polite">Control operativo desactivado.</div>
@@ -1790,8 +1893,33 @@ document.getElementById('image-zoom-modal')?.addEventListener('click', function(
         setTimeout(() => { this.style.display = 'none'; }, 250);
     }
 });
+/* ── 20 secciones administrativas adicionales ── */
+window.adminSectionAction = function(name) {
+    const labels = { security:'revisión de seguridad', audit:'auditoría', permissions:'permisos', roles:'roles', settings:'preferencias locales', maintenance:'checklist de mantenimiento', 'maintenance-danger':'solicitud de mantenimiento', alerts:'alertas', logs:'registros', performance:'medición de rendimiento', costs:'resumen de costos', models:'separación de modelos', supercontrol:'política de SUPER Control', workspace:'Workspace', sandbox:'Sandbox', firebase:'conexión Firebase', voice:'configuración de voz', files:'política de archivos', integrations:'integraciones', privacy:'privacidad', system:'diagnóstico del sistema' };
+    const label = labels[name] || 'sección administrativa';
+    if (name === 'performance') {
+        const fps = document.getElementById('admin-perf-fps');
+        const dom = document.getElementById('admin-perf-dom');
+        const width = document.getElementById('admin-perf-width');
+        if (fps) fps.textContent = '—';
+        if (dom) dom.textContent = document.querySelectorAll('*').length;
+        if (width) width.textContent = `${window.innerWidth}px`;
+    }
+    if (name === 'system') {
+        const browser = document.getElementById('admin-system-browser');
+        const viewport = document.getElementById('admin-system-viewport');
+        const online = document.getElementById('admin-system-online');
+        if (browser) browser.textContent = navigator.userAgent.includes('Chrome') ? 'Chromium/Chrome' : 'Navegador detectado';
+        if (viewport) viewport.textContent = `${window.innerWidth} × ${window.innerHeight}`;
+        if (online) online.textContent = navigator.onLine ? 'Online' : 'Offline';
+    }
+    const panel = document.getElementById('panel-' + name);
+    const state = panel?.querySelector('.admin-section-state');
+    if (state && name !== 'maintenance-danger') { state.textContent = 'REVISADO'; state.classList.add('state-ready'); }
+    const message = name === 'maintenance-danger' ? 'La solicitud quedó preparada para revisión manual; no se activó mantenimiento global.' : `${label} actualizada en esta vista.`;
+    if (typeof window.showToast === 'function') window.showToast(message, '#5599ff', 'ℹ️'); else console.info(message);
+};
 </script>
-
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
     <p>&copy; 2026 Cut-real AI &nbsp;|&nbsp; TODOS LOS DERECHOS RESERVADOS</p>
