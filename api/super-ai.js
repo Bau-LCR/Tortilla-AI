@@ -18,10 +18,15 @@ const now = () => Date.now();
 
 function parseJsonEnv(name) {
   try {
-    const raw = String(process.env[name] || '').trim();
-    if (!raw) return [];
-    const value = raw.replace(/^SUPER_AI_KEYS_JSON\s*=\s*/i, '').trim();
-    return value ? JSON.parse(value) : [];
+    let value = String(process.env[name] || '').trim();
+    if (!value) return [];
+    value = value.replace(/^SUPER_AI_KEYS_JSON\s*=\s*/i, '').trim();
+    value = value.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      try { const unwrapped = value.startsWith('"') ? JSON.parse(value) : value.slice(1, -1); value = String(unwrapped).trim(); } catch (_) { value = value.slice(1, -1).trim(); }
+    }
+    const parsed = value ? JSON.parse(value) : [];
+    return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
   } catch (_) { return []; }
 }
 
@@ -37,13 +42,31 @@ function normalizeProvider(value) {
   return text || 'openai';
 }
 
+const MODEL_MIGRATIONS = {
+  gemini: {
+    'gemini-2.0-flash': 'gemini-3.6-flash',
+    'gemini-2.0-flash-lite': 'gemini-3.6-flash',
+    'gemini-2.5-flash': 'gemini-3.6-flash',
+    'gemini-2.5-flash-lite': 'gemini-3.5-flash-lite',
+  },
+  groq: {
+    'llama-3.3-70b-versatile': 'openai/gpt-oss-20b',
+    'llama-3.1-8b-instant': 'openai/gpt-oss-20b',
+  },
+};
+
+function normalizeModel(provider, value) {
+  const model = clean(value, 160);
+  return MODEL_MIGRATIONS[normalizeProvider(provider)]?.[model] || model;
+}
+
 function configuredKeys() {
   const list = parseJsonEnv('SUPER_AI_KEYS_JSON');
   const records = Array.isArray(list) ? list : [];
   const normalized = records.map((item, index) => ({
     id: clean(item?.id || `super-key-${index + 1}`, 80),
     provider: normalizeProvider(item?.provider),
-    model: clean(item?.model || '', 160),
+    model: normalizeModel(item?.provider, item?.model || ''),
     displayName: clean(item?.displayName || item?.label || `${normalizeProvider(item?.provider)} ${index + 1}`, 100),
     enabled: item?.enabled !== false,
     key: String(item?.key || item?.apiKey || ''),
@@ -53,7 +76,7 @@ function configuredKeys() {
   const envKey = String(process.env.SUPER_AI_KEY || '');
   if (envKey) normalized.push({
     id: 'super-env-default', provider: normalizeProvider(process.env.SUPER_AI_PROVIDER || 'openai'),
-    model: clean(process.env.SUPER_AI_MODEL || '', 160),
+    model: normalizeModel(process.env.SUPER_AI_PROVIDER || 'openai', process.env.SUPER_AI_MODEL || ''),
     displayName: clean(process.env.SUPER_AI_DISPLAY_NAME || 'SUPER environment key', 100),
     enabled: process.env.SUPER_AI_ENABLED !== 'false', key: envKey,
     inputPrice: Number(process.env.SUPER_AI_INPUT_PRICE || '') || null,
@@ -153,8 +176,9 @@ async function callProvider(item, messages, maxTokens) {
 function findKey(keyId, provider, model) {
   const keys = configuredKeys().filter(item => item.enabled);
   const normalized = normalizeProvider(provider);
+  const requestedModel = normalizeModel(normalized, model);
   return keys.find(item => keyId && item.id === keyId)
-    || keys.find(item => provider && item.provider === normalized && (!model || item.model === model))
+    || keys.find(item => provider && item.provider === normalized && (!requestedModel || item.model === requestedModel))
     || keys.find(item => provider && item.provider === normalized)
     || null;
 }
@@ -169,7 +193,7 @@ async function testConnection({ provider, model, apiKey }) {
 function normalizeNodes(input) {
   if (!Array.isArray(input)) return [];
   return input.slice(0, MAX_NODES).map((node, index) => ({
-    id: clean(node?.id || `ai-${index + 1}`, 80), role: clean(node?.role || `AI ${index + 1}`, 100), provider: normalizeProvider(node?.provider), model: clean(node?.model, 160), keyId: clean(node?.keyId, 80), enabled: node?.enabled !== false,
+    id: clean(node?.id || `ai-${index + 1}`, 80), role: clean(node?.role || `AI ${index + 1}`, 100), provider: normalizeProvider(node?.provider), model: normalizeModel(node?.provider, node?.model), keyId: clean(node?.keyId, 80), enabled: node?.enabled !== false,
   })).filter(node => node.enabled);
 }
 
