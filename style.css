@@ -4988,3 +4988,4 @@ body.agent-mode-open { overflow: hidden; }
 .super-error-card li { margin: 3px 0; overflow-wrap: anywhere; }
 .super-timeline-event.super-state-error span { color: #ffb4bf; }
 @media (max-width: 760px) { .super-error-card { padding: 10px; } .super-error-card p { font-size: 10px; } }
+
