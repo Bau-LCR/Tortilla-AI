@@ -34,7 +34,7 @@
     const saved = readJSON(STORAGE_CONFIG, null);
     if (!saved) return;
     state.mode = ['sequential', 'parallel', 'hybrid'].includes(saved.mode) ? saved.mode : state.mode;
-    state.rounds = clamp(saved.rounds, 1, 5); state.maxTokens = clamp(saved.maxTokens, 128, 3000); state.maxTokensTotal = clamp(saved.maxTokensTotal, 1000, 50000); state.maxRetries = clamp(saved.maxRetries, 0, 3); state.maxBudget = saved.maxBudget ?? ''; state.fallbackEnabled = saved.fallbackEnabled !== false; state.graphMode = ['ai', 'knowledge', 'both'].includes(saved.graphMode) ? saved.graphMode : state.graphMode; state.graphSearch = String(saved.graphSearch || ''); state.graphFilter = ['all', 'concept', 'source', 'conclusion', 'conflict', 'consensus', 'question'].includes(saved.graphFilter) ? saved.graphFilter : state.graphFilter;
+    state.rounds = clamp(saved.rounds, 1, 5); state.maxTokens = clamp(saved.maxTokens, 128, 3000); state.maxTokensTotal = clamp(saved.maxTokensTotal, 1000, 50000); state.maxRetries = clamp(saved.maxRetries, 0, 3); state.maxBudget = saved.maxBudget ?? ''; state.fallbackEnabled = saved.fallbackEnabled !== false; state.graphMode = ['ai', 'knowledge', 'both'].includes(saved.graphMode) ? saved.graphMode : state.graphMode; state.graphSearch = String(saved.graphSearch || ''); state.graphFilter = ['all', 'concept', 'source', 'conclusion', 'conflict', 'consensus', 'question', 'judge'].includes(saved.graphFilter) ? saved.graphFilter : state.graphFilter;
     if (Array.isArray(saved.nodes) && saved.nodes.length) state.nodes = saved.nodes.slice(0, MAX_NODES).map(node => ({ ...node, id: node.id || uid('ai'), provider: String(node.provider || 'openai').toLowerCase(), model: normalizeModel(node.provider, node.model), enabled: node.enabled !== false }));
   }
   function saveConfig() { saveJSON(STORAGE_CONFIG, { mode: state.mode, rounds: state.rounds, maxTokens: state.maxTokens, maxTokensTotal: state.maxTokensTotal, maxRetries: state.maxRetries, maxBudget: state.maxBudget, fallbackEnabled: state.fallbackEnabled, graphMode: state.graphMode, graphSearch: state.graphSearch, graphFilter: state.graphFilter, nodes: state.nodes }); }
@@ -60,24 +60,29 @@
   function syncNodesToProviders() {
     const available = state.providers.filter(item => item?.enabled !== false && item.id && item.model);
     if (available.length < 2 || !state.nodes.length) return false;
-    const preferredProviders = ['openai', 'gemini', 'groq'];
-    const targets = preferredProviders.map(provider => available.find(item => item.provider === provider)).filter(Boolean);
-    available.forEach(item => { if (!targets.some(target => target.id === item.id)) targets.push(item); });
-    const usableTargets = targets.slice(0, Math.min(MAX_NODES, Math.max(2, state.nodes.length)));
-    let changed = false;
-    state.nodes = state.nodes.map((node, index) => {
-      const configured = available.find(item => item.id === node.keyId && item.provider === node.provider && item.model === node.model);
-      if (configured) return node;
-      const target = usableTargets[index] || usableTargets[index % usableTargets.length];
+    const preferredProviders = ['openai', 'gemini', 'groq', 'sambanova'];
+    const preferred = preferredProviders.map(provider => available.find(item => item.provider === provider)).filter(Boolean);
+    available.forEach(item => { if (!preferred.some(target => target.id === item.id)) preferred.push(item); });
+    const usedIds = new Set(); let changed = false;
+    state.nodes = state.nodes.map(node => {
+      const normalizedProvider = String(node.provider || '').toLowerCase();
+      const normalizedModel = normalizeModel(normalizedProvider, node.model);
+      const configured = available.find(item => item.id === node.keyId && item.provider === normalizedProvider)
+        || available.find(item => item.provider === normalizedProvider && item.model === normalizedModel)
+        || available.find(item => item.provider === normalizedProvider && !usedIds.has(item.id));
+      if (configured) { usedIds.add(configured.id); if (node.provider !== configured.provider || node.model !== configured.model || node.keyId !== configured.id) changed = true; return { ...node, provider: configured.provider, model: configured.model, keyId: configured.id }; }
+      const target = preferred.find(item => !usedIds.has(item.id)) || preferred[0];
       if (!target) return node;
-      if (node.provider !== target.provider || node.model !== target.model || node.keyId !== target.id) changed = true;
+      usedIds.add(target.id); if (node.provider !== target.provider || node.model !== target.model || node.keyId !== target.id) changed = true;
       return { ...node, provider: target.provider, model: target.model, keyId: target.id };
     });
+    const samba = available.find(item => item.provider === 'sambanova');
+    if (samba && !usedIds.has(samba.id) && state.nodes.length < MAX_NODES) { const finalIndex = Math.max(0, state.nodes.length - 1); state.nodes.splice(finalIndex, 0, { id: uid('ai'), role: 'KNOWLEDGE RESEARCHER', provider: samba.provider, model: samba.model, keyId: samba.id, enabled: true }); changed = true; }
     if (changed) saveConfig();
     return changed;
   }
   async function loadProviders() {
-    try { const res = await fetch('/api/super-ai', { headers: { Accept: 'application/json' } }); const data = await res.json(); state.providers = Array.isArray(data.providers) ? data.providers : []; const repaired = syncNodesToProviders(); renderProviders(); renderNodeEditor(); if (repaired) notify('Nodos SUPER sincronizados con OpenAI, Gemini y Groq.', '#54e6b0'); } catch (error) { state.providers = []; renderProviders(); }
+    try { const res = await fetch('/api/super-ai', { headers: { Accept: 'application/json' } }); const data = await res.json(); state.providers = Array.isArray(data.providers) ? data.providers : []; const repaired = syncNodesToProviders(); renderProviders(); renderNodeEditor(); if (repaired) notify(`Nodos SUPER sincronizados con ${state.providers.filter(item => item.enabled !== false).map(item => providerLabel(item.provider)).join(', ')}.`, '#54e6b0'); } catch (error) { state.providers = []; renderProviders(); }
   }
   async function testConnection() {
     const provider = $('super-test-provider')?.value; const model = $('super-test-model')?.value.trim(); const apiKey = $('super-test-key')?.value || '';
@@ -94,7 +99,7 @@
 
   function renderNodeEditor() {
     const el = $('super-node-editor'); if (!el) return;
-    const providerOptions = ['openai', 'gemini', 'groq', 'xai', 'mistral', 'deepseek', 'openrouter'];
+    const providerOptions = ['openai', 'gemini', 'groq', 'sambanova', 'xai', 'mistral', 'deepseek', 'openrouter'];
     el.innerHTML = state.nodes.map((node, index) => `<div class="super-node-config" data-super-node="${esc(node.id)}"><div class="super-node-order">${String(index + 1).padStart(2, '0')}</div><div class="super-node-fields"><label>Rol<input data-field="role" value="${esc(node.role)}" maxlength="80"></label><label>Proveedor<select data-field="provider">${providerOptions.map(provider => `<option value="${provider}" ${provider === node.provider ? 'selected' : ''}>${providerLabel(provider)}</option>`).join('')}</select></label><label>Modelo<input data-field="model" value="${esc(node.model)}" maxlength="150" placeholder="modelo configurado"></label><label>SUPER key ID<input data-field="keyId" value="${esc(node.keyId)}" maxlength="80" placeholder="ID backend"></label></div><div class="super-node-actions"><button data-move="-1" title="Mover arriba">↑</button><button data-move="1" title="Mover abajo">↓</button><button data-remove="1" title="Quitar modelo">−</button></div></div>`).join('');
     el.querySelectorAll('.super-node-config').forEach(row => row.querySelectorAll('[data-field]').forEach(field => field.addEventListener('change', () => updateNode(row.dataset.superNode, { [field.dataset.field]: field.value }))));
     el.querySelectorAll('[data-move]').forEach(button => button.addEventListener('click', () => moveNode(button.closest('.super-node-config').dataset.superNode, Number(button.dataset.move))));
