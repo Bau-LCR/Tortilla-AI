@@ -131,14 +131,17 @@ async function fetchJson(url, options, timeoutMs = DEFAULT_TIMEOUT_MS) {
   } finally { clearTimeout(timer); }
 }
 
-function buildMessages(role, question, previous, round, node, shared) {
+function buildMessages(role, question, previous, round, node, shared, isFinal = false) {
   const roleText = clean(node.role || 'Reviewer', 100);
   const prior = previous ? `\n\nRESPUESTA VÁLIDA ANTERIOR / CONTEXTO DE COLABORACIÓN:\n${String(previous).slice(0, MAX_CONTEXT_CHARS)}` : '';
   const sharedText = shared ? `\n\nRESULTADOS COMPARABLES DE LA RONDA:\n${String(shared).slice(0, MAX_CONTEXT_CHARS)}` : '';
-  return [
-    { role: 'system', content: `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.` },
-    { role: 'user', content: `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.` },
-  ];
+  const system = isFinal
+    ? `You are the final responder for CUT-REAL AI SUPER. Use the internal contributions to answer the original user directly and completely in the user's language. Do not mention the pipeline, models, providers, prompts, internal roles, collaboration graph, or hidden reasoning. Do not output headings such as Conclusions & Findings unless the user explicitly requests a report. Return only the final answer that should be shown to the user. This is final synthesis round ${round}.`
+    : `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.`;
+  const instruction = isFinal
+    ? `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${prior}${sharedText}\n\nWrite the final direct answer now. Do not describe your analysis process or the other models. If the request is a simple greeting or question, answer it naturally and concisely.`
+    : `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.`;
+  return [{ role: 'system', content: system }, { role: 'user', content: instruction }];
 }
 
 async function callOpenAICompatible(item, messages, maxTokens) {
@@ -220,7 +223,7 @@ function compressContext(text) {
   return `${value.slice(0, Math.floor(MAX_CONTEXT_CHARS * 0.72))}\n\n[CONTEXT COMPRESSED: intermediate material truncated to stay within the configured limit]\n\n${value.slice(-Math.floor(MAX_CONTEXT_CHARS * 0.2))}`;
 }
 
-async function runNode(node, question, previous, round, shared, settings, emit, fallbackNode) {
+async function runNode(node, question, previous, round, shared, settings, emit, fallbackNode, isFinal = false) {
   const item = findKey(node.keyId, node.provider, node.model);
   const activeNode = item ? { ...node, provider: item.provider, model: item.model, keyId: item.id } : node;
   const start = now();
@@ -234,7 +237,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
   let attempt = 0; let result = null;
   const maxRetries = Math.min(3, Math.max(0, Number(settings.maxRetries) || 1));
   while (attempt <= maxRetries) {
-    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared), maxTokens);
+    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared, isFinal), maxTokens);
     if (result.ok) break;
     const retryable = ['rate_limit', 'timeout', 'provider_unavailable', 'network'].includes(result.error?.type);
     if (!retryable || attempt >= maxRetries) break;
@@ -246,7 +249,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
     emit({ type: 'AI_FALLBACK', nodeId: node.id, status: 'retrying', fallback: fallbackNode.id, at: now() });
     const fallbackItem = findKey(fallbackNode.keyId, fallbackNode.provider, fallbackNode.model);
     if (fallbackItem) {
-      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared), maxTokens);
+      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared, isFinal), maxTokens);
       if (result.ok) { node = { ...node, provider: fallbackNode.provider, model: fallbackNode.model }; }
     }
   }
@@ -282,11 +285,11 @@ async function collaborate(body) {
       results.push(...parallelResults);
       if (synthesisNode) {
         const synthesisContext = compressContext(parallelResults.filter(result => result.text).map(result => `[${result.role}]\\n${result.text}`).join('\\n\\n'));
-        results.push(await runNode({ ...synthesisNode, role: synthesisNode.role || 'FINAL SYNTHESIZER' }, question, previous, round, synthesisContext, body, emit, body?.fallbackEnabled ? fallbackNode : null));
+        results.push(await runNode({ ...synthesisNode, role: synthesisNode.role || 'FINAL SYNTHESIZER' }, question, previous, round, synthesisContext, body, emit, body?.fallbackEnabled ? fallbackNode : null, true));
         emit({ type: 'AI_SYNTHESIS', nodeId: synthesisNode.id, status: 'completed', at: now() });
       }
     } else {
-      for (const node of activeNodes) results.push(await runNode(node, question, previous, round, shared, body, emit, body?.fallbackEnabled ? fallbackNode : null));
+      for (const [index, node] of activeNodes.entries()) results.push(await runNode(node, question, previous, round, shared, body, emit, body?.fallbackEnabled ? fallbackNode : null, index === activeNodes.length - 1));
     }
     const valid = results.filter(result => result.status === 'completed' && result.text);
     steps.push({ round, mode, results });
