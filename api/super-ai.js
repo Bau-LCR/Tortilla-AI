@@ -33,6 +33,7 @@ function parseJsonEnv(name) {
 function normalizeProvider(value) {
   const text = String(value || '').toLowerCase().trim();
   if (text.includes('gemini') || text === 'google') return 'gemini';
+  if (text.includes('sambanova') || text === 'samba nova' || text === 'samba') return 'sambanova';
   if (text.includes('openrouter')) return 'openrouter';
   if (text.includes('deepseek')) return 'deepseek';
   if (text.includes('mistral')) return 'mistral';
@@ -98,6 +99,7 @@ function publicKeyInfo(item) {
 function providerEndpoint(provider, model) {
   const endpoints = {
     openai: 'https://api.openai.com/v1/chat/completions',
+    sambanova: 'https://api.sambanova.ai/v1/chat/completions',
     groq: 'https://api.groq.com/openai/v1/chat/completions',
     xai: 'https://api.x.ai/v1/chat/completions',
     deepseek: 'https://api.deepseek.com/chat/completions',
