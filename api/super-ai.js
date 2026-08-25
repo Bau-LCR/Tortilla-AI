@@ -262,6 +262,104 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
   return { nodeId: node.id, role: node.role, provider: item.provider, model: item.model, status: 'completed', text: result.text, tokens: result.tokens || null, promptTokens: result.promptTokens || null, completionTokens: result.completionTokens || null, estimatedCost, latencyMs: result.latencyMs || now() - start, retries: attempt };
 }
 
+function parseLooseJson(text) {
+  const value = String(text || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(value); } catch (_) {}
+  const start = value.indexOf('{'); const end = value.lastIndexOf('}');
+  if (start >= 0 && end > start) { try { return JSON.parse(value.slice(start, end + 1)); } catch (_) {} }
+  return null;
+}
+
+function normalizeJudgeReport(raw, results, agreement) {
+  const sourceById = new Map(results.map(result => [result.nodeId, result]));
+  const score = value => Number.isFinite(Number(value)) ? Math.max(0, Math.min(100, Math.round(Number(value)))) : null;
+  const list = value => Array.isArray(value) ? value.map(item => typeof item === 'string' ? clean(item, 360) : clean(item?.summary || item?.text || JSON.stringify(item), 360)).filter(Boolean).slice(0, 12) : [];
+  const evaluations = Array.isArray(raw?.evaluations) ? raw.evaluations.map(item => {
+    const result = sourceById.get(item?.nodeId) || results.find(entry => entry.role === item?.role);
+    if (!result) return null;
+    return { nodeId: result.nodeId, role: result.role, provider: result.provider, model: result.model, accuracy: score(item.accuracy), relevance: score(item.relevance), completeness: score(item.completeness), consistency: score(item.consistency), clarity: score(item.clarity), technicalQuality: score(item.technicalQuality), instructionFollowing: score(item.instructionFollowing), notes: clean(item.notes || item.assessment || 'Evaluación cualitativa generada por AI Judge.', 420) };
+  }).filter(Boolean).slice(0, 12) : results.map(result => ({ nodeId: result.nodeId, role: result.role, provider: result.provider, model: result.model, accuracy: null, relevance: null, completeness: null, consistency: null, clarity: null, technicalQuality: null, instructionFollowing: null, notes: 'No se obtuvo una puntuación objetiva; requiere interpretación cualitativa.' }));
+  const disagreements = Array.isArray(raw?.disagreements) ? raw.disagreements.map(item => ({ topic: clean(item?.topic || 'Unspecified topic', 140), nodes: Array.isArray(item?.nodes) ? item.nodes.filter(id => sourceById.has(id)).slice(0, 8) : [], summary: clean(item?.summary || item?.reason || item, 420), confidence: ['HIGH', 'MEDIUM', 'LOW'].includes(String(item?.confidence).toUpperCase()) ? String(item.confidence).toUpperCase() : 'LOW' })).filter(item => item.summary).slice(0, 10) : [];
+  const lexicalDisagreements = agreement.disagreements.map(item => ({ topic: 'Possible disagreement', nodes: [item.a, item.b].filter(id => sourceById.has(id)), summary: 'Potential disagreement detected from low textual overlap; semantic verification is unavailable in this fallback.', confidence: 'LOW' }));
+  const consensusClusters = Array.isArray(raw?.consensusClusters) ? raw.consensusClusters.map(item => ({ label: clean(item?.label || 'Shared conclusion', 140), nodes: Array.isArray(item?.nodes) ? item.nodes.filter(id => sourceById.has(id)).slice(0, 12) : [], support: clean(item?.support || item?.summary || 'AI-generated qualitative consensus.', 360) })).filter(item => item.nodes.length >= 2).slice(0, 8) : (agreement.score != null && agreement.score >= 45 && results.length >= 2 ? [{ label: 'Textual consensus cluster', nodes: results.map(result => result.nodeId), support: `Coincidencia textual aproximada del ${agreement.score}%; no equivale a una verificación factual.` }] : []);
+  return {
+    evaluationMethod: 'AI-generated qualitative evaluation', evaluations,
+    bestContributions: Array.isArray(raw?.bestContributions) ? raw.bestContributions.filter(id => sourceById.has(id)).slice(0, 8) : [],
+    problemsDetected: list(raw?.problemsDetected), recommendedInformation: list(raw?.recommendedInformation), unresolvedDisagreements: list(raw?.unresolvedDisagreements), disagreements: disagreements.length ? disagreements : lexicalDisagreements,
+    consensusClusters, confidence: ['HIGH', 'MEDIUM', 'LOW'].includes(String(raw?.confidence).toUpperCase()) ? String(raw.confidence).toUpperCase() : (disagreements.length ? 'MEDIUM' : 'LOW'), sourceCount: results.length,
+  };
+}
+
+function buildJudgeMessages(question, results, agreement) {
+  const evidence = results.map(result => `[${result.nodeId}] ${result.role} · ${result.provider}/${result.model}\n${String(result.text || '').slice(0, MAX_CONTEXT_CHARS)}`).join('\n\n');
+  return [
+    { role: 'system', content: 'You are AI JUDGE inside CUT-REAL AI SUPER. Evaluate only the supplied model outputs. Do not reveal private chain-of-thought. Return ONLY valid JSON with keys evaluations, bestContributions, problemsDetected, recommendedInformation, unresolvedDisagreements, disagreements, consensusClusters, confidence. Scores are qualitative estimates, not objective measurements. If evidence is insufficient, use null and confidence LOW. Do not invent facts.' },
+    { role: 'user', content: `ORIGINAL USER QUESTION:\n${String(question).slice(0, 5000)}\n\nMODEL CONTRIBUTIONS:\n${evidence}\n\nEXISTING TEXTUAL COMPARISON:\n${JSON.stringify(agreement)}\n\nEvaluate the supplied contributions and identify supported consensus or possible conflicts. Return JSON only.` },
+  ];
+}
+
+async function runJudge(question, results, round, finalNode, settings, emit) {
+  const nodeId = 'ai-judge'; const valid = results.filter(result => result.status === 'completed' && result.text && result.role !== 'AI JUDGE');
+  emit({ type: 'JUDGE_STARTED', nodeId, status: 'processing', at: now(), round });
+  if (!valid.length) {
+    const report = normalizeJudgeReport(null, [], { score: null, disagreements: [] });
+    emit({ type: 'JUDGE_SKIPPED', nodeId, status: 'skipped', at: now(), reason: 'No hay contribuciones válidas para evaluar.' });
+    return { nodeId, role: 'AI JUDGE', provider: finalNode?.provider || 'configured provider', model: finalNode?.model || 'configured model', status: 'skipped', text: JSON.stringify(report), judge: report, tokens: 0, latencyMs: 0 };
+  }
+  const item = findKey(settings?.judgeKeyId || finalNode?.keyId, settings?.judgeProvider || finalNode?.provider, settings?.judgeModel || finalNode?.model);
+  if (!item) {
+    const error = { type: 'configuration_error', message: `No hay una SUPER API key habilitada para AI JUDGE (${finalNode?.provider || 'provider'} / ${finalNode?.model || 'model'}).` };
+    emit({ type: 'JUDGE_ERROR', nodeId, status: 'error', error: error.message, errorType: error.type, at: now() });
+    return { nodeId, role: 'AI JUDGE', provider: finalNode?.provider || 'configured provider', model: finalNode?.model || 'configured model', status: 'error', error, latencyMs: 0, retries: 0 };
+  }
+  emit({ type: 'JUDGE_ANALYZING', nodeId, status: 'processing', provider: item.provider, model: item.model, at: now() });
+  const agreement = analyzeAgreement(valid); const maxTokens = Math.min(1800, Math.max(700, Number(settings?.maxTokens) || 900)); const maxRetries = Math.min(2, Math.max(0, Number(settings?.maxRetries) || 1)); const started = now(); let attempt = 0; let response = null;
+  while (attempt <= maxRetries) {
+    response = await callProvider(item, buildJudgeMessages(question, valid, agreement), maxTokens);
+    if (response.ok) break;
+    const retryable = ['rate_limit', 'timeout', 'provider_unavailable', 'network'].includes(response.error?.type);
+    if (!retryable || attempt >= maxRetries) break;
+    attempt += 1; emit({ type: 'JUDGE_RETRYING', nodeId, status: 'retrying', attempt, at: now() });
+  }
+  if (!response?.ok) {
+    const error = response?.error || { type: 'provider_error', message: 'AI Judge no devolvió una evaluación.' };
+    emit({ type: 'JUDGE_ERROR', nodeId, status: 'error', error: error.message, errorType: error.type, at: now() });
+    return { nodeId, role: 'AI JUDGE', provider: item.provider, model: item.model, status: 'error', error, latencyMs: response?.latencyMs || now() - started, retries: attempt };
+  }
+  const report = normalizeJudgeReport(parseLooseJson(response.text), valid, agreement);
+  emit({ type: 'JUDGE_COMPARING', nodeId, status: 'processing', at: now() });
+  emit({ type: 'JUDGE_DETECTING_CONFLICTS', nodeId, status: 'processing', conflicts: report.disagreements.length, at: now() });
+  emit({ type: 'JUDGE_EVALUATING', nodeId, status: 'processing', at: now() });
+  emit({ type: 'JUDGE_COMPLETED', nodeId, status: 'completed', tokens: response.tokens || null, latencyMs: response.latencyMs || now() - started, at: now() });
+  return { nodeId, role: 'AI JUDGE', provider: item.provider, model: item.model, status: 'completed', text: JSON.stringify(report, null, 2), judge: report, tokens: response.tokens || null, promptTokens: response.promptTokens || null, completionTokens: response.completionTokens || null, estimatedCost: item.inputPrice == null || item.outputPrice == null ? null : (Number(response.promptTokens || 0) / 1000) * item.inputPrice + (Number(response.completionTokens || 0) / 1000) * item.outputPrice, latencyMs: response.latencyMs || now() - started, retries: attempt };
+}
+
+const GRAPH_STOP_WORDS = new Set('about after again also aquí alli ante antes bajo been being between como con contra cuando de del desde donde durante el ella ellas ellos en entre era es esta este esto for fue han hasta hay her here him his how i if in into is it its la las le les lo los más me mi mis much my no nos not of on or para pero por que qué se sin so sobre son su sus than that the their them then there these they this to tú un una uno y you your'.split(/\s+/));
+function graphTerms(text) { return String(text || '').match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9][A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_-]{3,}/g)?.map(term => term.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')).filter(term => !GRAPH_STOP_WORDS.has(term) && !/^\d+$/.test(term)) || []; }
+function graphSlug(value) { return String(value || '').toLowerCase().replace(/[^a-z0-9áéíóúüñ]+/gi, '-').replace(/^-|-$/g, '').slice(0, 70) || 'concept'; }
+function buildKnowledgeGraph(question, steps, judge, finalResult) {
+  const modelResults = steps.flatMap(step => (step.results || []).map(result => ({ ...result, round: step.round }))).filter(result => result.status === 'completed' && result.text && result.role !== 'AI JUDGE');
+  const nodes = [{ id: 'user-question', kind: 'question', label: 'USER QUESTION', description: clean(question, 500), sourceModels: [], relatedConcepts: [], conclusions: [], conflicts: [], supportingResponses: [clean(question, 360)], importance: 100, status: 'source' }];
+  const edges = []; const sourceMap = new Map(); const conceptMap = new Map();
+  for (const result of modelResults) {
+    if (!sourceMap.has(result.nodeId)) { sourceMap.set(result.nodeId, { id: `source-${graphSlug(result.nodeId)}`, kind: 'source', label: result.role, description: `${result.provider} / ${result.model}`, sourceModels: [result.nodeId], relatedConcepts: [], conclusions: [], conflicts: [], supportingResponses: [], importance: 45, status: 'completed' }); }
+    const source = sourceMap.get(result.nodeId); source.supportingResponses.push(clean(result.text, 360));
+    const terms = [...new Set(graphTerms(result.text))].slice(0, 32);
+    for (const term of terms) { const concept = conceptMap.get(term) || { id: `concept-${graphSlug(term)}`, kind: 'concept', label: term.toUpperCase(), description: `Concepto extraído de una contribución real del pipeline.`, sourceModels: new Set(), relatedConcepts: new Set(), conclusions: [], conflicts: [], supportingResponses: [], importance: 0, status: 'detected', count: 0, evidence: [] }; concept.count += 1; concept.importance += 4; concept.sourceModels.add(result.nodeId); concept.supportingResponses.push(clean(result.text, 220)); const at = String(result.text).toLowerCase().indexOf(term); concept.evidence.push({ nodeId: result.nodeId, round: result.round, excerpt: clean(at >= 0 ? String(result.text).slice(Math.max(0, at - 60), at + 180) : result.text, 240) }); conceptMap.set(term, concept); }
+    const sourceTerms = terms;
+    for (const term of sourceTerms) { const concept = conceptMap.get(term); edges.push({ id: `edge-${source.id}-${concept.id}-${result.round}`, source: source.id, target: concept.id, type: 'MENTIONS', evidence: `Mencionado por ${result.role} en la ronda ${result.round}.` }); edges.push({ id: `edge-question-${concept.id}`, source: 'user-question', target: concept.id, type: 'LEADS_TO', evidence: 'Concepto derivado del procesamiento de la pregunta.' }); }
+    for (let index = 0; index < Math.min(sourceTerms.length, 10); index += 1) for (let next = index + 1; next < Math.min(sourceTerms.length, 10); next += 1) { const left = conceptMap.get(sourceTerms[index]); const right = conceptMap.get(sourceTerms[next]); left.relatedConcepts.add(right.id); right.relatedConcepts.add(left.id); edges.push({ id: `edge-related-${source.id}-${left.id}-${right.id}-${result.round}`, source: left.id, target: right.id, type: 'RELATED_TO', evidence: `Coaparecen en la contribución de ${result.role}.` }); }
+  }
+  sourceMap.forEach(source => nodes.push({ ...source }));
+  const concepts = [...conceptMap.values()].sort((a, b) => b.count - a.count || b.importance - a.importance).slice(0, 28);
+  concepts.forEach(concept => nodes.push({ ...concept, sourceModels: [...concept.sourceModels], relatedConcepts: [...concept.relatedConcepts], importance: Math.min(99, concept.importance), supportingResponses: concept.supportingResponses.slice(0, 4), evidence: concept.evidence.slice(0, 5) }));
+  const finalText = finalResult?.text || ''; if (finalText) { const finalNode = { id: 'final-answer', kind: 'conclusion', label: 'FINAL ANSWER', description: clean(finalText, 500), sourceModels: [], relatedConcepts: [], conclusions: [clean(finalText, 500)], conflicts: [], supportingResponses: [clean(finalText, 360)], importance: 96, status: 'completed' }; nodes.push(finalNode); concepts.forEach(concept => { if (graphTerms(finalText).includes(concept.id.replace(/^concept-/, ''))) edges.push({ id: `edge-${concept.id}-final`, source: concept.id, target: finalNode.id, type: 'LEADS_TO', evidence: 'El concepto aparece en la respuesta final.' }); }); }
+  if (judge) { const judgeNode = { id: 'ai-judge', kind: 'judge', label: '⚖️ AI JUDGE', description: `${judge.evaluationMethod || 'AI-generated qualitative evaluation'} · confidence ${judge.confidence || 'LOW'}`, sourceModels: (judge.evaluations || []).map(item => item.nodeId).filter(Boolean), relatedConcepts: [], conclusions: [], conflicts: (judge.disagreements || []).map(item => item.summary), supportingResponses: [], importance: 92, status: 'completed' }; nodes.push(judgeNode); sourceMap.forEach(source => edges.push({ id: `edge-${source.id}-ai-judge`, source: source.id, target: 'ai-judge', type: 'LEADS_TO', evidence: 'Contribución real enviada al AI Judge.' })); if (finalText) edges.push({ id: 'edge-ai-judge-final', source: 'ai-judge', target: 'final-answer', type: 'LEADS_TO', evidence: 'Evaluación cualitativa usada por el sintetizador final.' }); }
+  (judge?.disagreements || []).forEach((item, index) => { const conflictId = `conflict-${index + 1}`; nodes.push({ id: conflictId, kind: 'conflict', label: `DISAGREEMENT ${index + 1}`, description: item.summary, sourceModels: item.nodes || [], relatedConcepts: [], conclusions: [], conflicts: [item.summary], supportingResponses: [], importance: 82, status: 'uncertain' }); (item.nodes || []).forEach(sourceId => { const source = sourceMap.get(sourceId); if (source) edges.push({ id: `edge-${source.id}-${conflictId}`, source: source.id, target: conflictId, type: 'CONTRADICTS', evidence: item.summary }); }); });
+  (judge?.consensusClusters || []).forEach((cluster, index) => { const consensusId = `consensus-${index + 1}`; nodes.push({ id: consensusId, kind: 'consensus', label: cluster.label, description: cluster.support, sourceModels: cluster.nodes || [], relatedConcepts: [], conclusions: [cluster.support], conflicts: [], supportingResponses: [], importance: 76, status: 'supported' }); (cluster.nodes || []).forEach(sourceId => { const source = sourceMap.get(sourceId); if (source) edges.push({ id: `edge-${source.id}-${consensusId}`, source: source.id, target: consensusId, type: 'SUPPORTS', evidence: cluster.support }); }); if (finalText) edges.push({ id: `edge-${consensusId}-final`, source: consensusId, target: 'final-answer', type: 'LEADS_TO', evidence: 'Consenso usado como contexto de síntesis.' }); });
+  const uniqueEdges = [...new Map(edges.map(edge => [edge.id, edge])).values()]; return { version: 1, generatedFrom: { rounds: steps.length, contributions: modelResults.length, judge: Boolean(judge) }, nodes, edges: uniqueEdges, stats: { nodes: nodes.length, edges: uniqueEdges.length, concepts: nodes.filter(node => node.kind === 'concept').length, conflicts: nodes.filter(node => node.kind === 'conflict').length, consensus: nodes.filter(node => node.kind === 'consensus').length } };
+}
+
 async function collaborate(body) {
   const question = clean(body?.question, 6000);
   if (!question) throw Object.assign(new Error('La pregunta no puede estar vacía.'), { status: 400 });
@@ -302,18 +400,35 @@ async function collaborate(body) {
     if (Number.isFinite(maxBudget) && maxBudget === 0) break;
     if (spentTokens > Number(body?.maxTokensTotal || 14000)) break;
   }
-  const allResults = steps.flatMap(step => step.results);
-  const agreement = analyzeAgreement(allResults);
-  const finalResult = allResults.filter(result => result.status === 'completed' && result.text).slice(-1)[0];
+  let allResults = steps.flatMap(step => step.results);
+  const modelResults = allResults.filter(result => result.status === 'completed' && result.text && result.role !== 'AI JUDGE');
+  const agreement = analyzeAgreement(modelResults);
+  let finalResult = modelResults.slice(-1)[0];
+  const finalNode = activeNodes.at(-1) || nodes.at(-1);
+  let judgeResult = null;
+  if (modelResults.length) {
+    judgeResult = await runJudge(question, modelResults, rounds, finalNode, body, emit);
+    steps.push({ round: 'JUDGE', mode: 'judge', results: [judgeResult] });
+  }
+  const judgeReport = judgeResult?.judge || normalizeJudgeReport(null, modelResults, agreement);
+  if (judgeResult?.status === 'completed' && finalNode && modelResults.length) {
+    const judgeContext = compressContext(`AI JUDGE REPORT:\n${JSON.stringify(judgeReport, null, 2)}\n\nMODEL CONTRIBUTIONS:\n${modelResults.map(result => `[${result.role}]\\n${result.text}`).join('\\n\\n')}`);
+    const finalResponse = await runNode({ ...finalNode, role: 'FINAL SYNTHESIZER' }, question, previous, rounds, judgeContext, body, emit, body?.fallbackEnabled ? fallbackNode : null, true);
+    steps.push({ round: 'FINAL', mode: 'synthesis', results: [finalResponse] });
+    if (finalResponse.status === 'completed' && finalResponse.text) finalResult = finalResponse;
+    emit({ type: 'AI_SYNTHESIS', nodeId: finalNode.id, status: finalResponse.status === 'completed' ? 'completed' : 'error', at: now() });
+  }
+  allResults = steps.flatMap(step => step.results);
   const failureDetails = allResults.filter(result => result.status === 'error').map(result => `${result.provider || 'proveedor'} / ${result.model || 'modelo'}: ${clean(result.error?.message || 'fallo sin detalle', 260)}`).slice(0, 6);
   const failureMessage = finalResult ? null : failureDetails.length ? `SUPER no pudo completar la sesión. ${failureDetails.join(' | ')}` : 'SUPER no pudo producir una respuesta final válida; revisá la configuración de los nodos.';
   const final = finalResult?.text || synthesis || failureMessage;
   const partialWarning = finalResult && failureDetails.length ? `Síntesis parcial: ${failureDetails.length} proveedor(es) fallaron antes de completar.` : null;
+  const knowledgeGraph = buildKnowledgeGraph(question, steps, judgeReport, finalResult);
   emit({ type: finalResult ? 'PIPELINE_COMPLETED' : 'PIPELINE_FAILED', status: finalResult ? 'completed' : 'error', error: failureMessage || undefined, at: now(), final: Boolean(finalResult) });
   return {
-    ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, consensus: agreement.label, consensusScore: agreement.score, disagreements: agreement.disagreements,
+    ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, judge: judgeReport, knowledgeGraph, consensus: agreement.label, consensusScore: agreement.score, disagreements: [...agreement.disagreements, ...(judgeReport.disagreements || [])],
     metrics: { durationMs: now() - startedAt, totalTokens: allResults.reduce((sum, result) => sum + Number(result.tokens || 0), 0), estimatedCost: allResults.some(result => result.estimatedCost == null) ? null : allResults.reduce((sum, result) => sum + Number(result.estimatedCost || 0), 0), completed: allResults.filter(result => result.status === 'completed').length, failed: allResults.filter(result => result.status === 'error').length, skipped: nodes.length - activeNodes.length },
-    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', partialWarning, failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
+    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', 'AI Judge entrega una evaluación cualitativa; no representa una precisión matemática objetiva.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', partialWarning, failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
   };
 }
 
