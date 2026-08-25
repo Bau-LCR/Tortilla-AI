@@ -45,6 +45,7 @@
     };
 
     // ── CARGA Y SELECCIÓN DE VOZ ─────────────────────────────
+    try { const savedMode = localStorage.getItem('cutreal_loquendo_mode'); if (savedMode && CFG.profiles[savedMode]) { CFG.mode = savedMode; CFG.rate = CFG.profiles[savedMode].rate; CFG.pitch = CFG.profiles[savedMode].pitch; } } catch (_) {}
     function loadVoices() {
         if (!S.synth) return;
         const all = S.synth.getVoices();
@@ -76,6 +77,7 @@
         // Los navegadores cargan las voces de forma asíncrona
         S.synth.addEventListener('voiceschanged', loadVoices);
         loadVoices();
+        [120, 650, 1600].forEach(delay => setTimeout(loadVoices, delay));
     }
 
     // ── LIMPIAR TEXTO ────────────────────────────────────────
@@ -171,10 +173,12 @@
         const estMs = estimateDurationMs(cleanText);
         let finished = false;
         let watchdog = null;
+        let reviveTimer = null;
         const finishSpeech = () => {
             if (finished) return;
             finished = true;
             if (watchdog) clearTimeout(watchdog);
+            if (reviveTimer) clearTimeout(reviveTimer);
             S.isSpeaking = false;
             S.currentUtter = null;
             clearInterval(S._volTimer);
@@ -207,6 +211,8 @@
 
         try { S.synth.resume(); } catch (_) {}
         S.synth.speak(utter);
+        // Algunos navegadores aceptan speak() pero no arrancan la cola hasta reanudarla.
+        reviveTimer = setTimeout(() => { try { if (S.currentUtter === utter && !S.synth.speaking && !S.synth.pending) { S.synth.resume(); S.synth.speak(utter); } } catch (_) {} }, 720);
         // Algunos navegadores dejan la cola en pausa o no emiten onend después de un error.
         watchdog = setTimeout(() => { try { if (S.currentUtter === utter && (!S.synth.speaking || S.synth.paused)) finishSpeech(); } catch (_) { finishSpeech(); } }, Math.max(7000, estMs + 4500));
         setTimeout(() => { try { if (S.isSpeaking && S.synth.paused) S.synth.resume(); } catch (_) {} }, 180);
