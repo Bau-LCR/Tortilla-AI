@@ -9,7 +9,11 @@ const MAX_NODES = 12;
 const MAX_ROUNDS = 5;
 const MAX_OUTPUT_CHARS = 9000;
 const MAX_CONTEXT_CHARS = 16000;
+const MAX_ATTACHMENT_CHARS = 22000;
+const MAX_IMAGE_BASE64_CHARS = 1800000;
 const DEFAULT_TIMEOUT_MS = 45000;
+
+const SUPER_TOOL_BRIEF = `CUT-REAL AI SUPER puede coordinar acciones reales mediante el Workspace y Sandbox existentes. Workspace administra index.html, script.js, style.css y otros archivos con persistencia Firebase y preview aislado. Sandbox puede crearse si no existe, abrir Workspace, ejecutar preview y verificar errores. Las acciones destructivas requieren confirmación en la interfaz. El Chat normal usa Groq por su propia ruta y el Sandbox usa Gemini por su propia ruta; nunca mezcles proveedores, claves, historiales ni herramientas.`;
 
 const json = (res, status, body) => res.status(status).json(body);
 const clean = (value, max = 400) => String(value == null ? '' : value).slice(0, max);
@@ -131,17 +135,40 @@ async function fetchJson(url, options, timeoutMs = DEFAULT_TIMEOUT_MS) {
   } finally { clearTimeout(timer); }
 }
 
-function buildMessages(role, question, previous, round, node, shared, isFinal = false) {
+function normalizeAttachments(input) {
+  if (!Array.isArray(input)) return [];
+  return input.slice(0, 5).map(item => ({
+    type: ['image', 'pdf', 'docx', 'text'].includes(String(item?.type || '').toLowerCase()) ? String(item.type).toLowerCase() : 'text',
+    name: clean(item?.name || 'adjunto', 120),
+    mediaType: clean(item?.mediaType || '', 100),
+    text: clean(item?.text || item?.content || '', MAX_ATTACHMENT_CHARS),
+    data: String(item?.data || '').slice(0, MAX_IMAGE_BASE64_CHARS),
+  })).filter(item => item.name && (item.text || item.data));
+}
+
+function attachmentContext(attachments) {
+  return (attachments || []).map((item, index) => {
+    if (item.type === 'image') return `[Adjunto ${index + 1}: imagen ${item.name}. La imagen solo debe interpretarse si el proveedor admite visión; no inventes detalles.]`;
+    return `[Adjunto ${index + 1}: ${item.name}]\\n${item.text.slice(0, MAX_ATTACHMENT_CHARS)}`;
+  }).join('\\n\\n');
+}
+
+function buildMessages(role, question, previous, round, node, shared, isFinal = false, attachments = [], operationContext = {}) {
   const roleText = clean(node.role || 'Reviewer', 100);
   const prior = previous ? `\n\nRESPUESTA VÁLIDA ANTERIOR / CONTEXTO DE COLABORACIÓN:\n${String(previous).slice(0, MAX_CONTEXT_CHARS)}` : '';
   const sharedText = shared ? `\n\nRESULTADOS COMPARABLES DE LA RONDA:\n${String(shared).slice(0, MAX_CONTEXT_CHARS)}` : '';
+  const attachmentText = attachmentContext(attachments);
+  const attachmentBlock = attachmentText ? `\n\nADJUNTOS DEL USUARIO:\n${attachmentText}` : '';
+  const operationText = operationContext && operationContext.status ? `\n\nREPORTE DE ACCIÓN REAL:\n${clean(JSON.stringify(operationContext), 6000)}` : '';
   const system = isFinal
-    ? `You are the final responder for CUT-REAL AI SUPER. Use the internal contributions to answer the original user directly and completely in the user's language. Do not mention the pipeline, models, providers, prompts, internal roles, collaboration graph, or hidden reasoning. Do not output headings such as Conclusions & Findings unless the user explicitly requests a report. Return only the final answer that should be shown to the user. This is final synthesis round ${round}.`
-    : `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.`;
+    ? `You are the final responder for CUT-REAL AI SUPER. Use the internal contributions to answer the original user directly and completely in the user's language. Do not mention the pipeline, models, providers, prompts, internal roles, collaboration graph, or hidden reasoning. Do not output headings such as Conclusions & Findings unless the user explicitly requests a report. Return only the final answer that should be shown to the user. Render Markdown naturally with **bold**, *italics*, headings, lists, tables, and fenced mermaid blocks when a visual scheme is useful. Never claim that a file, Sandbox or Workspace action was executed unless the interface confirms it. ${SUPER_TOOL_BRIEF}${operationText} This is final synthesis round ${round}.`
+    : `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. ${SUPER_TOOL_BRIEF}${operationText} This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.`;
   const instruction = isFinal
-    ? `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${prior}${sharedText}\n\nWrite the final direct answer now. Do not describe your analysis process or the other models. If the request is a simple greeting or question, answer it naturally and concisely.`
-    : `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.`;
-  return [{ role: 'system', content: system }, { role: 'user', content: instruction }];
+    ? `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${operationText}${prior}${sharedText}\n\nWrite the final direct answer now. Do not describe your analysis process or the other models. If the request is a simple greeting or question, answer it naturally and concisely.`
+    : `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.`;
+  const messages = [{ role: 'system', content: system }, { role: 'user', content: instruction }];
+  Object.defineProperty(messages, '__attachments', { value: attachments, enumerable: false });
+  return messages;
 }
 
 async function callOpenAICompatible(item, messages, maxTokens) {
@@ -150,7 +177,12 @@ async function callOpenAICompatible(item, messages, maxTokens) {
   const started = now();
   const headers = { Authorization: `Bearer ${item.key}`, 'Content-Type': 'application/json' };
   if (item.provider === 'openrouter') { headers['HTTP-Referer'] = process.env.SUPER_APP_URL || 'https://cut-real-ai.vercel.app'; headers['X-Title'] = 'CUT-REAL AI SUPER'; }
-  const result = await fetchJson(endpoint, { method: 'POST', headers, body: JSON.stringify({ model: item.model, messages, temperature: 0.35, max_tokens: maxTokens }) });
+  const attachments = Array.isArray(messages.__attachments) ? messages.__attachments : [];
+  const requestMessages = messages.map(message => {
+    if (message.role !== 'user' || !attachments.some(file => file.type === 'image' && file.data) || !['openai', 'openrouter'].includes(item.provider)) return { role: message.role, content: message.content };
+    return { ...message, content: [{ type: 'text', text: String(message.content || '') }, ...attachments.filter(file => file.type === 'image' && file.data).slice(0, 2).map(file => ({ type: 'image_url', image_url: { url: `data:${file.mediaType || 'image/png'};base64,${file.data}` } }))] };
+  });
+  const result = await fetchJson(endpoint, { method: 'POST', headers, body: JSON.stringify({ model: item.model, messages: requestMessages, temperature: 0.35, max_tokens: maxTokens }) });
   if (!result.response.ok) return { ok: false, error: summarizeError(result.response.status, result.body), latencyMs: now() - started };
   const message = result.body?.choices?.[0]?.message?.content;
   if (!message) return { ok: false, error: { type: 'provider_error', message: 'El proveedor no devolvió contenido.' }, latencyMs: now() - started };
@@ -160,7 +192,8 @@ async function callOpenAICompatible(item, messages, maxTokens) {
 
 async function callGemini(item, messages, maxTokens) {
   const model = encodeURIComponent(item.model);
-  const contents = messages.filter(message => message.role !== 'system').map(message => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: message.content }] }));
+  const attachments = Array.isArray(messages.__attachments) ? messages.__attachments : [];
+  const contents = messages.filter(message => message.role !== 'system').map(message => ({ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(message.content || '') }, ...((message.role === 'user' && attachments.length) ? attachments.filter(file => file.type === 'image' && file.data).slice(0, 2).map(file => ({ inlineData: { mimeType: file.mediaType || 'image/png', data: file.data } })) : [])] }));
   const system = messages.filter(message => message.role === 'system').map(message => message.content).join('\n\n');
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const result = await fetchJson(endpoint, { method: 'POST', headers: { 'x-goog-api-key': item.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens } }) });
@@ -237,7 +270,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
   let attempt = 0; let result = null;
   const maxRetries = Math.min(3, Math.max(0, Number(settings.maxRetries) || 1));
   while (attempt <= maxRetries) {
-    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared, isFinal), maxTokens);
+    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared, isFinal, settings.attachments || [], settings.operationContext || {}), maxTokens);
     if (result.ok) break;
     const retryable = ['rate_limit', 'timeout', 'provider_unavailable', 'network'].includes(result.error?.type);
     if (!retryable || attempt >= maxRetries) break;
@@ -249,7 +282,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
     emit({ type: 'AI_FALLBACK', nodeId: node.id, status: 'retrying', fallback: fallbackNode.id, at: now() });
     const fallbackItem = findKey(fallbackNode.keyId, fallbackNode.provider, fallbackNode.model);
     if (fallbackItem) {
-      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared, isFinal), maxTokens);
+      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared, isFinal, settings.attachments || [], settings.operationContext || {}), maxTokens);
       if (result.ok) { node = { ...node, provider: fallbackNode.provider, model: fallbackNode.model }; }
     }
   }
@@ -360,9 +393,43 @@ function buildKnowledgeGraph(question, steps, judge, finalResult) {
   const uniqueEdges = [...new Map(edges.map(edge => [edge.id, edge])).values()]; return { version: 1, generatedFrom: { rounds: steps.length, contributions: modelResults.length, judge: Boolean(judge) }, nodes, edges: uniqueEdges, stats: { nodes: nodes.length, edges: uniqueEdges.length, concepts: nodes.filter(node => node.kind === 'concept').length, conflicts: nodes.filter(node => node.kind === 'conflict').length, consensus: nodes.filter(node => node.kind === 'consensus').length } };
 }
 
+function normalizeWorkspacePlan(raw) {
+  const plan = raw && typeof raw === 'object' ? raw : {};
+  const cleanPath = value => clean(value, 140).replace(/^\/+/, '').replace(/\\/g, '/');
+  const safePath = value => { const path = cleanPath(value); return path && !path.includes('..') && !path.startsWith('.') && !/[<>"'`]/.test(path) ? path : ''; };
+  const files = Array.isArray(plan.files) ? plan.files.slice(0, 12).map(file => ({ path: safePath(file?.path), content: clean(file?.content || '', 120000) })).filter(file => file.path && typeof file.content === 'string') : [];
+  const deletePaths = Array.isArray(plan.deletePaths) ? plan.deletePaths.slice(0, 12).map(safePath).filter(Boolean) : [];
+  const renames = Array.isArray(plan.renames) ? plan.renames.slice(0, 8).map(item => ({ path: safePath(item?.path), newPath: safePath(item?.newPath) })).filter(item => item.path && item.newPath) : [];
+  return { intent: ['workspace', 'sandbox', 'none'].includes(plan.intent) ? plan.intent : 'workspace', summary: clean(plan.summary || 'Plan de Workspace generado por SUPER.', 500), files, deletePaths, renames, runPreview: plan.runPreview !== false, needsSandbox: plan.needsSandbox !== false, destructive: Boolean(deletePaths.length || renames.length), warnings: Array.isArray(plan.warnings) ? plan.warnings.map(item => clean(item, 260)).slice(0, 8) : [] };
+}
+
+function buildWorkspacePlanMessages(question, workspaceContext, sandboxContext, attachments = []) {
+  const context = clean(JSON.stringify({ workspace: workspaceContext || {}, sandbox: sandboxContext || {}, attachments: attachments.map(item => ({ type: item.type, name: item.name, text: item.text?.slice(0, 3500) })) }), 18000);
+  return [
+    { role: 'system', content: `You are the Workspace action planner for CUT-REAL AI SUPER. ${SUPER_TOOL_BRIEF} Return ONLY valid JSON with this exact shape: {"intent":"workspace|sandbox|none","summary":"short Spanish summary","files":[{"path":"index.html","content":"complete file content"}],"deletePaths":[],"renames":[],"runPreview":true,"needsSandbox":true,"warnings":[]}. For a web project, preserve or create index.html, script.js and style.css when requested. Return complete file contents, not patches. Never include API keys, credentials or secrets. Do not delete or rename anything unless the user explicitly requests it. If the request is not an actual file or Sandbox operation, return intent none and files [].` },
+    { role: 'user', content: `USER REQUEST:\n${String(question || '').slice(0, 6000)}\n\nCURRENT CONTEXT:\n${context}\n\nCreate the safest real-action plan now.` },
+  ];
+}
+
+async function workspacePlan(body) {
+  const question = clean(body?.question, 6000);
+  if (!question) throw Object.assign(new Error('La solicitud de Workspace no puede estar vacía.'), { status: 400 });
+  const attachments = normalizeAttachments(body?.attachments);
+  const configured = configuredKeys().filter(item => item.enabled);
+  const requestedProvider = normalizeProvider(body?.provider || body?.judgeProvider || '');
+  const item = findKey(body?.keyId, requestedProvider, body?.model) || configured[0];
+  if (!item) return { ok: false, intent: 'none', error: 'No hay una SUPER API key habilitada para planificar acciones de Workspace.' };
+  const response = await callProvider(item, buildWorkspacePlanMessages(question, body?.workspaceContext, body?.sandboxContext, attachments), Math.min(1800, Math.max(700, Number(body?.maxTokens) || 1400)));
+  if (!response.ok) return { ok: false, intent: 'none', provider: item.provider, model: item.model, error: response.error?.message || 'No se pudo generar el plan de Workspace.', errorType: response.error?.type || 'provider_error' };
+  const plan = normalizeWorkspacePlan(parseLooseJson(response.text));
+  return { ok: true, ...plan, provider: item.provider, model: item.model, tokens: response.tokens || null, latencyMs: response.latencyMs || 0 };
+}
+
 async function collaborate(body) {
   const question = clean(body?.question, 6000);
   if (!question) throw Object.assign(new Error('La pregunta no puede estar vacía.'), { status: 400 });
+  const attachments = normalizeAttachments(body?.attachments);
+  const executionSettings = { ...body, attachments, operationContext: body.operationContext || body.actionContext || {} };
   const nodes = normalizeNodes(body?.nodes);
   if (nodes.length < 2) throw Object.assign(new Error('CUT-REAL AI SUPER requiere al menos 2 modelos habilitados.'), { status: 400 });
   const mode = ['sequential', 'parallel', 'hybrid'].includes(body?.mode) ? body.mode : 'sequential';
@@ -379,15 +446,15 @@ async function collaborate(body) {
     const synthesisNode = activeNodes.length > 2 ? activeNodes.at(-1) : null;
     const contributors = synthesisNode ? activeNodes.slice(0, -1) : activeNodes;
     if (mode === 'parallel' || (mode === 'hybrid' && round === 1)) {
-      const parallelResults = await Promise.all(contributors.map(node => runNode(node, question, previous, round, shared, body, emit, body?.fallbackEnabled ? fallbackNode : null)));
+      const parallelResults = await Promise.all(contributors.map(node => runNode(node, question, previous, round, shared, executionSettings, emit, body?.fallbackEnabled ? fallbackNode : null)));
       results.push(...parallelResults);
       if (synthesisNode) {
         const synthesisContext = compressContext(parallelResults.filter(result => result.text).map(result => `[${result.role}]\\n${result.text}`).join('\\n\\n'));
-        results.push(await runNode({ ...synthesisNode, role: synthesisNode.role || 'FINAL SYNTHESIZER' }, question, previous, round, synthesisContext, body, emit, body?.fallbackEnabled ? fallbackNode : null, true));
+        results.push(await runNode({ ...synthesisNode, role: synthesisNode.role || 'FINAL SYNTHESIZER' }, question, previous, round, synthesisContext, executionSettings, emit, body?.fallbackEnabled ? fallbackNode : null, true));
         emit({ type: 'AI_SYNTHESIS', nodeId: synthesisNode.id, status: 'completed', at: now() });
       }
     } else {
-      for (const [index, node] of activeNodes.entries()) results.push(await runNode(node, question, previous, round, shared, body, emit, body?.fallbackEnabled ? fallbackNode : null, index === activeNodes.length - 1));
+      for (const [index, node] of activeNodes.entries()) results.push(await runNode(node, question, previous, round, shared, executionSettings, emit, body?.fallbackEnabled ? fallbackNode : null, index === activeNodes.length - 1));
     }
     const valid = results.filter(result => result.status === 'completed' && result.text);
     steps.push({ round, mode, results });
@@ -413,7 +480,7 @@ async function collaborate(body) {
   const judgeReport = judgeResult?.judge || normalizeJudgeReport(null, modelResults, agreement);
   if (judgeResult?.status === 'completed' && finalNode && modelResults.length) {
     const judgeContext = compressContext(`AI JUDGE REPORT:\n${JSON.stringify(judgeReport, null, 2)}\n\nMODEL CONTRIBUTIONS:\n${modelResults.map(result => `[${result.role}]\\n${result.text}`).join('\\n\\n')}`);
-    const finalResponse = await runNode({ ...finalNode, role: 'FINAL SYNTHESIZER' }, question, previous, rounds, judgeContext, body, emit, body?.fallbackEnabled ? fallbackNode : null, true);
+    const finalResponse = await runNode({ ...finalNode, role: 'FINAL SYNTHESIZER' }, question, previous, rounds, judgeContext, executionSettings, emit, body?.fallbackEnabled ? fallbackNode : null, true);
     steps.push({ round: 'FINAL', mode: 'synthesis', results: [finalResponse] });
     if (finalResponse.status === 'completed' && finalResponse.text) finalResult = finalResponse;
     emit({ type: 'AI_SYNTHESIS', nodeId: finalNode.id, status: finalResponse.status === 'completed' ? 'completed' : 'error', at: now() });
@@ -427,6 +494,8 @@ async function collaborate(body) {
   emit({ type: finalResult ? 'PIPELINE_COMPLETED' : 'PIPELINE_FAILED', status: finalResult ? 'completed' : 'error', error: failureMessage || undefined, at: now(), final: Boolean(finalResult) });
   return {
     ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, judge: judgeReport, knowledgeGraph, consensus: agreement.label, consensusScore: agreement.score, disagreements: [...agreement.disagreements, ...(judgeReport.disagreements || [])],
+    attachmentSummary: attachments.map(item => ({ type: item.type, name: item.name, mediaType: item.mediaType || undefined, hasContent: Boolean(item.text || item.data) })),
+    toolAwareness: { workspace: true, sandbox: true, firebasePersistence: true, destructiveActionsRequireConfirmation: true, controlEnabledByDefault: false },
     metrics: { durationMs: now() - startedAt, totalTokens: allResults.reduce((sum, result) => sum + Number(result.tokens || 0), 0), estimatedCost: allResults.some(result => result.estimatedCost == null) ? null : allResults.reduce((sum, result) => sum + Number(result.estimatedCost || 0), 0), completed: allResults.filter(result => result.status === 'completed').length, failed: allResults.filter(result => result.status === 'error').length, skipped: nodes.length - activeNodes.length },
     warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', 'AI Judge entrega una evaluación cualitativa; no representa una precisión matemática objetiva.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', partialWarning, failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
   };
@@ -441,6 +510,7 @@ export default async function handler(req, res) {
   const body = req.body || {};
   try {
     if (body.action === 'test-connection') return json(res, 200, await testConnection(body));
+    if (body.action === 'workspace-plan') return json(res, 200, await workspacePlan(body));
     if (body.action === 'collaborate') return json(res, 200, await collaborate(body));
     return json(res, 400, { error: 'Acción SUPER no reconocida.' });
   } catch (error) {
