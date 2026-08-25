@@ -1610,11 +1610,12 @@
     } else if (userText && !decision.assistantText) {
       logAction('⚠️ El modelo respondió sin texto ni tools; se reintentará con la tool visual forzada si corresponde.');
     }
+    const toolResults = [];
     for (const call of toolCalls) {
       const toolEl = $('sandbox-current-tool');
       if (toolEl) toolEl.textContent = '⚙ ' + call.name;
-      try { await executeTool(call.name, call.args); }
-      catch (e) { logAction(`⚠️ Herramienta "${call.name}" falló: ${e.message}`); }
+      try { const result = await executeTool(call.name, call.args); toolResults.push({ name: call.name, result }); if (result?.ok === false) logAction(`⚠️ Herramienta "${call.name}" devolvió un resultado no válido.`); }
+      catch (e) { toolResults.push({ name: call.name, error: e.message }); logAction(`⚠️ Herramienta "${call.name}" falló: ${e.message}`); }
     }
     const toolEl = $('sandbox-current-tool'); if (toolEl) toolEl.textContent = '';
 
@@ -1623,6 +1624,7 @@
     }
     scheduleSave();
     if (userText) setStatus('idle');
+    return { ok: toolResults.every(item => !item.error && item.result?.ok !== false), assistantText: decision.assistantText || null, toolCalls, toolResults, decision };
   }
 
   let autonomyTimer = null;
@@ -1899,6 +1901,24 @@
     runOneStep(text);
   }
 
+  async function ensureSandboxForAgent() {
+    if (!currentUser) throw new Error('Iniciá sesión para crear un Sandbox.');
+    await openSandboxPanel();
+    if (!sandboxId) await createSandbox();
+    if (!sandboxId) throw new Error('No se pudo abrir o crear un Sandbox.');
+    return { ok: true, sandboxId, created: Boolean(sandboxId) };
+  }
+
+  async function runWorkspaceTask(userText) {
+    if (!currentUser) throw new Error('Iniciá sesión para construir el proyecto web.');
+    await openSandboxPanel();
+    if (!sandboxId) { await createSandbox(); }
+    if (!sandboxId) throw new Error('No se pudo abrir o crear un Sandbox para el Workspace.');
+    if (window.CutRealWorkspace?.open) await window.CutRealWorkspace.open();
+    pushMessage('user', userText);
+    return runOneStep(userText);
+  }
+
   // ============================================================
   //  AUTH HOOK (llamado desde main.js)
   // ============================================================
@@ -2021,6 +2041,9 @@
     setChatVisible,
     getCurrentSandboxId: () => sandboxId,
     getCurrentUser: () => currentUser,
+    runWorkspaceTask,
+    ensureSandbox: ensureSandboxForAgent,
+    pushAgentMessage: (text) => { pushMessage('agent', sanitizeText(text, 700)); return { ok: true }; },
   };
   window.openSandbox  = openSandboxPanel;
   window.closeSandbox = closeSandboxPanel;
