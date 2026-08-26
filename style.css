@@ -5184,3 +5184,52 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
     .admin-stat-list .admin-stat { align-items: flex-start; flex-direction: column; gap: 3px; }
     .admin-stat-list .admin-stat b { text-align: left; }
 }
+
+/* ================================================================
+   SUPER 2.0 MISSION CONTROL — incremental visual layer
+   ================================================================ */
+.super-mission-card, .super-control-room-card { border-color: rgba(116, 143, 255, .24); background: linear-gradient(145deg, rgba(13, 30, 53, .92), rgba(6, 13, 27, .96)); }
+.super-mission-state, .super-action-mode { display: inline-flex; align-items: center; min-height: 23px; padding: 4px 8px; border: 1px solid rgba(104, 224, 206, .35); border-radius: 999px; color: #8fe7d5; font-size: 9px; font-weight: 800; letter-spacing: .45px; white-space: nowrap; }
+.super-mission-card .super-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.super-specialist-network { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 32px; margin-top: 9px; }
+.super-specialist-caption { width: 100%; color: #7591a7; font: 8px/1.35 ui-monospace, monospace; letter-spacing: .5px; }
+.super-specialist-chip { display: inline-flex; align-items: center; min-height: 27px; padding: 5px 8px; border: 1px solid rgba(113, 216, 255, .27); border-radius: 8px; color: #b9ecff; background: rgba(32, 111, 167, .14); font-size: 10px; font-weight: 700; }
+.super-mission-availability { margin-top: 10px; padding: 9px 10px; border-left: 2px solid #ffb36b; color: #f8cc99; background: rgba(255, 153, 83, .07); font: 9px/1.45 ui-monospace, monospace; }
+.super-mission-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.super-mission-actions button { min-height: 34px; padding: 7px 9px; border: 1px solid rgba(108, 189, 255, .25); border-radius: 8px; color: #bceaff; background: rgba(31, 88, 136, .18); font-size: 10px; font-weight: 700; }
+.super-mission-actions button:hover { border-color: #65ccff; background: rgba(31, 118, 178, .3); }
+.super-notification-center { display: grid; gap: 5px; max-height: 130px; overflow-y: auto; margin-top: 10px; }
+.super-notification-item { display: flex; gap: 7px; padding: 7px 8px; border: 1px solid rgba(113, 216, 255, .12); border-radius: 7px; color: #cdefff; background: rgba(8, 27, 50, .62); font-size: 10px; }
+.super-notification-item time { flex: 0 0 auto; color: #7eb3cc; font: 9px ui-monospace, monospace; }
+.super-control-room-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.super-control-room-row { display: grid; grid-template-columns: 9px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 7px; padding: 8px; border: 1px solid rgba(122, 156, 215, .15); border-radius: 8px; background: rgba(255,255,255,.025); }
+.super-control-room-row .super-control-room-dot { grid-row: 1 / span 2; align-self: center; width: 8px; height: 8px; border-radius: 50%; background: #6d8191; box-shadow: 0 0 9px currentColor; }
+.super-control-room-row strong { overflow: hidden; color: #d5edf6; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.super-control-room-row small { color: #88aabd; font: 8px ui-monospace, monospace; }
+.super-dot-completed { background: #54e6b0 !important; }
+.super-dot-processing { background: #4bd8e8 !important; }
+.super-dot-error { background: #ff6c83 !important; }
+.super-dot-retrying { background: #ffae62 !important; }
+.super-dot-paused { background: #ffd36b !important; }
+.super-mission-comparison { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 11px; }
+.super-mission-comparison > strong { grid-column: 1 / -1; color: #9fe9ff; font: 9px ui-monospace, monospace; letter-spacing: .6px; }
+.super-mission-comparison article { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px; border: 1px solid rgba(162, 117, 255, .18); border-radius: 8px; background: rgba(99, 50, 145, .1); }
+.super-mission-comparison article b { color: #dcb8ff; font: 10px ui-monospace, monospace; }
+.super-mission-comparison article span { overflow: hidden; color: #d9e9f0; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.super-mission-comparison article small { color: #8fa8b9; font-size: 8px; line-height: 1.35; }
+.super-node-config[draggable="true"] { cursor: grab; }
+.super-node-config[draggable="true"]:active { cursor: grabbing; }
+.super-node-config.is-dragging { opacity: .42; border-color: #64d5ff; }
+.super-node-config.is-drag-over { border-color: #b875ff; box-shadow: 0 0 0 2px rgba(184,117,255,.18); }
+.super-attachment-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+.super-attachment-chip button { min-width: 22px; min-height: 22px; padding: 1px 4px; border: 1px solid rgba(112, 202, 255, .2); border-radius: 5px; color: #9fdfff; background: rgba(20, 74, 113, .3); font-size: 10px; }
+.super-attachment-chip button:disabled { opacity: .35; cursor: not-allowed; }
+.super-attachment-chip button:last-child { color: #ff9fbb; }
+@media (max-width: 760px) {
+  .super-mission-card .super-control-grid { grid-template-columns: 1fr; }
+  .super-control-room-list, .super-mission-comparison { grid-template-columns: 1fr; }
+  .super-mission-comparison > strong { margin-top: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .super-node-config, .super-mission-actions button { transition: none !important; }
+}
