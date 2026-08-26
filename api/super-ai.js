@@ -153,19 +153,20 @@ function attachmentContext(attachments) {
   }).join('\\n\\n');
 }
 
-function buildMessages(role, question, previous, round, node, shared, isFinal = false, attachments = [], operationContext = {}) {
+function buildMessages(role, question, previous, round, node, shared, isFinal = false, attachments = [], operationContext = {}, missionSettings = {}) {
   const roleText = clean(node.role || 'Reviewer', 100);
   const prior = previous ? `\n\nRESPUESTA VÁLIDA ANTERIOR / CONTEXTO DE COLABORACIÓN:\n${String(previous).slice(0, MAX_CONTEXT_CHARS)}` : '';
   const sharedText = shared ? `\n\nRESULTADOS COMPARABLES DE LA RONDA:\n${String(shared).slice(0, MAX_CONTEXT_CHARS)}` : '';
   const attachmentText = attachmentContext(attachments);
   const attachmentBlock = attachmentText ? `\n\nADJUNTOS DEL USUARIO:\n${attachmentText}` : '';
+  const missionContext = missionSettings?.missionContext && typeof missionSettings.missionContext === 'object' ? `\n\nMISSION CONTEXT:\n${clean(JSON.stringify(missionSettings.missionContext), 7000)}` : '';
   const operationText = operationContext && operationContext.status ? `\n\nREPORTE DE ACCIÓN REAL:\n${clean(JSON.stringify(operationContext), 6000)}` : '';
   const system = isFinal
-    ? `You are the final responder for CUT-REAL AI SUPER. Use the internal contributions to answer the original user directly and completely in the user's language. Do not mention the pipeline, models, providers, prompts, internal roles, collaboration graph, or hidden reasoning. Do not output headings such as Conclusions & Findings unless the user explicitly requests a report. Return only the final answer that should be shown to the user. Render Markdown naturally with **bold**, *italics*, headings, lists, tables, and fenced mermaid blocks when a visual scheme is useful. Never claim that a file, Sandbox or Workspace action was executed unless the interface confirms it. ${SUPER_TOOL_BRIEF}${operationText} This is final synthesis round ${round}.`
-    : `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. ${SUPER_TOOL_BRIEF}${operationText} This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.`;
+    ? `You are the final responder for CUT-REAL AI SUPER. Use the internal contributions to answer the original user directly and completely in the user's language. Do not mention the pipeline, models, providers, prompts, internal roles, collaboration graph, or hidden reasoning. Do not output headings such as Conclusions & Findings unless the user explicitly requests a report. Return only the final answer that should be shown to the user. Render Markdown naturally with **bold**, *italics*, headings, lists, tables, and fenced mermaid blocks when a visual scheme is useful. Never claim that a file, Sandbox or Workspace action was executed unless the interface confirms it. ${SUPER_TOOL_BRIEF}${missionContext}${operationText} This is final synthesis round ${round}.`
+    : `You are ${roleText} in CUT-REAL AI SUPER, a multi-model collaborative intelligence pipeline. You are not the final responder. Analyze, criticize, correct, improve, and provide evidence for the next model. Do not reveal private chain-of-thought or hidden reasoning; return only conclusions, findings, corrections, uncertainties, and an improved answer. ${SUPER_TOOL_BRIEF}${missionContext}${operationText} This is feedback round ${round}. Your provider/model identity is ${node.provider || 'configured provider'} / ${node.model || 'configured model'}.`;
   const instruction = isFinal
-    ? `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${operationText}${prior}${sharedText}\n\nWrite the final direct answer now. Do not describe your analysis process or the other models. If the request is a simple greeting or question, answer it naturally and concisely.`
-    : `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.`;
+    ? `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${missionContext}${operationText}${prior}${sharedText}\n\nWrite the final direct answer now. Do not describe your analysis process or the other models. If the request is a simple greeting or question, answer it naturally and concisely.`
+    : `ORIGINAL USER REQUEST:\n${String(question).slice(0, 5000)}${attachmentBlock}${missionContext}${prior}${sharedText}\n\nProduce a useful, self-contained contribution for the next stage. Avoid copying without adding verifiable improvement.`;
   const messages = [{ role: 'system', content: system }, { role: 'user', content: instruction }];
   Object.defineProperty(messages, '__attachments', { value: attachments, enumerable: false });
   return messages;
@@ -270,7 +271,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
   let attempt = 0; let result = null;
   const maxRetries = Math.min(3, Math.max(0, Number(settings.maxRetries) || 1));
   while (attempt <= maxRetries) {
-    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared, isFinal, settings.attachments || [], settings.operationContext || {}), maxTokens);
+    result = await callProvider(item, buildMessages(activeNode.role, question, previous, round, activeNode, shared, isFinal, settings.attachments || [], settings.operationContext || {}, settings), maxTokens);
     if (result.ok) break;
     const retryable = ['rate_limit', 'timeout', 'provider_unavailable', 'network'].includes(result.error?.type);
     if (!retryable || attempt >= maxRetries) break;
@@ -282,7 +283,7 @@ async function runNode(node, question, previous, round, shared, settings, emit, 
     emit({ type: 'AI_FALLBACK', nodeId: node.id, status: 'retrying', fallback: fallbackNode.id, at: now() });
     const fallbackItem = findKey(fallbackNode.keyId, fallbackNode.provider, fallbackNode.model);
     if (fallbackItem) {
-      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared, isFinal, settings.attachments || [], settings.operationContext || {}), maxTokens);
+      result = await callProvider(fallbackItem, buildMessages(node.role, question, previous, round, { ...node, provider: fallbackNode.provider, model: fallbackNode.model }, shared, isFinal, settings.attachments || [], settings.operationContext || {}, settings), maxTokens);
       if (result.ok) { node = { ...node, provider: fallbackNode.provider, model: fallbackNode.model }; }
     }
   }
@@ -493,11 +494,11 @@ async function collaborate(body) {
   const knowledgeGraph = buildKnowledgeGraph(question, steps, judgeReport, finalResult);
   emit({ type: finalResult ? 'PIPELINE_COMPLETED' : 'PIPELINE_FAILED', status: finalResult ? 'completed' : 'error', error: failureMessage || undefined, at: now(), final: Boolean(finalResult) });
   return {
-    ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, judge: judgeReport, knowledgeGraph, consensus: agreement.label, consensusScore: agreement.score, disagreements: [...agreement.disagreements, ...(judgeReport.disagreements || [])],
+    ok: Boolean(finalResult), error: failureMessage, failureDetails, mode, rounds, final, steps, events, judge: judgeReport, knowledgeGraph, mission: body.missionContext || null, consensus: agreement.label, consensusScore: agreement.score, disagreements: [...agreement.disagreements, ...(judgeReport.disagreements || [])],
     attachmentSummary: attachments.map(item => ({ type: item.type, name: item.name, mediaType: item.mediaType || undefined, hasContent: Boolean(item.text || item.data) })),
     toolAwareness: { workspace: true, sandbox: true, firebasePersistence: true, destructiveActionsRequireConfirmation: true, controlEnabledByDefault: false },
     metrics: { durationMs: now() - startedAt, totalTokens: allResults.reduce((sum, result) => sum + Number(result.tokens || 0), 0), estimatedCost: allResults.some(result => result.estimatedCost == null) ? null : allResults.reduce((sum, result) => sum + Number(result.estimatedCost || 0), 0), completed: allResults.filter(result => result.status === 'completed').length, failed: allResults.filter(result => result.status === 'error').length, skipped: nodes.length - activeNodes.length },
-    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', 'AI Judge entrega una evaluación cualitativa; no representa una precisión matemática objetiva.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', partialWarning, failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
+    warnings: ['La salida no incluye streaming simulado ni razonamiento privado.', 'AI Judge entrega una evaluación cualitativa; no representa una precisión matemática objetiva.', maxBudget == null ? 'Cost unavailable: no hay precios configurados para todas las SUPER keys.' : 'El presupuesto se controla por configuración declarada; el coste real depende del proveedor.', body.missionContext?.capabilities?.video === false ? 'VIDEO GENERATION NOT AVAILABLE: no hay un proveedor de video conectado en esta instalación.' : null, partialWarning, failureMessage ? 'Revisá proveedor, modelo, SUPER key ID, cuota y permisos de las APIs.' : null].filter(Boolean),
   };
 }
 
