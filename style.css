@@ -5715,3 +5715,44 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
   .nexus-globe-reference { justify-content: flex-start; }
   .nexus-globe-reference > span { max-width: 100%; overflow-wrap: anywhere; }
 }
+
+
+/* CUT-REAL NEXUS interaction patch — appended incrementally */
+.nexus-sound-toggle {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(93, 212, 220, .46);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(8, 34, 48, .96), rgba(5, 16, 25, .96));
+  color: #bdfdf4;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: border-color .18s ease, color .18s ease, background .18s ease, transform .18s ease;
+}
+.nexus-sound-toggle:hover,
+.nexus-sound-toggle:focus-visible {
+  border-color: #8ef8e6;
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(15, 74, 83, .98), rgba(8, 29, 41, .98));
+  outline: 2px solid rgba(142, 248, 230, .28);
+  outline-offset: 2px;
+}
+.nexus-sound-toggle:active { transform: translateY(1px) scale(.98); }
+.nexus-sound-toggle[data-tone="off"] { border-color: rgba(150, 174, 183, .36); color: #9dafb5; background: rgba(8, 16, 23, .9); }
+.nexus-map-canvas,
+.nexus-globe-stage canvas,
+.nexus-globe-fallback { cursor: crosshair; touch-action: none; }
+.nexus-globe-stage .nexus-globe-reference { pointer-events: none; user-select: none; }
+.nexus-map-canvas:active,
+.nexus-globe-stage canvas:active { cursor: grabbing; }
+@media (max-width: 680px) {
+  .nexus-top-actions { gap: 6px; }
+  .nexus-sound-toggle { min-height: 32px; padding: 0 8px; font-size: 9px; }
+}
+@media (max-width: 430px) {
+  .nexus-top-actions .nexus-status { max-width: 124px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nexus-sound-toggle { min-width: 0; width: 38px; padding: 0; overflow: hidden; text-indent: -9999px; position: relative; }
+  .nexus-sound-toggle::after { content: '◉'; position: absolute; inset: 0; display: grid; place-items: center; text-indent: 0; font-size: 11px; }
+  .nexus-sound-toggle[data-tone="off"]::after { content: '×'; }
+}
