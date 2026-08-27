@@ -91,7 +91,7 @@
     document.body.classList.toggle('super-view-active', state.open);
     if (state.open) { loadConfig(); loadHistory(); renderAll(); loadProviders(); setTimeout(resizeMap, 40); }
   }
-  function open() { setOpen(true); }
+  function open() { window.CutRealNexus?.close?.(); setOpen(true); }
   function close() { if (state.running) { notify('La sesión SUPER sigue activa; cancelala antes de salir.', '#ffae62'); return; } setOpen(false); }
 
   function providerLabel(provider) { return String(provider || '').toUpperCase(); }
