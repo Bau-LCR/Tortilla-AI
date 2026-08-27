@@ -5433,3 +5433,36 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
   .super-panel-title small { text-align: left; }
 }
 /* End SUPER Intelligence Core */
+
+
+/* SUPER RESPONSE EXPORT CENTER */
+.super-export-center { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid rgba(91, 194, 230, .28); border-radius: 12px; background: linear-gradient(145deg, rgba(8, 38, 58, .72), rgba(5, 17, 32, .76)); overflow: hidden; }
+.super-export-center * { min-width: 0; }
+.super-export-center-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.super-export-center-head > div { display: grid; gap: 3px; }
+.super-export-center-head strong { color: #dcfbff; font: 800 12px/1.25 Inter, system-ui, sans-serif; }
+.super-export-detected { max-width: 52%; color: #7ee7ca; font: 800 8px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: right; overflow-wrap: anywhere; }
+.super-export-help { margin: 0; color: #91b4c3; font: 500 10px/1.45 Inter, system-ui, sans-serif; overflow-wrap: anywhere; }
+.super-export-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.super-export-picker label { display: grid; gap: 5px; color: #9dc8d4; font: 800 9px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
+.super-export-picker select { width: 100%; min-height: 40px; border: 1px solid rgba(90, 184, 224, .35); border-radius: 8px; padding: 9px 10px; background: #071a2b; color: #e7fbff; font: 700 10px/1.2 Inter, system-ui, sans-serif; }
+.super-export-picker button,
+.super-export-buttons button { min-height: 40px; border: 1px solid rgba(106, 224, 205, .34); border-radius: 8px; padding: 9px 10px; background: linear-gradient(135deg, rgba(15, 98, 120, .7), rgba(44, 66, 140, .68)); color: #e8ffff; font: 800 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; transition: .2s ease; }
+.super-export-picker button:hover:not(:disabled),
+.super-export-picker button:focus-visible,
+.super-export-buttons button:hover:not(:disabled),
+.super-export-buttons button:focus-visible { border-color: #72f1d5; box-shadow: 0 0 0 2px rgba(114, 241, 213, .13); transform: translateY(-1px); }
+.super-export-picker button:disabled,
+.super-export-buttons button:disabled { cursor: not-allowed; opacity: .42; filter: saturate(.5); }
+.super-export-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.super-export-buttons button { min-width: 0; padding-inline: 6px; }
+.super-export-status { min-height: 30px; display: flex; align-items: center; border-left: 3px solid #55ddc0; padding: 7px 9px; background: rgba(11, 49, 65, .45); color: #a8c9d1; font: 700 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+@media (min-width: 640px) {
+  .super-export-picker { grid-template-columns: minmax(0, 1fr) minmax(190px, .72fr); align-items: end; }
+}
+@media (max-width: 380px) {
+  .super-export-center-head { flex-direction: column; }
+  .super-export-detected { max-width: 100%; text-align: left; }
+  .super-export-buttons { grid-template-columns: 1fr; }
+}
+/* End SUPER RESPONSE EXPORT CENTER */
