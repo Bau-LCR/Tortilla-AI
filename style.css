@@ -5544,4 +5544,93 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
 }
 /* NEXUS visibility guard: hidden must win over layout display declarations. */
 #nexus-entry[hidden], #nexus-shell[hidden] { display: none !important; }
+
+/* CUT-REAL control deck: formal, futuristic and touch-friendly refinement. */
+.side-controls {
+  top: 10px; right: 14px; z-index: 1100; width: min(430px, calc(100vw - 28px)); max-width: calc(100vw - 28px);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 8px;
+  border: 1px solid rgba(72, 169, 255, .28); border-radius: 12px;
+  background: linear-gradient(145deg, rgba(3, 12, 19, .94), rgba(8, 21, 30, .86));
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .38), inset 0 1px rgba(255, 255, 255, .06);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.side-controls::before {
+  content: 'CUT-REAL // SESSION CONTROL'; grid-column: 1 / -1; padding: 1px 4px 3px;
+  color: #6f9baa; font: 800 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em;
+}
+.side-controls > select { grid-column: 1 / -1; width: 100%; min-width: 0; }
+.side-controls > button, .side-controls > select {
+  position: relative; min-width: 0; min-height: 36px; box-sizing: border-box; overflow: hidden;
+  border: 1px solid rgba(126, 161, 177, .28); border-radius: 7px; padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(16, 32, 43, .92), rgba(5, 15, 23, .92)); color: #c9e1e8;
+  font: 800 9px/1.1 Inter, system-ui, sans-serif; letter-spacing: .02em; white-space: nowrap;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .045), 0 4px 12px rgba(0, 0, 0, .18);
+  transition: border-color .18s ease, color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.side-controls > select { padding-right: 28px; color: #dffbff; cursor: pointer; }
+.side-controls > button::after, .side-controls > select::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 15%, rgba(255, 255, 255, .16) 48%, transparent 80%);
+  transform: translateX(-120%); transition: opacity .18s ease, transform .34s ease;
+}
+.side-controls > button:hover::after { opacity: 1; transform: translateX(120%); }
+.side-controls > button:hover, .side-controls > button:focus-visible, .side-controls > select:hover, .side-controls > select:focus-visible {
+  border-color: #63dec8; color: #f2ffff; background: linear-gradient(135deg, rgba(22, 62, 76, .98), rgba(15, 42, 66, .96));
+  box-shadow: 0 0 0 2px rgba(99, 222, 200, .12), 0 8px 22px rgba(23, 133, 157, .18); transform: translateY(-1px);
+}
+.side-controls > button:active { transform: scale(.97); }
+.side-controls > button:disabled { opacity: .44; filter: saturate(.55); cursor: not-allowed; transform: none; }
+#admin-btn { border-color: rgba(72, 169, 255, .62); color: #83bdff; background: linear-gradient(135deg, rgba(24, 75, 124, .74), rgba(9, 33, 57, .96)); }
+#admin-btn:hover, #admin-btn:focus-visible { border-color: #9bcaff; box-shadow: 0 0 0 2px rgba(72, 169, 255, .16), 0 0 24px rgba(72, 169, 255, .22); }
+#sandbox-btn { border-color: rgba(80, 223, 159, .56); color: #8af1be; background: linear-gradient(135deg, rgba(15, 82, 67, .72), rgba(7, 36, 36, .96)); }
+#sandbox-btn:hover, #sandbox-btn:focus-visible { border-color: #8af1be; box-shadow: 0 0 0 2px rgba(80, 223, 159, .13), 0 0 24px rgba(80, 223, 159, .18); }
+#super-open-btn { border-color: rgba(72, 169, 255, .74); color: #d9eeff; background: linear-gradient(135deg, rgba(28, 92, 148, .9), rgba(14, 43, 79, .96)); }
+#super-open-btn:hover, #super-open-btn:focus-visible { border-color: #9ad1ff; box-shadow: 0 0 0 2px rgba(72, 169, 255, .16), 0 0 26px rgba(72, 169, 255, .24); }
+#nexus-open-btn { border-color: rgba(99, 222, 200, .74); color: #e2ffff; background: linear-gradient(135deg, rgba(22, 91, 93, .9), rgba(12, 44, 60, .96)); }
+#nexus-open-btn:hover, #nexus-open-btn:focus-visible { border-color: #a4ffea; box-shadow: 0 0 0 2px rgba(99, 222, 200, .16), 0 0 26px rgba(99, 222, 200, .24); }
+#logout-btn, #resetChat { color: #adc0c6; }
+#loquendo-toggle, #loquendo-stop { min-width: 42px; padding-inline: 8px; color: #a8e7ff; border-color: rgba(72, 169, 255, .42); }
+
+/* NEXUS layer rows read and behave as compact tactile controls. */
+.nexus-layer-row {
+  position: relative; min-height: 39px; box-sizing: border-box; border: 1px solid rgba(93, 145, 163, .16);
+  border-left-width: 3px; border-radius: 6px; padding: 6px 7px; background: linear-gradient(110deg, rgba(13, 38, 49, .82), rgba(7, 21, 29, .74));
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.nexus-layer-row:hover, .nexus-layer-row:focus-within { border-color: rgba(116, 242, 210, .62); background: linear-gradient(110deg, rgba(19, 58, 67, .94), rgba(8, 28, 39, .9)); box-shadow: 0 0 0 2px rgba(116, 242, 210, .08), 0 7px 16px rgba(0, 0, 0, .2); transform: translateX(1px); }
+.nexus-layer-row input { appearance: none; -webkit-appearance: none; display: grid; place-content: center; width: 18px; height: 18px; margin: 0; border: 1px solid rgba(142, 189, 202, .64); border-radius: 4px; background: rgba(1, 9, 14, .86); cursor: pointer; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.nexus-layer-row input::before { content: ''; width: 8px; height: 4px; border-left: 2px solid #031015; border-bottom: 2px solid #031015; transform: rotate(-45deg) scale(0); transition: transform .14s ease; }
+.nexus-layer-row input:checked { border-color: #74f2d2; background: #74f2d2; box-shadow: 0 0 10px rgba(116, 242, 210, .4); }
+.nexus-layer-row input:checked::before { transform: rotate(-45deg) scale(1); }
+.nexus-layer-row input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.nexus-layer-row span { min-width: 0; color: #e2f9fc; font-size: 8px; line-height: 1.2; letter-spacing: .03em; overflow-wrap: anywhere; }
+.nexus-layer-row small { max-width: 76px; color: #83aeb8; font-size: 6.5px; line-height: 1.15; text-align: right; overflow-wrap: anywhere; }
+.nexus-layer-blue input:checked { background: #48a9ff; border-color: #48a9ff; box-shadow: 0 0 10px rgba(72, 169, 255, .42); }
+.nexus-layer-green input:checked { background: #50df9f; border-color: #50df9f; box-shadow: 0 0 10px rgba(80, 223, 159, .42); }
+.nexus-layer-white input:checked { background: #eefaff; border-color: #eefaff; box-shadow: 0 0 10px rgba(238, 250, 255, .36); }
+.nexus-layer-red input:checked { background: #ff5b62; border-color: #ff5b62; box-shadow: 0 0 10px rgba(255, 91, 98, .42); }
+.nexus-panel button:not(:disabled), .nexus-primary-btn:not(:disabled) { min-height: 38px; }
+.nexus-panel button:active, .nexus-primary-btn:active { transform: scale(.97); }
+
+@media (min-width: 800px) {
+  .side-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(520px, calc(100vw - 32px)); max-width: calc(100vw - 32px); }
+  .side-controls::before, .side-controls > select { grid-column: 1 / -1; }
+  #loquendo-toggle, #loquendo-stop { min-width: 0; }
+}
+@media (max-width: 520px) {
+  .side-controls { top: 7px; right: 7px; width: min(292px, calc(100vw - 14px)); max-width: calc(100vw - 14px); gap: 5px; padding: 6px; border-radius: 10px; }
+  .side-controls > button, .side-controls > select { min-height: 34px; padding: 7px 8px; font-size: 8px; }
+  .side-controls::before { font-size: 6px; }
+  .nexus-layer-row { min-height: 42px; grid-template-columns: 18px minmax(0, 1fr) minmax(48px, auto); gap: 6px; }
+  .nexus-layer-row small { max-width: 62px; font-size: 6px; }
+}
+@media (max-width: 360px) {
+  .side-controls { width: calc(100vw - 12px); max-width: calc(100vw - 12px); right: 6px; top: 6px; grid-template-columns: 1fr; }
+  .side-controls::before, .side-controls > select { grid-column: 1; }
+  .side-controls > button { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .side-controls > button, .side-controls > select, .nexus-layer-row, .nexus-layer-row input, .nexus-panel button { transition: none; }
+  .side-controls > button::after { display: none; }
+}
 /* End CUT-REAL NEXUS */
