@@ -2,7 +2,7 @@
 // Datos públicos y legítimos únicamente. No realiza escaneos ni accede a sistemas privados.
 // NEXUS no consume GROQ_API_KEY, GEMINI_API_KEY ni SUPER_AI_*.
 
-const DEFAULT_TIMEOUT_MS = 12000;
+const DEFAULT_TIMEOUT_MS = 6000;
 const DEFAULT_SOURCE = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle';
 const FALLBACK_SOURCE = 'https://www.amsat.org/tle/dailytle.txt';
 const DATASETS = {
@@ -39,28 +39,31 @@ function parseTle(text, source) {
 }
 
 async function fetchPublicTle(candidates, timeout) {
-  let lastError = null;
-  for (const candidate of [...new Set(candidates.filter(Boolean))]) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(candidate, { signal: controller.signal, headers: { Accept: 'text/plain', 'User-Agent': 'CUT-REAL-NEXUS/1.0 public-TLE-observatory' } });
-      if (response.ok) return { response, source: candidate };
-      lastError = new Error(`HTTP ${response.status}`);
-    } catch (error) {
-      lastError = error;
-    } finally {
-      clearTimeout(timer);
-    }
+  const uniqueCandidates = [...new Set(candidates.filter(Boolean))];
+  const controllers = uniqueCandidates.map(() => new AbortController());
+  let winner = -1;
+  const timer = setTimeout(() => controllers.forEach(controller => controller.abort()), timeout);
+  try {
+    const requests = uniqueCandidates.map((candidate, index) => fetch(candidate, { signal: controllers[index].signal, headers: { Accept: 'text/plain', 'User-Agent': 'CUT-REAL-NEXUS/1.0 public-TLE-observatory' } }).then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      winner = index;
+      return { response, source: candidate };
+    }));
+    return await Promise.any(requests);
+  } catch (error) {
+    const errors = Array.isArray(error?.errors) ? error.errors : [];
+    throw errors.find(item => item?.name === 'AbortError') || errors[0] || error || new Error('DATA SOURCE UNAVAILABLE');
+  } finally {
+    clearTimeout(timer);
+    controllers.forEach((controller, index) => { if (index !== winner) controller.abort(); });
   }
-  throw lastError || new Error('DATA SOURCE UNAVAILABLE');
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { ok: false, error: 'METHOD NOT ALLOWED' });
   const dataset = String(req.query?.dataset || 'satellites').toLowerCase();
   const source = DATASETS[dataset] || DATASETS.satellites;
-  const timeout = Math.max(3000, Math.min(20000, Number(process.env.NEXUS_DATA_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS));
+  const timeout = Math.max(2500, Math.min(8000, Number(process.env.NEXUS_DATA_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS));
   res.setHeader?.('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
   try {
     const candidates = [source, source === DEFAULT_SOURCE ? FALLBACK_SOURCE : DEFAULT_SOURCE];
