@@ -40,4 +40,5 @@ export default async function handler(req, res) {
   } catch (error) {
     return json(res, 200, { ok: false, error: error?.name === 'AbortError' ? 'NEXUS AI · TIMEOUT' : 'NEXUS AI · UNAVAILABLE' });
   }
+  
 }
