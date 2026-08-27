@@ -5699,3 +5699,19 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
 @media (max-width: 520px) {
   .side-controls.is-collapsed { width: 46px !important; min-width: 46px !important; max-width: 46px !important; }
 }
+
+
+/* NEXUS cartography layer refinement · appended only. */
+.nexus-reference-country { background: #bfefff; box-shadow: 0 0 7px rgba(191, 239, 255, .62); }
+.nexus-map-reference [data-nexus-cartography-status], .nexus-globe-reference [data-nexus-cartography-status] { color: #bfefff; border: 1px solid rgba(191, 239, 255, .26); border-radius: 999px; padding: 3px 6px; background: rgba(4, 20, 29, .78); }
+.nexus-globe-stage { isolation: isolate; background: radial-gradient(circle at 50% 48%, rgba(23, 102, 142, .2), transparent 34%), linear-gradient(160deg, rgba(2, 11, 18, .98), rgba(1, 4, 8, .98)); }
+.nexus-globe-stage > canvas:not(.nexus-globe-fallback) { filter: saturate(1.16) contrast(1.08); }
+.nexus-globe-reference { text-shadow: 0 1px 8px rgba(0, 0, 0, .9); }
+.nexus-globe-reference > span { padding: 3px 5px; border-radius: 4px; background: rgba(1, 8, 13, .52); }
+.nexus-globe-reference > span:last-child { border-color: rgba(113, 232, 208, .3); }
+.nexus-source-card:has(b:first-child) { min-width: 0; }
+@media (max-width: 520px) {
+  .nexus-map-reference [data-nexus-cartography-status], .nexus-globe-reference [data-nexus-cartography-status] { padding: 2px 5px; font-size: 5.5px; }
+  .nexus-globe-reference { justify-content: flex-start; }
+  .nexus-globe-reference > span { max-width: 100%; overflow-wrap: anywhere; }
+}
