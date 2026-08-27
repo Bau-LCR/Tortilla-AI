@@ -5634,3 +5634,68 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
   .side-controls > button::after { display: none; }
 }
 /* End CUT-REAL NEXUS */
+
+
+/* CUT-REAL NEXUS refinement: isolated controls, visual references and responsive GEO AI. */
+.side-controls { position: fixed; overflow: visible; padding-top: 30px; transition: width .2s ease, max-width .2s ease, padding .2s ease, background .2s ease, box-shadow .2s ease; }
+#controls-collapse-btn { position: absolute !important; top: 6px; right: 6px; z-index: 4; display: grid !important; place-items: center; width: 25px; min-width: 25px !important; height: 23px; min-height: 23px !important; padding: 0 !important; border-radius: 6px; color: #a9e9ff; border-color: rgba(113, 232, 208, .6); background: linear-gradient(135deg, rgba(18, 74, 91, .98), rgba(8, 31, 48, .98)); font-size: 13px !important; line-height: 1; }
+#controls-collapse-btn:hover, #controls-collapse-btn:focus-visible { color: #ffffff; border-color: #ffffff; box-shadow: 0 0 0 2px rgba(116, 242, 210, .16), 0 0 18px rgba(72, 169, 255, .3); transform: none !important; }
+.side-controls.is-collapsed { display: block; width: 48px; max-width: 48px; min-height: 35px; padding: 6px 8px; }
+.side-controls.is-collapsed::before { display: block; padding: 0; content: 'CTRL'; color: #8ddfce; font-size: 7px; line-height: 22px; text-align: left; }
+.side-controls.is-collapsed > :not(#controls-collapse-btn) { display: none !important; }
+.side-controls.is-collapsed #controls-collapse-btn { top: 6px; right: 6px; }
+#nexus-map-canvas[hidden], #nexus-globe-stage[hidden] { display: none !important; }
+.nexus-visual-reference { position: absolute; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; pointer-events: none; color: #8fb7c1; font: 800 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .03em; }
+.nexus-map-reference { right: 55px; bottom: 28px; left: 10px; justify-content: center; }
+.nexus-visual-reference span, .nexus-globe-reference > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.nexus-reference-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 7px currentColor; }
+.nexus-reference-blue { color: #48a9ff; background: #48a9ff; }
+.nexus-reference-line { display: inline-block; width: 12px; height: 2px; background: #71e8d0; box-shadow: 0 0 6px rgba(113, 232, 208, .55); }
+.nexus-reference-cross { display: inline-grid; place-items: center; width: 10px; height: 10px; color: #ffffff; border: 1px solid #ffffff; border-radius: 50%; font-size: 10px; line-height: 1; }
+.nexus-globe-stage { position: relative; }
+.nexus-globe-stage canvas.nexus-globe-fallback { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.nexus-globe-reference { position: absolute; inset: 10px; z-index: 3; display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: space-between; gap: 6px 12px; pointer-events: none; color: #a9cbd3; font: 800 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.nexus-globe-reference > span:last-child { margin-left: auto; color: #71e8d0; }
+.nexus-globe-compass { display: inline-flex; gap: 3px; color: #ffffff; }
+.nexus-globe-compass b { color: #71e8d0; font-size: 11px; }
+.nexus-permission-actions [data-nexus-permission-cancel] { min-height: 42px; border: 1px solid rgba(172, 196, 204, .65); border-radius: 7px; background: linear-gradient(135deg, rgba(20, 33, 40, .98), rgba(8, 16, 22, .98)); color: #eafaff; font: 800 10px/1 Inter, system-ui, sans-serif; letter-spacing: .04em; box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 5px 16px rgba(0, 0, 0, .22); }
+.nexus-permission-actions [data-nexus-permission-cancel]:hover, .nexus-permission-actions [data-nexus-permission-cancel]:focus-visible { border-color: #ffffff; background: linear-gradient(135deg, rgba(56, 76, 84, .98), rgba(20, 34, 42, .98)); color: #ffffff; box-shadow: 0 0 0 2px rgba(255, 255, 255, .12), 0 0 20px rgba(154, 203, 219, .2); }
+#nexus-ai-section { overflow: hidden; border-color: rgba(80, 223, 159, .28); background: linear-gradient(145deg, rgba(4, 19, 28, .96), rgba(4, 12, 19, .96)); }
+#nexus-ai-section::before { content: ''; display: block; height: 2px; margin: -9px -9px 10px; background: linear-gradient(90deg, #50df9f, #48a9ff, transparent); box-shadow: 0 0 14px rgba(80, 223, 159, .28); }
+#nexus-ai-section .nexus-panel-heading { align-items: flex-start; }
+#nexus-ai-section .nexus-panel-heading strong { color: #f0ffff; font-size: 15px; letter-spacing: -.01em; }
+#nexus-ai-section .nexus-ai-note { margin: 8px 0 10px; padding: 9px 10px; border-left: 2px solid #50df9f; background: rgba(16, 58, 55, .3); color: #b7d8dc; font: 500 10px/1.45 Inter, system-ui, sans-serif; }
+.nexus-ai-context-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.nexus-ai-context-strip > div { min-width: 0; padding: 8px; border: 1px solid rgba(80, 223, 159, .2); border-radius: 6px; background: rgba(6, 29, 34, .62); }
+.nexus-ai-context-strip span, .nexus-ai-context-strip b { display: block; overflow-wrap: anywhere; }
+.nexus-ai-context-strip span { color: #79b8af; font: 800 7px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+.nexus-ai-context-strip b { margin-top: 4px; color: #eaffff; font: 800 8px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#nexus-ai-section .nexus-ai-prompts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 9px; }
+#nexus-ai-section .nexus-ai-prompts button { min-width: 0; min-height: 40px; padding: 7px 8px; border: 1px solid rgba(80, 223, 159, .42); border-radius: 6px; background: linear-gradient(135deg, rgba(10, 48, 52, .88), rgba(5, 23, 31, .94)); color: #a9f4df; font: 800 8px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; text-align: left; overflow-wrap: anywhere; }
+#nexus-ai-section .nexus-ai-prompts button:hover, #nexus-ai-section .nexus-ai-prompts button:focus-visible { border-color: #71e8d0; color: #ffffff; background: linear-gradient(135deg, rgba(19, 77, 75, .96), rgba(10, 42, 57, .96)); box-shadow: 0 0 0 2px rgba(113, 232, 208, .12), 0 0 18px rgba(80, 223, 159, .18); }
+#nexus-ai-section #nexus-ai-input { display: block; width: 100%; min-height: 92px; box-sizing: border-box; margin: 0 0 8px; padding: 11px; border: 1px solid rgba(72, 169, 255, .4); border-radius: 7px; background: rgba(1, 9, 15, .94); color: #ecffff; font: 600 11px/1.45 Inter, system-ui, sans-serif; resize: vertical; }
+#nexus-ai-section #nexus-ai-ask { width: 100%; min-height: 42px; border-color: rgba(72, 169, 255, .66); background: linear-gradient(135deg, rgba(24, 86, 130, .94), rgba(10, 42, 67, .98)); color: #ffffff; font-size: 10px; letter-spacing: .05em; }
+#nexus-ai-section #nexus-ai-output { min-height: 52px; margin-top: 9px; border-color: rgba(80, 223, 159, .3); border-radius: 7px; background: rgba(2, 14, 21, .82); }
+@media (max-width: 520px) {
+  .side-controls { padding-top: 28px; }
+  .side-controls.is-collapsed { width: 46px; max-width: 46px; }
+  .nexus-map-reference { right: 52px; bottom: 30px; left: 8px; gap: 5px 7px; font-size: 6px; }
+  .nexus-globe-reference { inset: 8px; gap: 5px 8px; font-size: 6px; }
+  .nexus-ai-context-strip { grid-template-columns: 1fr; gap: 5px; }
+  .nexus-ai-context-strip > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 5px; padding: 7px; }
+  .nexus-ai-context-strip b { margin-top: 0; }
+  #nexus-ai-section .nexus-ai-prompts { grid-template-columns: 1fr; }
+  #nexus-ai-section .nexus-ai-prompts button { min-height: 38px; }
+  .nexus-permission-card { padding: 15px; }
+  .nexus-permission-card h3 { font-size: 17px; }
+}
+@media (max-width: 360px) {
+  .nexus-map-reference { position: static; justify-content: flex-start; padding: 6px 8px 8px; }
+  .nexus-globe-reference { position: static; padding: 6px 8px 8px; }
+}
+
+/* Final collapsed-control priority: the closed deck must not reserve the expanded width. */
+.side-controls.is-collapsed { width: 48px !important; min-width: 48px !important; max-width: 48px !important; }
+@media (max-width: 520px) {
+  .side-controls.is-collapsed { width: 46px !important; min-width: 46px !important; max-width: 46px !important; }
+}
