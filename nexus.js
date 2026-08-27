@@ -121,3 +121,4 @@
   window.CutRealNexus = { open, close, initialize, refreshSatellites: loadSatellites, getState: () => ({ open: state.open, initialized: state.initialized, satellites: state.satellites.length, locationPermission: state.locationPermission, live: state.live, view: state.view }) };
   document.addEventListener('DOMContentLoaded', bindUI);
 })();
+
