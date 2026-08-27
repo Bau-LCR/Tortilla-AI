@@ -5542,4 +5542,6 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
 @media (max-width: 520px) {
   .nexus-topbar { align-items: flex-start; }.nexus-status { display: none; }.nexus-brand h1 { font-size: 15px; }.nexus-brand p { font-size: 7px; }.nexus-shell { padding: 7px; }.nexus-panel { padding: 9px; }.nexus-map-heading { display: grid; }.nexus-map-actions { justify-content: flex-start; }.nexus-search-row { grid-template-columns: 1fr; }.nexus-object-grid, .nexus-source-list, .nexus-settings-grid, .nexus-privacy-grid { grid-template-columns: 1fr; }.nexus-visual-stage, #nexus-map-canvas, .nexus-globe-stage { min-height: 390px; height: 58vh; }.nexus-hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }.nexus-entry h2 { letter-spacing: .08em; }.nexus-permission-actions { display: grid; grid-template-columns: 1fr 1fr; }.nexus-permission-actions button { min-height: 42px; }
 }
+/* NEXUS visibility guard: hidden must win over layout display declarations. */
+#nexus-entry[hidden], #nexus-shell[hidden] { display: none !important; }
 /* End CUT-REAL NEXUS */
