@@ -5756,3 +5756,34 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
   .nexus-sound-toggle::after { content: '◉'; position: absolute; inset: 0; display: grid; place-items: center; text-indent: 0; font-size: 11px; }
   .nexus-sound-toggle[data-tone="off"]::after { content: '×'; }
 }
+
+
+/* NEXUS geographic detail layers · appended incrementally */
+.nexus-map-reference [data-nexus-geography-status],
+.nexus-globe-reference [data-nexus-geography-status] {
+  color: #a8f4d9;
+  border: 1px solid rgba(80, 223, 159, .38);
+  border-radius: 999px;
+  padding: 3px 6px;
+  background: rgba(4, 25, 25, .78);
+}
+.nexus-map-reference [data-nexus-geography-status][data-tone="loading"],
+.nexus-globe-reference [data-nexus-geography-status][data-tone="loading"] {
+  color: #ffe4a6;
+  border-color: rgba(255, 205, 112, .4);
+}
+.nexus-geography-source { border-color: rgba(80, 223, 159, .28); }
+.nexus-geography-source small { overflow-wrap: anywhere; }
+.nexus-floating-controls button[aria-label="Acercar"],
+.nexus-floating-controls button[aria-label="Alejar"] {
+  min-width: 38px;
+  min-height: 38px;
+  font-size: 18px;
+  line-height: 1;
+}
+@media (max-width: 520px) {
+  .nexus-map-reference [data-nexus-geography-status],
+  .nexus-globe-reference [data-nexus-geography-status] { padding: 2px 5px; font-size: 5.5px; }
+  .nexus-floating-controls button[aria-label="Acercar"],
+  .nexus-floating-controls button[aria-label="Alejar"] { min-width: 36px; min-height: 36px; }
+}
