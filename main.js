@@ -45,6 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let lastAssistantResponse = '';
     let voiceCallActive = false;
     let voiceCallBusy = false;
+    let voiceRecognitionHandled = false;
     let voiceRecognition = null;
     let voiceRecognitionStarting = false;
     let voiceRecognitionError = false;
@@ -1085,14 +1086,19 @@ function createAiActionBtns(respuestaIA, intent) {
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) return null;
         const recognition = new Recognition();
-        recognition.lang = getVoiceRecognitionLanguage(); recognition.continuous = false; recognition.interimResults = false; recognition.maxAlternatives = 1;
-        recognition.onstart = () => { voiceRecognitionStarting = false; setVoiceCallStatus('Escuchando…', true); };
+        recognition.lang = getVoiceRecognitionLanguage(); recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 3;
+        recognition.onstart = () => { voiceRecognitionStarting = false; voiceRecognitionHandled = false; startVoiceInputMeter(); setVoiceCallStatus('Escuchando…', true); };
         recognition.onresult = event => {
-            const phrase = event.results?.[0]?.[0]?.transcript?.trim();
-            if (!phrase || !voiceCallActive || voiceCallMuted) return;
-            voiceCallBusy = true; voiceNoSpeechRetries = 0;
-            input.value = phrase;
+            if (!voiceCallActive || voiceCallMuted || voiceRecognitionHandled) return;
+            const results = Array.from(event.results || []);
+            const finalResult = results.filter(result => result.isFinal).pop();
+            const phrase = (finalResult?.[0]?.transcript || results.at(-1)?.[0]?.transcript || '').trim();
+            if (!phrase) return;
             setVoiceCallTranscript(`Tú: ${phrase}`);
+            // Esperar el resultado final evita enviar frases parciales o duplicadas.
+            if (!finalResult) { setVoiceCallStatus(`Escuchando: ${phrase.slice(0, 42)}${phrase.length > 42 ? '…' : ''}`, true); return; }
+            voiceRecognitionHandled = true; voiceCallBusy = true; voiceNoSpeechRetries = 0;
+            input.value = phrase;
             setVoiceCallStatus(`Procesando: ${phrase.slice(0, 34)}${phrase.length > 34 ? '…' : ''}`, true);
             try { recognition.stop(); } catch (_) {}
             sendMessage();
@@ -1139,7 +1145,7 @@ function createAiActionBtns(respuestaIA, intent) {
         if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return false; }
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return false; }
-        voiceCallActive = true; voiceCallBusy = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
+        voiceCallActive = true; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
         if (window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
         setVoiceCallTranscript('La conversación aparecerá aquí.');
         setVoiceCallModal(true);
@@ -1151,7 +1157,7 @@ function createAiActionBtns(respuestaIA, intent) {
     }
 
     function stopVoiceCall() {
-        voiceCallActive = false; voiceCallBusy = false; voiceRecognitionStarting = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false;
+        voiceCallActive = false; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionStarting = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false;
         try { voiceRecognition?.stop(); } catch (_) {}
         stopVoiceInputMeter();
         if (window.LoquendoStop) window.LoquendoStop();
