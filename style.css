@@ -5864,3 +5864,46 @@ body.chat-focus-mode #side-controls { opacity: .18; pointer-events: none; transf
 .super-loading::after, .super-loader::after, .nexus-loading::after, .nexus-entry.is-initializing::after { content:""; position:absolute; inset:0; background:linear-gradient(105deg, transparent 35%, rgba(78,151,255,.16) 50%, transparent 65%); transform:translateX(-100%); animation:cutrealLoaderSweep 1.8s ease-in-out infinite; pointer-events:none; }
 @keyframes cutrealLoaderSweep { 100% { transform:translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { #splash-screen::before, #splash-screen::after, .splash-logo, .super-loading::after, .super-loader::after, .nexus-loading::after, .nexus-entry.is-initializing::after { animation:none; } }
+
+
+/* ================================================================
+   RANDAR ADVANCED · CYBER INTELLIGENCE HUD
+   ================================================================ */
+#randar-advanced-dock { position:relative; z-index:30; width:min(1180px,calc(100vw - 28px)); margin:12px auto 24px; color:#dff8ff; background:linear-gradient(145deg,rgba(4,12,24,.96),rgba(5,20,31,.91)); border:1px solid rgba(48,210,255,.34); border-radius:18px; box-shadow:0 0 0 1px rgba(70,255,190,.06),0 20px 70px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.08); overflow:hidden; }
+#randar-advanced-dock::before { content:""; display:block; height:2px; background:linear-gradient(90deg,#48a9ff,#50df9f,#fff,#ff405d,#48a9ff); background-size:220% 100%; animation:randarHudLine 5s linear infinite; }
+@keyframes randarHudLine { to { background-position:220% 0; } }
+.randar-advanced-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:18px 20px 12px; background:radial-gradient(circle at 8% 0%,rgba(72,169,255,.15),transparent 42%); }
+.randar-advanced-head h3 { margin:4px 0 2px; font-size:20px; letter-spacing:.02em; }
+.randar-advanced-head p { margin:0; color:#7fa8b8; font-size:12px; }
+.randar-advanced-kicker { color:#50df9f; font-size:10px; letter-spacing:.15em; font-weight:700; }
+#randar-advanced-close { border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.04); color:#dff8ff; border-radius:9px; width:34px; height:34px; cursor:pointer; font-size:22px; }
+.randar-advanced-tabs { display:flex; gap:6px; padding:0 16px 12px; overflow-x:auto; scrollbar-width:thin; }
+.randar-advanced-tabs button,.randar-advanced-btn { border:1px solid rgba(72,169,255,.25); background:rgba(18,59,90,.4); color:#b9eaff; border-radius:8px; padding:9px 11px; font:600 10px/1.1 Inter,sans-serif; letter-spacing:.06em; cursor:pointer; transition:transform .16s ease,background .16s ease,border-color .16s ease; white-space:nowrap; }
+.randar-advanced-tabs button:hover,.randar-advanced-btn:hover { transform:translateY(-1px); border-color:#50df9f; background:rgba(30,120,130,.35); }
+.randar-advanced-tabs button.active { color:#07141d; background:#50df9f; border-color:#50df9f; }
+.randar-advanced-content { padding:0 16px 18px; }
+.randar-command-panel,.randar-inspector,.randar-time-panel,.randar-workspace-panel,.randar-report-panel,.randar-topology-wrap { border:1px solid rgba(72,169,255,.18); border-radius:13px; padding:16px; background:rgba(0,0,0,.2); }
+.randar-command-panel label,.randar-report-panel label,.randar-workspace-panel label,.randar-time-panel label { display:grid; gap:6px; color:#8cc8d8; font-size:11px; letter-spacing:.05em; }
+.randar-command-row { display:flex; gap:8px; margin-top:8px; }
+.randar-command-row input,.randar-report-panel input,.randar-workspace-panel input,.randar-time-panel input { min-width:0; width:100%; border:1px solid rgba(72,169,255,.28); border-radius:8px; padding:10px 11px; background:#06111d; color:#e5fbff; outline:none; }
+.randar-command-row input:focus,.randar-report-panel input:focus,.randar-workspace-panel input:focus,.randar-time-panel input:focus { border-color:#50df9f; box-shadow:0 0 0 3px rgba(80,223,159,.12); }
+.randar-command-row > button { border:0; border-radius:8px; padding:0 14px; background:#50df9f; color:#031218; font-weight:800; cursor:pointer; }
+.randar-help,.randar-command-output,.randar-time-readout small,.randar-workspace-panel p,.randar-report-panel p { color:#83aeb9; font-size:11px; line-height:1.55; }
+.randar-command-output { margin-top:12px; padding:10px; border-left:2px solid #50df9f; background:rgba(80,223,159,.06); }
+.randar-quick-grid,.randar-report-actions,.randar-time-buttons { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.randar-advanced-btn.primary { border-color:#50df9f; background:linear-gradient(135deg,#50df9f,#48a9ff); color:#02121b; }
+.randar-inspector-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.randar-inspector h4 { margin:4px 0 0; font-size:16px; color:#fff; }
+.randar-confidence-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:14px 0; }
+.randar-confidence-grid span { display:grid; gap:5px; border:1px solid rgba(72,169,255,.16); padding:10px; border-radius:9px; color:#7da5b4; font-size:9px; }
+.randar-confidence-grid strong { color:#50df9f; font-size:11px; overflow-wrap:anywhere; }
+.randar-detail-list { display:grid; grid-template-columns:150px minmax(0,1fr); gap:8px 14px; margin:0; font-size:11px; }
+.randar-detail-list dt { color:#70a4b5; }.randar-detail-list dd { margin:0; color:#dff8ff; overflow-wrap:anywhere; }
+#randar-topology-canvas { display:block; width:100%; height:330px; margin-top:12px; background:radial-gradient(circle at center,rgba(29,99,130,.16),transparent 58%),#03101b; border-radius:10px; }
+.randar-topology-meta { display:flex; justify-content:space-between; gap:12px; align-items:center; color:#8cb5c1; font-size:11px; }.randar-topology-meta b { color:#50df9f; }
+.randar-time-readout { display:grid; gap:5px; margin-bottom:14px; }.randar-time-readout span { color:#50df9f; font-size:10px; letter-spacing:.13em; }.randar-time-readout strong { font-size:18px; color:#fff; }
+.randar-time-results,.randar-report-panel pre { margin-top:14px; padding:12px; border-radius:9px; background:#020a11; color:#9bd8e5; font:11px/1.55 ui-monospace,SFMono-Regular,monospace; white-space:pre-wrap; overflow:auto; }
+.randar-layer-list { display:grid; gap:7px; margin-top:12px; }.randar-layer-list label { display:flex; align-items:center; gap:8px; }.randar-workspace-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }.randar-workspace-list button { border:1px solid rgba(80,223,159,.3); background:rgba(80,223,159,.06); color:#b6f8df; padding:7px 9px; border-radius:7px; cursor:pointer; }
+.randar-empty { padding:22px; text-align:center; color:#8badb7; border:1px dashed rgba(72,169,255,.25); border-radius:10px; }.randar-empty b { color:#50df9f; }
+@media (max-width:720px) { #randar-advanced-dock { width:100%; margin:8px 0 18px; border-radius:16px 16px 0 0; position:relative; } .randar-advanced-head { padding:15px 14px 10px; }.randar-advanced-head h3 { font-size:17px; }.randar-advanced-tabs { padding:0 12px 10px; }.randar-advanced-content { padding:0 10px 13px; }.randar-command-row { flex-direction:column; }.randar-command-row > button { min-height:40px; }.randar-confidence-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.randar-detail-list { grid-template-columns:1fr; gap:4px; }.randar-detail-list dd { margin-bottom:7px; }.randar-topology-meta { align-items:flex-start; flex-direction:column; }.randar-advanced-open { width:100%; margin-top:8px; } }
+@media (prefers-reduced-motion:reduce) { #randar-advanced-dock::before { animation:none; } }
