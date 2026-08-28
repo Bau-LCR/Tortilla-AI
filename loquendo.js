@@ -17,6 +17,9 @@
         // española disponible del navegador; nunca se ofrece como otra opción.
         profiles: {
             loquendo: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
+            // Alias interno histórico: no se muestra como opción ni se ofrece en la interfaz.
+            narrator: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
+            natural: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
         },
         // Preferencias de voz, buscando primero las más parecidas a Loquendo
         voicePrefs: [
