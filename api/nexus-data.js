@@ -9,6 +9,7 @@ const DATASETS = {
   satellites: process.env.NEXUS_CELESTRAK_URL || DEFAULT_SOURCE,
   stations: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle',
   weather: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=weather&FORMAT=tle',
+  navigation: 'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=tle',
 };
 
 const clean = (value, max = 120) => String(value == null ? '' : value).slice(0, max);
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
   const timeout = Math.max(2500, Math.min(8000, Number(process.env.NEXUS_DATA_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS));
   res.setHeader?.('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
   try {
-    const candidates = [source, source === DEFAULT_SOURCE ? FALLBACK_SOURCE : DEFAULT_SOURCE];
+    const candidates = dataset === 'satellites' || dataset === 'stations' ? [source, source === DEFAULT_SOURCE ? FALLBACK_SOURCE : DEFAULT_SOURCE] : [source];
     const fetched = await fetchPublicTle(candidates, timeout);
     const activeSource = fetched.source;
     const satellites = fetched.satellites;
