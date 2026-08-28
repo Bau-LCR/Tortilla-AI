@@ -5787,3 +5787,13 @@ html { scrollbar-color: #247cff #071326; scrollbar-width: thin; } * { scrollbar-
   .nexus-floating-controls button[aria-label="Acercar"],
   .nexus-floating-controls button[aria-label="Alejar"] { min-width: 36px; min-height: 36px; }
 }
+
+/* RANDAR public network intelligence and enlarged radar */
+.nexus-network-status-card{display:grid;gap:6px;padding:14px 16px;border:1px solid rgba(80,223,159,.42);border-radius:12px;background:linear-gradient(135deg,rgba(7,31,39,.96),rgba(3,12,21,.96));box-shadow:0 0 24px rgba(80,223,159,.1),inset 0 0 22px rgba(72,169,255,.06);color:#dffbff}
+.nexus-network-status-card b{color:#50df9f;letter-spacing:.08em}.nexus-network-status-card span{color:#eafcff}.nexus-network-status-card small{color:#91b7c2;line-height:1.45}.nexus-network-status-card.is-ready{border-color:rgba(80,223,159,.72)}
+.nexus-radar-wrap{min-height:560px;padding:12px;border-color:rgba(80,223,159,.4);background:radial-gradient(circle at 50% 44%,rgba(20,91,99,.3),rgba(2,8,15,.98) 68%);box-shadow:0 0 36px rgba(72,169,255,.12),inset 0 0 42px rgba(80,223,159,.08)}
+#nexus-radar-canvas{min-height:520px;cursor:crosshair;filter:drop-shadow(0 0 12px rgba(72,169,255,.16))}
+.nexus-globe-stage{background:radial-gradient(circle at 50% 45%,rgba(26,111,153,.28),rgba(2,7,14,.98) 70%);box-shadow:inset 0 0 70px rgba(72,169,255,.12),0 0 34px rgba(72,169,255,.12)}
+.nexus-globe-stage canvas{filter:drop-shadow(0 0 18px rgba(72,169,255,.22))}
+@media (max-width:720px){.nexus-radar-wrap{min-height:420px;padding:8px}#nexus-radar-canvas{min-height:380px}.nexus-network-status-card{font-size:.82rem;padding:11px 12px}}
+@media (max-width:430px){.nexus-radar-wrap{min-height:350px}#nexus-radar-canvas{min-height:315px}}
