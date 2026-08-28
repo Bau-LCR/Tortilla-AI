@@ -12,11 +12,11 @@
         rate:   0.85,   // Ritmo pausado, típico de una voz de asistente
         pitch:  0.20,   // Tono grave y sintético
         volume: 1.0,
-        mode: 'classic',
+        mode: 'loquendo',
+        // Un único perfil público. El fallback técnico solo selecciona una voz
+        // española disponible del navegador; nunca se ofrece como otra opción.
         profiles: {
-            classic: { label: 'Loquendo clásico', rate: .85, pitch: .20, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Microsoft Sabina','Google español','español'] },
-            narrator: { label: 'Loquendo narrador', rate: .78, pitch: .28, prefs: ['Microsoft Raul','Microsoft Jorge','Google español','español'] },
-            natural: { label: 'Español natural', rate: .96, pitch: .72, prefs: ['Google español','Microsoft Helena','Microsoft Sabina','español'] },
+            loquendo: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
         },
         // Preferencias de voz, buscando primero las más parecidas a Loquendo
         voicePrefs: [
@@ -45,7 +45,7 @@
     };
 
     // ── CARGA Y SELECCIÓN DE VOZ ─────────────────────────────
-    try { const savedMode = localStorage.getItem('cutreal_loquendo_mode'); if (savedMode && CFG.profiles[savedMode]) { CFG.mode = savedMode; CFG.rate = CFG.profiles[savedMode].rate; CFG.pitch = CFG.profiles[savedMode].pitch; } } catch (_) {}
+    try { localStorage.setItem('cutreal_loquendo_mode', 'loquendo'); } catch (_) {}
     function loadVoices() {
         if (!S.synth) return;
         const all = S.synth.getVoices();
@@ -230,8 +230,8 @@
         try { S.synth.cancel(); S.synth.resume(); return true; } catch (_) { return false; }
     };
 
-    window.LoquendoSetMode = function (mode) {
-        if (!CFG.profiles[mode]) return false;
+    window.LoquendoSetMode = function () {
+        const mode = 'loquendo';
         CFG.mode = mode;
         CFG.rate = CFG.profiles[mode].rate;
         CFG.pitch = CFG.profiles[mode].pitch;
@@ -301,16 +301,15 @@
 
     // ── INIT ─────────────────────────────────────────────────
     function createModeSelector() {
-        if (document.getElementById('loquendo-style')) return;
-        const sc = document.querySelector('.side-controls'); if (!sc) return;
-        const select = document.createElement('select'); select.id = 'loquendo-style'; select.title = 'Perfil de voz Loquendo'; select.setAttribute('aria-label','Perfil de voz');
-        select.innerHTML = Object.entries(CFG.profiles).map(([id, profile]) => `<option value="${id}">${profile.label}</option>`).join('');
-        select.value = CFG.mode; select.addEventListener('change', () => window.LoquendoSetMode(select.value));
-        sc.insertBefore(select, sc.firstChild);
+        // La llamada y el chat usan exclusivamente Loquendo; no se muestran
+        // selectores ni perfiles alternativos al usuario.
+        const old = document.getElementById('loquendo-style');
+        if (old) old.remove();
     }
 
     function init() {
-        try { const saved = localStorage.getItem('cutreal_loquendo_mode'); if (saved && CFG.profiles[saved]) CFG.mode = saved; } catch (_) {}
+        CFG.mode = 'loquendo';
+        try { localStorage.setItem('cutreal_loquendo_mode', 'loquendo'); } catch (_) {}
         const profile = CFG.profiles[CFG.mode] || CFG.profiles.classic; CFG.rate = profile.rate; CFG.pitch = profile.pitch;
         loadVoices();
         createButtons();
