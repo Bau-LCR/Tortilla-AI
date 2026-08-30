@@ -5980,3 +5980,28 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes liquidGlassSheen { 0%,58%{transform:translateX(-30%) rotate(24deg);opacity:0} 70%{opacity:.75} 100%{transform:translateX(240%) rotate(24deg);opacity:0} }
 @media (max-width:720px) { body::before{opacity:.10;background-size:300px 300px}.main-header{background:rgba(7,12,22,.72)} #chat{width:94%;height:64vh;padding:14px}.input-area,.file-preview-bar{width:94%}.nexus-shell,#super-view > *,#super-panel,.super-panel,.agent-panel{border-radius:18px}.nexus-panel,.nexus-card,.nexus-source-card,.nexus-network-status-card,.nexus-object-card{border-radius:14px}.side-controls{background:rgba(8,16,29,.80)} }
 @media (prefers-reduced-motion:reduce) { .glass-sheen::after{animation:none;display:none} body::before{display:none} }
+
+
+/* BLUE / PURPLE PERFORMANCE PASS — visual-only overrides, appended intentionally. */
+:root{--primary-red:#4f8cff;--dark-red:#6b4dff;--deeper-red:#24145f;--blue-purple-bg:#070b18;--glass-bg:rgba(17,24,48,.70);--glass-blur:blur(10px) saturate(118%);--glass-shadow:0 14px 36px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.14)}
+body{background:radial-gradient(ellipse at 16% 12%,rgba(60,111,255,.16),transparent 30%),radial-gradient(ellipse at 84% 20%,rgba(127,83,255,.14),transparent 28%),linear-gradient(145deg,#070b18 0%,#0a1124 52%,#110c24 100%)}
+body::before{display:none}
+#particles{opacity:.42;contain:layout paint}
+.particle{background:#6d8dff;box-shadow:none;will-change:transform}
+.main-header{background:linear-gradient(180deg,rgba(7,12,29,.92),rgba(7,12,29,.54));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#chat{background:linear-gradient(145deg,rgba(21,31,57,.78),rgba(10,16,34,.72));border-color:rgba(143,181,255,.30);box-shadow:0 18px 48px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.16)}
+.ai{background:linear-gradient(135deg,rgba(52,77,138,.28),rgba(21,29,55,.72));border-color:rgba(107,155,255,.28)}
+.user{background:linear-gradient(135deg,rgba(73,74,145,.26),rgba(255,255,255,.055));border-color:rgba(168,156,255,.24)}
+.input-area,.file-preview-bar,.side-controls{background:rgba(10,16,35,.78);border-color:rgba(133,166,255,.28);box-shadow:0 10px 28px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12)}
+.model-selector,.nexus-layer-row,.nexus-scan-value,.nexus-status-card,.nexus-source-card,.nexus-object-card,.nexus-network-status-card,.nexus-panel,.nexus-card,.randar-advanced-panel{background:linear-gradient(135deg,rgba(39,48,91,.56),rgba(14,19,42,.70));box-shadow:0 10px 26px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.12);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.nexus-globe-stage,.nexus-visual-stage{background:radial-gradient(ellipse at 50% 38%,rgba(54,111,255,.18),transparent 34%),linear-gradient(145deg,rgba(33,44,87,.56),rgba(5,9,22,.82));box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 18px 46px rgba(0,0,0,.28)}
+#randar-advanced-dock{background:linear-gradient(145deg,rgba(29,37,79,.84),rgba(8,13,31,.86));box-shadow:0 20px 54px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.16);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.model-btn.active,#randar-advanced-dock .randar-advanced-tabs button.active{background:linear-gradient(135deg,rgba(71,133,255,.70),rgba(127,75,255,.72));border-color:rgba(203,218,255,.50);box-shadow:0 8px 22px rgba(89,91,255,.22),inset 0 1px 0 rgba(255,255,255,.30)}
+button:not(:disabled):hover{filter:none;transform:translateY(-1px)}
+button,select,input,textarea{transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{box-shadow:0 0 0 3px rgba(84,139,255,.18)}
+.glass-sheen::after{display:none}
+.splash-logo,.nexus-logo,.super-logo{filter:drop-shadow(0 0 16px rgba(76,137,255,.48)) drop-shadow(0 0 24px rgba(124,91,255,.18))}
+#splash-screen{background:radial-gradient(ellipse at 50% 42%,rgba(68,112,255,.14),transparent 30%),rgba(5,9,20,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+@media (max-width:720px){#particles{opacity:.24}.particle{animation-duration:28s!important}.nexus-panel,.nexus-card,.nexus-source-card,.nexus-network-status-card,.nexus-object-card,.randar-advanced-panel{box-shadow:0 8px 22px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.10);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}#chat{box-shadow:0 12px 32px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.13)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}.particle{display:none}}
