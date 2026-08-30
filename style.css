@@ -5921,3 +5921,62 @@ body.chat-focus-mode #side-controls { opacity: .18; pointer-events: none; transf
 .nexus-satellite-card:focus-visible,.nexus-satellite-card:hover{box-shadow:0 0 0 1px var(--nexus-object-color,#48a9ff),0 0 16px color-mix(in srgb,var(--nexus-object-color,#48a9ff) 25%,transparent)}
 .nexus-status-dot.cyan{background:#48a9ff;box-shadow:0 0 9px #48a9ff}.nexus-status-dot.emerald{background:#50df9f;box-shadow:0 0 9px #50df9f}.nexus-status-dot.orange{background:#ffb454;box-shadow:0 0 9px #ffb454}.nexus-status-dot.violet{background:#b78cff;box-shadow:0 0 9px #b78cff}.nexus-status-dot.magenta{background:#ff6bd6;box-shadow:0 0 9px #ff6bd6}.nexus-status-dot.gold{background:#ffd166;box-shadow:0 0 9px #ffd166}.nexus-status-dot.teal{background:#57e3ff;box-shadow:0 0 9px #57e3ff}.nexus-status-dot.purple{background:#9b8cff;box-shadow:0 0 9px #9b8cff}.nexus-status-dot.white{background:#eefaff;box-shadow:0 0 9px #eefaff}.nexus-status-dot.red{background:#ff5b62;box-shadow:0 0 9px #ff5b62}
 @media (max-width:720px){.nexus-layer-row{min-height:44px}.nexus-layer-row span{font-size:8px}.nexus-layer-row small{font-size:6.5px}}
+
+
+/* =========================================================
+   CUT-REAL LIQUID GLASS / GLASSMORPHISM THEME
+   Incremental visual layer: no behavior or layout contracts changed.
+   ========================================================= */
+:root {
+  --glass-bg: rgba(18, 27, 43, .48);
+  --glass-bg-strong: rgba(12, 20, 34, .72);
+  --glass-bg-soft: rgba(255, 255, 255, .075);
+  --glass-border: rgba(255, 255, 255, .18);
+  --glass-border-bright: rgba(171, 231, 255, .42);
+  --glass-highlight: rgba(255, 255, 255, .28);
+  --glass-shadow: 0 24px 70px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .18);
+  --glass-blur: blur(22px) saturate(145%);
+}
+body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(74, 156, 255, .13), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(80, 223, 159, .10), transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(140, 92, 255, .10), transparent 38%),
+    #070b13;
+}
+body::before { content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.18; background:linear-gradient(115deg,transparent 0 46%,rgba(255,255,255,.11) 48%,transparent 50% 100%); background-size:420px 420px; mix-blend-mode:screen; }
+.main-header, .side-controls, #model-selector-wrap, #chat, .input-area, .file-preview-bar, .modal, .modal-content, .admin-panel, .settings-panel, .nexus-shell, .nexus-panel, .nexus-card, .nexus-source-card, .nexus-network-status-card, .nexus-object-card, .nexus-permission-card, #randar-advanced-dock, .randar-advanced-panel, .randar-command-panel, .randar-report-panel, .randar-workspace-panel, .randar-time-panel {
+  background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.035) 44%, rgba(8,18,32,.30));
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.main-header { background:linear-gradient(180deg,rgba(8,13,24,.72),rgba(8,13,24,.18)); border-bottom:1px solid rgba(255,255,255,.10); }
+#chat { background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(18,27,43,.50)); border-color:rgba(180,225,255,.20); box-shadow:0 30px 90px rgba(0,0,0,.45), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(255,255,255,.05); }
+.ai { background:linear-gradient(135deg,rgba(83,124,180,.15),rgba(20,30,50,.58)); border-color:rgba(151,212,255,.20); }
+.user { background:linear-gradient(135deg,rgba(255,255,255,.11),rgba(255,255,255,.035)); border-color:rgba(255,255,255,.14); }
+.input-area { background:rgba(10,17,29,.58); border-color:rgba(194,231,255,.20); }
+.side-controls { background:rgba(8,16,29,.62); border:1px solid rgba(176,222,255,.22); }
+#model-selector-wrap .model-selector, .model-selector { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.16); box-shadow:inset 0 1px 0 rgba(255,255,255,.17),0 10px 28px rgba(0,0,0,.18); }
+.model-btn.active { background:linear-gradient(135deg,rgba(95,185,255,.28),rgba(130,112,255,.24)); border-color:rgba(195,237,255,.42); box-shadow:0 8px 26px rgba(72,169,255,.18),inset 0 1px 0 rgba(255,255,255,.26); }
+button, select, input, textarea { transition:background .22s ease,border-color .22s ease,box-shadow .22s ease,transform .22s ease,filter .22s ease; }
+button:not(:disabled):hover { filter:brightness(1.12) saturate(1.08); }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:2px solid rgba(166,231,255,.92); outline-offset:2px; box-shadow:0 0 0 5px rgba(82,181,255,.14),0 0 25px rgba(82,181,255,.18); }
+.nexus-view, #super-view, #agent-view, .modal-backdrop { background:rgba(2,7,15,.58); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+.nexus-shell, #super-view > *, #super-panel, .super-panel, .agent-panel { border:1px solid rgba(190,230,255,.22); border-radius:22px; }
+.nexus-panel, .nexus-card, .nexus-source-card, .nexus-network-status-card, .nexus-object-card, .randar-advanced-panel { border-radius:16px; }
+.nexus-panel::before, #randar-advanced-dock::before { opacity:.82; filter:blur(.2px); }
+.nexus-globe-stage, .nexus-visual-stage { background:radial-gradient(circle at 50% 35%,rgba(95,186,255,.20),transparent 32%),linear-gradient(145deg,rgba(255,255,255,.08),rgba(3,10,20,.56)); border:1px solid rgba(180,229,255,.20); box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -28px 70px rgba(0,0,0,.24),0 24px 70px rgba(0,0,0,.32); }
+.nexus-layer-row, .nexus-scan-value, .nexus-status-card, .randar-confidence-grid > div { background:linear-gradient(135deg,rgba(255,255,255,.105),rgba(255,255,255,.035)); border-color:rgba(205,235,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 8px 22px rgba(0,0,0,.16); }
+.nexus-layer-row:hover, .nexus-object-card:hover { background:linear-gradient(135deg,rgba(118,205,255,.16),rgba(255,255,255,.045)); }
+#randar-advanced-dock { background:linear-gradient(145deg,rgba(20,34,55,.72),rgba(5,12,23,.74)); border-color:rgba(181,231,255,.28); box-shadow:0 30px 100px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.20); }
+#randar-advanced-dock .randar-advanced-tabs button.active { background:linear-gradient(135deg,rgba(94,211,177,.70),rgba(79,169,255,.68)); color:#04121b; box-shadow:0 8px 28px rgba(80,223,159,.22),inset 0 1px 0 rgba(255,255,255,.45); }
+.nexus-radar-wrap { background:radial-gradient(circle at 50% 45%,rgba(75,193,220,.20),rgba(4,12,23,.60) 68%); border-color:rgba(126,227,255,.24); box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 18px 55px rgba(0,0,0,.28); }
+.splash-logo, .nexus-logo, .super-logo { filter:drop-shadow(0 0 22px rgba(112,203,255,.56)) drop-shadow(0 0 42px rgba(140,104,255,.20)); }
+#splash-screen { background:radial-gradient(circle at 50% 42%,rgba(66,147,255,.15),transparent 28%),rgba(5,9,17,.80); -webkit-backdrop-filter:blur(24px); backdrop-filter:blur(24px); }
+.glass-sheen { position:relative; overflow:hidden; }
+.glass-sheen::after { content:""; position:absolute; inset:-80% 45% 20% -30%; pointer-events:none; transform:rotate(24deg); background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent); animation:liquidGlassSheen 7s ease-in-out infinite; }
+@keyframes liquidGlassSheen { 0%,58%{transform:translateX(-30%) rotate(24deg);opacity:0} 70%{opacity:.75} 100%{transform:translateX(240%) rotate(24deg);opacity:0} }
+@media (max-width:720px) { body::before{opacity:.10;background-size:300px 300px}.main-header{background:rgba(7,12,22,.72)} #chat{width:94%;height:64vh;padding:14px}.input-area,.file-preview-bar{width:94%}.nexus-shell,#super-view > *,#super-panel,.super-panel,.agent-panel{border-radius:18px}.nexus-panel,.nexus-card,.nexus-source-card,.nexus-network-status-card,.nexus-object-card{border-radius:14px}.side-controls{background:rgba(8,16,29,.80)} }
+@media (prefers-reduced-motion:reduce) { .glass-sheen::after{animation:none;display:none} body::before{display:none} }
