@@ -37,7 +37,8 @@
     document.body.appendChild(root);
     $('#cutreal-os-launch').addEventListener('click', () => { $('#cro-drawer').hidden = false; render('dashboard'); });
     $('[data-cro-close]').addEventListener('click', () => { $('#cro-drawer').hidden = true; });
-    root.addEventListener('click', e => { const b=e.target.closest('[data-cro-tab]'); if(b) render(b.dataset.croTab); });
+    root.addEventListener('click', e => { const close=e.target.closest('[data-cro-close]'); if(close){e.preventDefault();e.stopPropagation();$('#cro-drawer').hidden=true;return;} const b=e.target.closest('[data-cro-tab]'); if(b) render(b.dataset.croTab); });
+    $('#cro-drawer').addEventListener('click', e => { if(e.target.id === 'cro-drawer'){ e.currentTarget.hidden=true; } });
     return root;
   }
   function card(title, body, cls='') { return `<article class="cro-card ${cls}"><h3>${title}</h3>${body}</article>`; }
@@ -83,6 +84,6 @@
   function drawMemory(){const svg=$('#cro-memory-svg');if(!svg)return;svg.innerHTML='';const nodes=[{x:90,y:160,t:'CUT-REAL'}].concat(state.memory.slice(0,8).map((m,i)=>({x:150+(i%4)*145,y:70+Math.floor(i/4)*150,t:m.text.slice(0,18)})));nodes.slice(1).forEach((n,i)=>{const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',nodes[0].x);l.setAttribute('y1',nodes[0].y);l.setAttribute('x2',n.x);l.setAttribute('y2',n.y);l.setAttribute('class','cro-edge');svg.appendChild(l);});nodes.forEach(n=>{const g=document.createElementNS('http://www.w3.org/2000/svg','g');g.innerHTML=`<circle cx="${n.x}" cy="${n.y}" r="28" class="cro-node"></circle><text x="${n.x}" y="${n.y+4}" text-anchor="middle">${esc(n.t)}</text>`;svg.appendChild(g);});}
   function startVoice(){if(!confirmPermission('microphone'))return;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){$('#cro-voice-status').textContent='Reconocimiento de voz no disponible en este navegador.';return;}const r=new SR();r.lang='es-AR';r.interimResults=false;r.onstart=()=>$('#cro-voice-status').textContent='Escuchando comando…';r.onresult=e=>{const t=e.results[0][0].transcript;$('#cro-voice-status').textContent='Orden recibida: '+t;runCommand(t);};r.onerror=()=>$('#cro-voice-status').textContent='No se pudo interpretar el comando.';r.onend=()=>$('#cro-voice-status').textContent+=' · finalizado';r.start();}
   window.CutRealOS={state,open:()=>{$('#cro-drawer').hidden=false;render('dashboard');},render,runCommand,registerSkill:(skill)=>{if(skill?.id&&!state.skills.some(x=>x.id===skill.id)){state.skills.push(skill);save();}},requestPermission:(p)=>confirmPermission(p),simulate:(x)=>({status:'SIMULATED',action:x}),route:(text)=>({route:text.match(/randar/i)?'RANDAR':text.match(/sandbox/i)?'Sandbox':text.match(/super/i)?'SUPER':'Chat',status:'PROPOSED'})};
-  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#cro-drawer').hidden=false;render('dashboard');$('#cro-command')?.focus();}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#cro-drawer')?.hidden){e.preventDefault();$('#cro-drawer').hidden=true;return;}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#cro-drawer').hidden=false;render('dashboard');$('#cro-command')?.focus();}});
   document.addEventListener('DOMContentLoaded',makeShell);
 })();
