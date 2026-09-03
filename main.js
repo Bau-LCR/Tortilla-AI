@@ -1141,17 +1141,28 @@ function createAiActionBtns(respuestaIA, intent) {
         try { voiceRecognitionStarting = true; voiceRecognition.start(); } catch (error) { voiceRecognitionStarting = false; if (error.name !== 'InvalidStateError') { voiceRecognitionError = true; setVoiceCallStatus(error.name === 'NotAllowedError' ? 'Permiso de micrófono rechazado' : 'No se pudo iniciar el micrófono · pulsá Micrófono para reintentar', true); console.warn('[VoiceCall] start', error); } }
     }
 
-    function startVoiceCall() {
+    async function startVoiceCall() {
         if (!currentUser) { setVoiceCallStatus('Iniciá sesión para usar la llamada'); return false; }
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!Recognition) { setVoiceCallStatus('Usá Chrome o Edge para la llamada de voz'); showToast('Este navegador no ofrece reconocimiento de voz', '#ff8844', '◉'); return false; }
+        if (!window.isSecureContext && location.hostname !== 'localhost') { setVoiceCallStatus('La llamada necesita HTTPS para usar el micrófono', true); showToast('Abrí Cut-real mediante HTTPS y permití el micrófono', '#ff8844', '◉'); return false; }
+        /* Chrome en PC puede dejar SpeechRecognition sin audio si el permiso aún no fue inicializado. */
+        if (navigator.mediaDevices?.getUserMedia) {
+            try {
+                const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+                permissionStream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                const denied = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError';
+                setVoiceCallStatus(denied ? 'Permiso de micrófono rechazado · habilitalo en Chrome' : 'No se encontró un micrófono disponible', true);
+                showToast(denied ? 'Permití el micrófono para iniciar la llamada' : 'Conectá un micrófono y reintentá', '#ff8844', '◉');
+                return false;
+            }
+        }
         voiceCallActive = true; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
         if (window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
         setVoiceCallTranscript('La conversación aparecerá aquí.');
         setVoiceCallModal(true);
         setVoiceCallStatus('Llamada activa · escuchando…', true);
-        // SpeechRecognition ya administra la captura. No abrimos getUserMedia en paralelo:
-        // algunos navegadores bloquean o silencian la segunda captura.
         startVoiceListening();
         return true;
     }
