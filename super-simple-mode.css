@@ -1,14 +1,47 @@
 /* SUPER simple mode: presentación reducida y reversible. */
 [id*="neutral"],[class*="neutral"],[id*="judge"],[class*="judge"],[id*="design-system"],[class*="design-system"],[id*="knowledge-core"],[class*="knowledge-core"],[id*="video-lab"],[class*="video-lab"],[id*="image-lab"],[class*="image-lab"],[id*="creative-lab"],[class*="creative-lab"]{display:none!important}
 #super-export-knowledge,#super-export-judge{display:none!important}
-#super-overlay .super-overlay-header .super-eyebrow,#super-overlay .super-card-head .super-eyebrow{letter-spacing:.08em}
-#super-overlay .super-result-section{display:block!important}
-#super-overlay .super-final-answer{font-size:clamp(14px,1.3vw,18px);line-height:1.65}
-@media(max-width:700px){#super-overlay .super-card{padding:12px!important}#super-overlay .super-result-section{margin-top:10px}}
+#super-view .super-overlay-header .super-eyebrow,#super-view .super-card-head .super-eyebrow{letter-spacing:.08em}
+#super-view .super-result-section{display:block!important}
+#super-view .super-final-answer{font-size:clamp(14px,1.3vw,18px);line-height:1.65}
+@media(max-width:700px){#super-view .super-card{padding:12px!important}#super-view .super-result-section{margin-top:10px}}
 
 /* Retiro explícito de paneles solicitados: solo presentación, sin borrar lógica. */
 #super-ai-world,#super-intelligence-core,#super-mission-control,#super-map-card,.super-inspector-panel,#super-world-agents-panel,#super-specialist-network,#super-creative-status,#super-quick-image,#super-quick-video,#super-template-select,#super-template-apply,[id*="handoff"],[class*="handoff"],[id*="goal-tracker"],[class*="goal-tracker"],[id*="integrated-output"],[class*="integrated-output"],[id*="magic-context"],[class*="magic-context"],[id*="files-context"],[class*="files-context"],[id*="best-model"],[class*="best-model"],[id*="router"],[class*="router"],[id*="operating-notes"],[class*="operating-notes"]{display:none!important}
-#super-overlay .super-layout{grid-template-columns:minmax(0,1fr)!important}
-#super-overlay .super-workspace{min-width:0;max-width:1100px;margin-inline:auto}
-#super-overlay .super-config-panel{max-width:100%;}
-@media(max-width:700px){#super-overlay .super-layout{display:block!important}#super-overlay .super-config-panel,#super-overlay .super-workspace{width:100%;max-width:none}}
+#super-view .super-layout{grid-template-columns:minmax(0,1fr)!important}
+#super-view .super-workspace{min-width:0;max-width:1100px;margin-inline:auto}
+#super-view .super-config-panel{max-width:100%;}
+@media(max-width:700px){#super-view .super-layout{display:block!important}#super-view .super-config-panel,#super-view .super-workspace{width:100%;max-width:none}}
+
+/* Recuperación solicitada: los mapas y el proceso de cada IA sí son información esencial. */
+#super-view #super-intelligence-core{display:block!important}
+#super-view #super-neural-network,
+#super-view #super-task-tree,
+#super-view #super-knowledge-core,
+#super-view #super-map-card,
+#super-view #super-process-output{display:block!important}
+#super-view #super-neural-network-stage{display:block!important;min-height:280px}
+#super-view #super-neural-network-stage .super-neural-agents{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+#super-view #super-world-agents-panel{display:block!important}
+#super-view .super-world-agent{display:block!important}
+#super-view .super-neural-agent{display:flex!important;flex-direction:column;gap:4px;text-align:left}
+#super-view .super-neural-agent strong{color:#8bc8ff!important}
+#super-view .super-neural-agent small{color:#b8d9ff!important}
+#super-view .super-neural-agent em{color:#72f0c3!important;font-style:normal}
+#super-view .super-map-card{display:block!important}
+#super-view .super-map-canvas,#super-view .super-knowledge-canvas{display:block!important;width:100%;max-width:100%;min-height:280px}
+#super-view #super-cross-modal-map,#super-view #super-best-model-router,#super-view #super-integrated-output,#super-view #super-intelligence-more{display:none!important}
+@media(max-width:700px){#super-view #super-intelligence-core{margin-top:12px}#super-view #super-neural-network-stage{min-height:360px}#super-view #super-neural-network-stage .super-neural-agents{grid-template-columns:1fr 1fr}}
+
+/* Sandbox: azul claro integral para editor, catálogo, toolbar, estados, selects y botones. */
+#sandbox-overlay{--sbx-blue-1:#0d3b78;--sbx-blue-2:#1769bd;--sbx-blue-3:#39bff5;--sbx-blue-4:#a9e8ff;--sbx-cyan:#66dcff;--sbx-green:#39bff5!important;--sbx-lime:#a9e8ff!important}
+#sandbox-overlay .sbx-topbar,#sandbox-overlay .sbx-mode-bar,#sandbox-overlay .sbx-mobile-tabs{background:linear-gradient(135deg,#071d3d,#0d3468)!important;border-color:rgba(102,220,255,.42)!important}
+#sandbox-overlay .sbx-panel-left,#sandbox-overlay .sbx-panel-right,#sandbox-overlay .sbx-future-dock{background:linear-gradient(145deg,rgba(12,48,99,.96),rgba(5,20,48,.98))!important;border-color:rgba(102,220,255,.42)!important}
+#sandbox-overlay .sbx-btn,#sandbox-overlay .sbx-mode-bar button,#sandbox-overlay .sbx-mobile-tabs button,#sandbox-overlay .sbx-future-group button{background:linear-gradient(135deg,#1457a1,#1d7bd1)!important;border-color:rgba(133,229,255,.66)!important;color:#eafaff!important}
+#sandbox-overlay .sbx-btn-accent,#sandbox-overlay .sbx-btn-toggle,#sandbox-overlay .sbx-status-active,#sandbox-overlay .sbx-save-ok,#sandbox-overlay #sandbox-send-btn{background:linear-gradient(135deg,#1a73c9,#38bce9)!important;border-color:#a3efff!important;color:#fff!important}
+#sandbox-overlay .sbx-btn-close{background:linear-gradient(135deg,#164e9b,#257ed0)!important;color:#fff!important}
+#sandbox-overlay input,#sandbox-overlay textarea,#sandbox-overlay select{background:#071f46!important;border-color:rgba(111,218,255,.58)!important;color:#eafaff!important}
+#sandbox-overlay .sbx-status-pill,#sandbox-overlay .sbx-api-usage,#sandbox-overlay .sbx-save-state{background:rgba(22,103,180,.58)!important;border-color:rgba(137,231,255,.5)!important;color:#d8f6ff!important}
+#sandbox-overlay .sbx-chat>*{background:rgba(24,105,185,.34)!important;border-color:rgba(118,220,255,.34)!important}
+#sandbox-overlay .sbx-logo,#sandbox-overlay .sbx-future-head,#sandbox-overlay .sbx-future-group>span{color:#9deaff!important}
+#sandbox-overlay .sbx-btn:hover,#sandbox-overlay .sbx-btn:focus-visible,#sandbox-overlay .sbx-mode-bar button:hover,#sandbox-overlay .sbx-mobile-tabs button:hover{box-shadow:0 0 16px rgba(57,191,245,.38)!important;border-color:#b8f2ff!important}
