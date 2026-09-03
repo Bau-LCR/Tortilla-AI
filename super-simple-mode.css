@@ -5,3 +5,10 @@
 #super-overlay .super-result-section{display:block!important}
 #super-overlay .super-final-answer{font-size:clamp(14px,1.3vw,18px);line-height:1.65}
 @media(max-width:700px){#super-overlay .super-card{padding:12px!important}#super-overlay .super-result-section{margin-top:10px}}
+
+/* Retiro explícito de paneles solicitados: solo presentación, sin borrar lógica. */
+#super-ai-world,#super-intelligence-core,#super-mission-control,#super-map-card,.super-inspector-panel,#super-world-agents-panel,#super-specialist-network,#super-creative-status,#super-quick-image,#super-quick-video,#super-template-select,#super-template-apply,[id*="handoff"],[class*="handoff"],[id*="goal-tracker"],[class*="goal-tracker"],[id*="integrated-output"],[class*="integrated-output"],[id*="magic-context"],[class*="magic-context"],[id*="files-context"],[class*="files-context"],[id*="best-model"],[class*="best-model"],[id*="router"],[class*="router"],[id*="operating-notes"],[class*="operating-notes"]{display:none!important}
+#super-overlay .super-layout{grid-template-columns:minmax(0,1fr)!important}
+#super-overlay .super-workspace{min-width:0;max-width:1100px;margin-inline:auto}
+#super-overlay .super-config-panel{max-width:100%;}
+@media(max-width:700px){#super-overlay .super-layout{display:block!important}#super-overlay .super-config-panel,#super-overlay .super-workspace{width:100%;max-width:none}}
