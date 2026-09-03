@@ -1,0 +1,16 @@
+/* CUT-REAL visual policy: blue-only, compact and readable. */
+:root{--cutreal-blue:#4f8cff;--cutreal-cyan:#70d8ff;--cutreal-deep:#071226;--cutreal-purple:#7764e8;--cutreal-green:#60d9ae;}
+[data-randar-enabled="false"] #nexus-overlay,[data-randar-enabled="false"] #nexus-nav-btn,[data-randar-enabled="false"] #nexus-open-btn,[data-randar-enabled="false"] .nexus-nav-floating,[data-cutreal-os-enabled="false"] #cutreal-os-launch,[data-cutreal-os-enabled="false"] #cro-drawer{display:none!important}
+/* SUPER: conservar el proceso y la respuesta; reducir adornos que no aportan información. */
+#super-overlay .super-visual-mode,#super-overlay .super-graph-tools{display:none!important}
+#super-overlay .super-card,#super-overlay .super-panel{border-color:rgba(79,140,255,.34);background:linear-gradient(145deg,rgba(10,27,58,.94),rgba(12,17,40,.96));box-shadow:0 8px 20px rgba(0,0,0,.2)}
+#super-overlay button{border-color:rgba(79,140,255,.48);background:linear-gradient(135deg,rgba(24,54,112,.94),rgba(56,40,118,.92));color:#edf5ff;transition:transform .14s ease,filter .14s ease,border-color .14s ease,box-shadow .14s ease}
+#super-overlay button:hover,#super-overlay button:focus-visible{border-color:var(--cutreal-cyan);box-shadow:0 0 12px rgba(112,216,255,.22);filter:brightness(1.12)}
+#super-overlay button:active{transform:scale(.97)}
+/* Sandbox: reemplazar verdes de interfaz por azules claros, sin alterar el canvas ni la lógica. */
+#sandbox-overlay{--sbx-green:#69bfff;--sbx-accent:#4f8cff;--sbx-lime:#8ccaff}
+#sandbox-overlay .sbx-btn-accent,#sandbox-overlay .sbx-btn-toggle,#sandbox-overlay .sbx-status-active,#sandbox-overlay .sbx-save-ok{background:linear-gradient(135deg,#2457b8,#3c62ce)!important;border-color:#70d8ff!important;color:#fff!important}
+#sandbox-overlay .sbx-btn:hover,#sandbox-overlay .sbx-btn:focus-visible{border-color:#70d8ff;box-shadow:0 0 12px rgba(79,140,255,.25);filter:brightness(1.1)}
+/* Markdown del chat: destacados siempre en azul. */
+.message-content strong,.message-content b,.message-content em,.message-content i,.chat-message strong,.chat-message b,.chat-message em,.chat-message i{color:#70a9ff!important}
+@media(max-width:700px){#super-overlay .super-card,#super-overlay .super-panel{box-shadow:none}#super-overlay .super-graph-canvas-stack{min-height:220px}}
