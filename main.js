@@ -1087,7 +1087,7 @@ function createAiActionBtns(respuestaIA, intent) {
         if (!Recognition) return null;
         const recognition = new Recognition();
         recognition.lang = getVoiceRecognitionLanguage(); recognition.continuous = false; recognition.interimResults = true; recognition.maxAlternatives = 3;
-        recognition.onstart = () => { voiceRecognitionStarting = false; voiceRecognitionHandled = false; startVoiceInputMeter(); setVoiceCallStatus('Escuchando…', true); };
+        recognition.onstart = () => { voiceRecognitionStarting = false; voiceRecognitionHandled = false; /* SpeechRecognition ya controla el micrófono; no abrir getUserMedia en paralelo. */ window.CutRealOrb?.setInputLevel(0); setVoiceCallStatus('Escuchando…', true); };
         recognition.onresult = event => {
             if (!voiceCallActive || voiceCallMuted || voiceRecognitionHandled) return;
             const results = Array.from(event.results || []);
@@ -1110,9 +1110,9 @@ function createAiActionBtns(respuestaIA, intent) {
                 voiceLanguageFallbackTried = true; voiceRecognition = null; setVoiceCallStatus('Ajustando idioma del micrófono…', true); setTimeout(startVoiceListening, 220); return;
             }
             if (event.error === 'no-speech') {
-                if (voiceNoSpeechRetries < 2) {
-                    voiceNoSpeechRetries += 1; setVoiceCallStatus(`No detecté voz · reintentando (${voiceNoSpeechRetries}/2)…`, true);
-                } else { voiceRecognitionError = true; setVoiceCallStatus('No detecté voz · pulsá Micrófono para reanudar', true); }
+                if (voiceNoSpeechRetries < 4) {
+                    voiceNoSpeechRetries += 1; setVoiceCallStatus(`No detecté voz · reintentando (${voiceNoSpeechRetries}/4)…`, true);
+                } else { voiceNoSpeechRetries = 0; voiceRecognition = null; setVoiceCallStatus('No detecté voz · reanudando escucha…', true); setTimeout(startVoiceListening, 420); }
                 return;
             }
             voiceRecognitionError = true;
