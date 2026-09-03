@@ -1,0 +1,7 @@
+/* SUPER simple mode: presentación reducida y reversible. */
+[id*="neutral"],[class*="neutral"],[id*="judge"],[class*="judge"],[id*="design-system"],[class*="design-system"],[id*="knowledge-core"],[class*="knowledge-core"],[id*="video-lab"],[class*="video-lab"],[id*="image-lab"],[class*="image-lab"],[id*="creative-lab"],[class*="creative-lab"]{display:none!important}
+#super-export-knowledge,#super-export-judge{display:none!important}
+#super-overlay .super-overlay-header .super-eyebrow,#super-overlay .super-card-head .super-eyebrow{letter-spacing:.08em}
+#super-overlay .super-result-section{display:block!important}
+#super-overlay .super-final-answer{font-size:clamp(14px,1.3vw,18px);line-height:1.65}
+@media(max-width:700px){#super-overlay .super-card{padding:12px!important}#super-overlay .super-result-section{margin-top:10px}}
