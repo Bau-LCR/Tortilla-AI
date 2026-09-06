@@ -210,9 +210,44 @@ window.copyAiResponse = function(text, btn) {
     });
 };
 
+// ── CUADROS VISUALES DEL CHAT ───────────────────────────────
+const prepararCuadrosVisuales = (source) => {
+    const blocks = [];
+    let text = String(source || '').replace(/\r\n?/g, '\n');
+    const wantsConcept = /cuadro conceptual|mapa conceptual|cuadro sin[oó]ptico|mapa neuronal/i.test(text);
+    const wantsCompare = /cuadro comparativo|tabla comparativa|comparar|comparaci[oó]n/i.test(text);
+    const lines = text.split('\n');
+    const output = [];
+    let index = 0;
+    while (index < lines.length) {
+        if (/^\s*\|/.test(lines[index]) && lines[index].includes('|')) {
+            const tableLines = [];
+            while (index < lines.length && /^\s*\|/.test(lines[index]) && lines[index].includes('|')) tableLines.push(lines[index++]);
+            const rows = tableLines.map(line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim())).filter(row => row.some(Boolean));
+            const usable = rows.filter(row => !row.every(cell => /^:?-{3,}:?$/.test(cell)));
+            if (usable.length >= 2) {
+                const header = usable[0];
+                const body = usable.slice(1);
+                const kind = wantsCompare ? 'comparison' : wantsConcept ? 'concept' : 'table';
+                const html = `<section class="chat-visual-box chat-visual-${kind}" role="region" aria-label="${kind === 'comparison' ? 'Cuadro comparativo' : kind === 'concept' ? 'Cuadro conceptual' : 'Tabla estructurada'}"><div class="chat-visual-box-title">${kind === 'comparison' ? 'Cuadro comparativo' : kind === 'concept' ? 'Cuadro conceptual' : 'Información estructurada'}</div><div class="chat-visual-scroll"><table><thead><tr>${header.map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${body.map(row => `<tr>${header.map((_, cellIndex) => `<td>${row[cellIndex] || '—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+                output.push(`@@CUTREAL_VISUAL_${blocks.push(html) - 1}@@`);
+                continue;
+            }
+            output.push(...tableLines);
+            continue;
+        }
+        output.push(lines[index++]);
+    }
+    text = output.join('\n');
+    return { text, blocks };
+};
+
 // ── FORMATEAR TEXTO (función completa y correcta) ──────────
+
 const formatearTexto = (texto) => {
     if (!texto) return "";
+    const visualBlocks = prepararCuadrosVisuales(texto);
+    texto = visualBlocks.text;
     texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
         `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
     );
@@ -228,8 +263,9 @@ const formatearTexto = (texto) => {
     texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
     texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, (m) => `<ul>${m}</ul>`);
     texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
-    texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(255,59,59,0.18);margin:12px 0;">');
+    texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(76,154,255,0.42);margin:12px 0;">');
     texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
+    texto = texto.replace(/@@CUTREAL_VISUAL_(\d+)@@/g, (_, blockIndex) => visualBlocks.blocks[Number(blockIndex)] || '');
     return texto;  // ← esta línea DEBE estar dentro de la función
 };
 
@@ -1283,6 +1319,9 @@ function needsWebSearchFrontend(msg) {
         if (window.LoquendoStop) window.LoquendoStop();
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
+        const visualFormatInstruction = /cuadro conceptual|mapa conceptual|cuadro sin[oó]ptico|mapa neuronal|cuadro comparativo|tabla comparativa/i.test(rawMsg)
+            ? '\n\n[INSTRUCCIÓN DE FORMATO: entregá la información como un cuadro visual real. Para un cuadro conceptual o sinóptico, usá una tabla Markdown con encabezados claros, filas breves y relaciones jerárquicas. Para un cuadro comparativo, usá una tabla Markdown con una columna por criterio o alternativa. No simules tablas con barras sueltas, no escribas separadores como texto y no mezcles el cuadro con párrafos largos.]'
+            : '';
 
         // Easter egg DOOM (verificar feature flag)
         if (intent === "doom" && featureFlags.doom) {
@@ -1345,7 +1384,8 @@ function needsWebSearchFrontend(msg) {
             }
             window.removeAttachment();
         } else {
-            mensajeParaAPI = { role:"user", content:rawMsg };
+                        mensajeParaAPI = { role:"user", content:`${rawMsg}${visualFormatInstruction}` };
+
             previewHTML    = `<b>Tú:</b> ${formatearTexto(rawMsg)}`;
         }
 
