@@ -1,0 +1,9 @@
+/* CUT-REAL ICONS · reemplazo seguro de emojis en botones */
+(function(){
+  'use strict';
+  const icons={send:'<path d="M3 12 21 3l-5 18-4-7-9-2Z"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',close:'<path d="m5 5 14 14M19 5 5 19"/>',play:'<path d="m7 4 13 8-13 8V4Z"/>',image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m4 17 5-5 3 3 2-2 6 6"/>',mic:'<rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8"/>',default:'<path d="M12 2 14 9l7 3-7 3-2 7-2-7-7-3 7-3 2-7Z"/>'};
+  function iconFor(text){const t=text.toLowerCase();if(/enviar|send|mandar/.test(t))return icons.send;if(/descargar|download|export/.test(t))return icons.download;if(/cerrar|cancel|close/.test(t))return icons.close;if(/reproduc|run|ejecutar|iniciar/.test(t))return icons.play;if(/imagen|image|foto/.test(t))return icons.image;if(/voz|mic|llamada|call/.test(t))return icons.mic;return icons.default}
+  function scan(){document.querySelectorAll('button').forEach(button=>{if(button.dataset.cutrealIconized==='true')return;const first=button.firstChild;if(!first||first.nodeType!==Node.TEXT_NODE)return;const match=first.textContent.match(/^\s*[\p{Extended_Pictographic}\uFE0F]+\s*/u);if(!match)return;const svg=`<svg class="cutreal-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${iconFor(button.textContent)}<\/svg>`;first.textContent=first.textContent.slice(match[0].length);button.insertAdjacentHTML('afterbegin',svg);button.dataset.cutrealIconized='true'});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
+  new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
+})();
