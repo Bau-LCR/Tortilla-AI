@@ -564,11 +564,11 @@ const formatearTexto = (texto) => {
                         let visible = msg.content || '';
                         if (visible && visible.includes("[Documento")) {
                             const partes = visible.split("]\n\nUsuario: ");
-                            visible = (partes.length > 1 ? partes[1] : "Analizar documento") + ' <span style="color:#ff8888;font-size:12px;">📎 Archivo adjunto</span>';
+                            visible = (partes.length > 1 ? partes[1] : "Analizar documento") + ' <span style="color:#78b8ff;font-size:12px;">📎 Archivo adjunto</span>';
                         }
                         if (visible.startsWith("[IMAGEN_GENERADA:")) {
                             const src = visible.replace("[IMAGEN_GENERADA:", "").replace("]", "");
-                            div.innerHTML = `<b>Tú:</b> <em style="color:#ff8888;font-size:12px;">🎨 Imagen generada</em><br><img src="${src}" class="attached-image">`;
+                            div.innerHTML = `<b>Tú:</b> <em style="color:#78b8ff;font-size:12px;">🎨 Imagen generada</em><br><img src="${src}" class="attached-image">`;
                         } else {
                             div.innerHTML = `<b>Tú:</b> ${formatearTexto(visible)}`;
                         }
@@ -701,7 +701,7 @@ async function archiveCurrentChatIfNeeded() {
         });
     } catch (e) {
         console.warn("No se pudo archivar el chat:", e); 
-        showToast("No se pudo guardar el chat anterior", "#ff4444", "⚠️");
+        showToast("No se pudo guardar el chat anterior", "#4f9cff", "⚠️");
     }
 }
 
@@ -777,7 +777,7 @@ window.openSidebarChat = async (convId) => {
     try {
         const { doc, getDoc, deleteDoc } = window.firestore;
         const snap = await getDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
-        if (!snap.exists()) { showToast("Ese chat ya no existe", "#ff4444", "⚠️"); loadSidebarChats(); return; }
+        if (!snap.exists()) { showToast("Ese chat ya no existe", "#4f9cff", "⚠️"); loadSidebarChats(); return; }
         await archiveCurrentChatIfNeeded();
         historial = snap.data().mensajes || [systemPrompt];
         lastAssistantResponse = [...historial].reverse().find(item => item.role === 'assistant' && typeof item.content === 'string')?.content || '';
@@ -788,7 +788,7 @@ window.openSidebarChat = async (convId) => {
         showToast("Chat cargado", "#4caf50", "💬");
         loadSidebarChats();
         if (window.innerWidth <= 900) closeSidebar();
-    } catch (e) { showToast("Error al abrir el chat", "#ff4444", "❌"); }
+    } catch (e) { showToast("Error al abrir el chat", "#4f9cff", "❌"); }
 };
 
 window.deleteSidebarChat = async (convId) => {
@@ -799,7 +799,7 @@ window.deleteSidebarChat = async (convId) => {
         await deleteDoc(doc(window.db, "chats", currentUser.uid, "conversations", convId));
         showToast("Chat eliminado", "#4caf50", "🗑️");
         loadSidebarChats();
-    } catch (e) { showToast("Error al eliminar", "#ff4444", "❌"); }
+    } catch (e) { showToast("Error al eliminar", "#4f9cff", "❌"); }
 };
 
 window.useQuickPrompt = (text) => {
@@ -842,50 +842,23 @@ if (pdfPattern.test(lower)) return 'generate_pdf';
     }
 
     // ===== GENERAR IMAGEN CON CANVAS =====
-    function generateImageWithCanvas(prompt) {
-        return new Promise((resolve) => {
-            const canvas = document.createElement("canvas");
-            canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext("2d");
-            const p = prompt.toLowerCase();
-            let palette = { bg: ['#1a0a2e','#0d0022'], accent: ['#4488ff','#cc0000'], shapes: 'abstract' };
-            if (/naturaleza|árbol|bosque|campo|planta|flor|verde/.test(p))
-                palette = { bg: ['#0a1a0a','#001a00'], accent: ['#22cc44','#88ff44','#55dd22'], shapes: 'organic' };
-            else if (/mar|oceano|agua|playa|azul|lago/.test(p))
-                palette = { bg: ['#000a1a','#001133'], accent: ['#0055ff','#22aaff','#44ddff'], shapes: 'fluid' };
-            else if (/fuego|llama|calor|lava|volcán/.test(p))
-                palette = { bg: ['#1a0000','#330000'], accent: ['#ff4400','#ffaa00','#ff2200'], shapes: 'spiky' };
-            else if (/galaxia|espacio|cosmos|estrellas|planeta/.test(p))
-                palette = { bg: ['#000005','#050020'], accent: ['#8844ff','#ff44ff','#4488ff'], shapes: 'stars' };
-            else if (/ciudad|urbano|noche|rascacielos/.test(p))
-                palette = { bg: ['#050510','#100a20'], accent: ['#4488ff','#ffcc00','#ff4488'], shapes: 'geometric' };
-            else if (/robot|maquina|metal|tecnología|cyber|digital/.test(p))
-                palette = { bg: ['#020a05','#0a1410'], accent: ['#00ffaa','#00cc88','#22ffdd'], shapes: 'grid' };
-            const bgGrd = ctx.createLinearGradient(0, 0, 512, 512);
-            bgGrd.addColorStop(0, palette.bg[0]); bgGrd.addColorStop(1, palette.bg[1]);
-            ctx.fillStyle = bgGrd; ctx.fillRect(0, 0, 512, 512);
-            const hashCode = (str) => { let h = 5381; for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i); return h >>> 0; };
-            const seed = hashCode(prompt);
-            const rng  = (i) => { let x = Math.sin(seed * 0.0001 + i * 1.618033) * 43758.5453123; return x - Math.floor(x); };
-            ctx.globalCompositeOperation = 'screen';
-            if (palette.shapes === 'stars') {
-                for (let i = 0; i < 200; i++) { const x=rng(i*5)*512,y=rng(i*5+1)*512,r=0.5+rng(i*5+2)*2.5; ctx.fillStyle=`rgba(255,255,255,${0.3+rng(i*5+3)*0.7})`; ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill(); }
-            }
-            for (let i = 0; i < 5; i++) {
-                const cx2=rng(i*2+1)*512,cy2=rng(i*2+2)*512,r=40+rng(i+10)*130;
-                const grd=ctx.createRadialGradient(cx2,cy2,0,cx2,cy2,r);
-                const col=palette.accent[i%palette.accent.length];
-                grd.addColorStop(0,col+'44');grd.addColorStop(1,col+'00');
-                ctx.fillStyle=grd; ctx.beginPath();ctx.arc(cx2,cy2,r,0,Math.PI*2);ctx.fill();
-            }
-            ctx.globalCompositeOperation = 'source-over';
-            const vignette = ctx.createRadialGradient(256,256,80,256,256,360);
-            vignette.addColorStop(0,'rgba(0,0,0,0)'); vignette.addColorStop(1,'rgba(0,0,0,0.72)');
-            ctx.fillStyle=vignette; ctx.fillRect(0,0,512,512);
-            ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.font='11px monospace'; ctx.textAlign='center';
-            ctx.fillText(prompt.length>50?prompt.substring(0,50)+'…':prompt,256,500);
-            resolve(canvas.toDataURL("image/png"));
-        });
+    async function generateImageWithCanvas(prompt) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000);
+        try {
+            const response = await fetch('/api/image-generate', {
+                method: 'POST', headers: {'Content-Type':'application/json'}, signal: controller.signal,
+                body: JSON.stringify({ prompt: String(prompt).slice(0, 4000), mode: 'quality', provider: 'configured-image-provider' })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.ok) throw new Error(data.error || `El proveedor de imágenes no está disponible (HTTP ${response.status}).`);
+            const source = data.dataUrl || data.url || data.imageUrl;
+            if (!source || typeof source !== 'string') throw new Error('El backend no confirmó una imagen válida.');
+            return source;
+        } catch (error) {
+            if (error.name === 'AbortError') throw new Error('La generación superó el tiempo permitido; el proveedor no confirmó el resultado.');
+            throw error;
+        } finally { clearTimeout(timeout); }
     }
 
     function buildImageSearchHTML(query) {
@@ -893,16 +866,16 @@ if (pdfPattern.test(lower)) return 'generate_pdf';
         const imgs = Array.from({length:6},(_,i)=>i+1).map(i=>
             `<img src="https://source.unsplash.com/200x200/?${q}&sig=${i}" class="search-result-img" alt="${query}" onclick="window.open(this.src,'_blank')" onerror="this.style.display='none'">`
         ).join('');
-        return `<div class="img-search-grid"><p style="color:#ff8888;font-size:13px;margin:0 0 8px;">🔍 Imágenes de: <b>${escapeHtml(query)}</b></p><div class="img-grid-inner">${imgs}</div><a href="https://unsplash.com/s/photos/${q}" target="_blank" style="font-size:11px;color:#ff6666;text-decoration:underline;">Ver más en Unsplash →</a></div>`;
+        return `<div class="img-search-grid"><p style="color:#78b8ff;font-size:13px;margin:0 0 8px;">🔍 Imágenes de: <b>${escapeHtml(query)}</b></p><div class="img-grid-inner">${imgs}</div><a href="https://unsplash.com/s/photos/${q}" target="_blank" style="font-size:11px;color:#6aaeff;text-decoration:underline;">Ver más en Unsplash →</a></div>`;
     }
 
     function buildYouTubeSearchHTML(query) {
         const q = encodeURIComponent(query);
-        return `<div class="yt-search-container"><p style="color:#ff8888;font-size:13px;margin:0 0 8px;">▶️ Videos de: <b>${escapeHtml(query)}</b></p><div class="yt-cards-row"><a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank"><div class="yt-thumb"><span class="yt-play-icon">▶</span></div><div class="yt-card-info"><span class="yt-card-title">${escapeHtml(query)}</span><span class="yt-card-sub">Ver en YouTube →</span></div></a></div></div>`;
+        return `<div class="yt-search-container"><p style="color:#78b8ff;font-size:13px;margin:0 0 8px;">▶️ Videos de: <b>${escapeHtml(query)}</b></p><div class="yt-cards-row"><a class="yt-card" href="https://www.youtube.com/results?search_query=${q}" target="_blank"><div class="yt-thumb"><span class="yt-play-icon">▶</span></div><div class="yt-card-info"><span class="yt-card-title">${escapeHtml(query)}</span><span class="yt-card-sub">Ver en YouTube →</span></div></a></div></div>`;
     }
     // ── GENERAR ARCHIVO WORD (.docx) ────────────────────────────
 async function generateDocxFromText(content, filename = 'documento') {
-    if (!window.docx) { showToast('Biblioteca Word no disponible', '#ff4444', '❌'); return; }
+    if (!window.docx) { showToast('Biblioteca Word no disponible', '#4f9cff', '❌'); return; }
     const { Document, Paragraph, TextRun, HeadingLevel, Packer } = window.docx;
     const lines = content.split('\n');
     const children = [];
@@ -943,7 +916,7 @@ async function generateDocxFromText(content, filename = 'documento') {
 
 // ── GENERAR ARCHIVO PDF ──────────────────────────────────────
 function generatePdfFromText(content, filename = 'documento') {
-    if (!window.jspdf) { showToast('Biblioteca PDF no disponible', '#ff4444', '❌'); return; }
+    if (!window.jspdf) { showToast('Biblioteca PDF no disponible', '#4f9cff', '❌'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const margin = 18, maxW = 210 - margin * 2;
@@ -1383,7 +1356,7 @@ function needsWebSearchFrontend(msg) {
                 const consulta  = rawMsg || `Analiza y haz un resumen completo de este documento ${tipoLabel}.`;
                 const prompt    = `[Documento ${tipoLabel} adjunto - "${attachedFile.name}":\n${attachedFile.content}\n]\n\nUsuario: ${consulta}`;
                 mensajeParaAPI  = { role:"user", content:prompt };
-                previewHTML     = `<b>Tú:</b> ${formatearTexto(rawMsg||`Analizar ${tipoLabel}`)} <span style="color:#ff8888;font-size:12px;">📎 ${attachedFile.name}</span>`;
+                previewHTML     = `<b>Tú:</b> ${formatearTexto(rawMsg||`Analizar ${tipoLabel}`)} <span style="color:#78b8ff;font-size:12px;">📎 ${attachedFile.name}</span>`;
             }
             window.removeAttachment();
         } else {
@@ -1404,13 +1377,14 @@ function needsWebSearchFrontend(msg) {
                 const dataUrl  = await generateImageWithCanvas(imgPrompt);
                 thinking.remove();
                 const bot = document.createElement("div"); bot.className="ai";
-                bot.innerHTML = `🎨 <b>Imagen generada</b> para: <em>${escapeHtml(imgPrompt)}</em><br><br><img src="${dataUrl}" class="attached-image generated-image" alt="Imagen generada" style="max-height:320px;cursor:zoom-in;" onclick="window.open(this.src,'_blank')"><br><span style="font-size:11px;color:#888;">Click para ver en grande · <a href="${dataUrl}" download="cutreal-imagen.png" style="color:#ff8888;">Descargar</a></span>`;
+                bot.innerHTML = `🎨 <b>Imagen generada</b> para: <em>${escapeHtml(imgPrompt)}</em><br><br><img src="${dataUrl}" class="attached-image generated-image" alt="Imagen generada" style="max-height:320px;cursor:zoom-in;" onclick="window.open(this.src,'_blank')"><br><span style="font-size:11px;color:#888;">Click para ver en grande · <a href="${dataUrl}" download="cutreal-imagen.png" style="color:#78b8ff;">Descargar</a></span>`;
                 chat.appendChild(bot); scrollAbajo();
                 historial.push({ role:"assistant", content:`[Imagen generada para: "${imgPrompt}"]` });
                 // Hablar la confirmación
                 speakResponse(`Listo, imagen generada para ${imgPrompt}`);
                 guardarEnNube(); return;
-            } catch(e) { thinking.remove(); }
+                        } catch(e) { thinking.remove(); const bot=document.createElement('div'); bot.className='ai'; bot.innerHTML=`<b>Generación de imagen no confirmada.</b><br><span class="chat-error-detail">${escapeHtml(e.message || 'El proveedor no respondió correctamente.')}</span>`; chat.appendChild(bot); scrollAbajo(); }
+
         }
 
         // Búsqueda de imágenes
@@ -1651,7 +1625,7 @@ function needsWebSearchFrontend(msg) {
             snap.forEach(d=>{
                 const data=d.data(), msgs=(data.mensajes||[]).filter(m=>m.role!=="system").length;
                 const isAdm=adminUids.has(d.id), lastAct=fmtDate(data.updatedAt);
-                const modeloBadge=data.model==='pro'?'<span style="color:#ff8888;font-size:10px;">🧠 Pro</span>':'<span style="color:#aaa;font-size:10px;">⚡ Básico</span>';
+                const modeloBadge=data.model==='pro'?'<span style="color:#78b8ff;font-size:10px;">🧠 Pro</span>':'<span style="color:#aaa;font-size:10px;">⚡ Básico</span>';
                 html+=`<tr id="row-${d.id}" class="admin-user-row user-row">
                     <td class="uid-full-cell"><span class="uid-short" title="${d.id}">${d.id.substring(0,10)}…</span><button class="uid-copy-btn" onclick="adminCopyUID('${d.id}')">📋</button></td>
                     <td>${escapeHtml(data.userEmail||"—")}</td><td>${escapeHtml(data.userName||"—")}</td>
@@ -1714,7 +1688,7 @@ function needsWebSearchFrontend(msg) {
             const url=URL.createObjectURL(blob);
             const a=document.createElement("a");a.href=url;a.download=`chat_${uid.substring(0,8)}.json`;a.click();URL.revokeObjectURL(url);
             showToast("Chat exportado","#4caf50","⬇️");
-        } catch(e){showToast("Error al exportar","#ff4444","❌");}
+        } catch(e){showToast("Error al exportar","#4f9cff","❌");}
     };
 
     window.adminPromoteUser = async (uid) => {
@@ -1725,7 +1699,7 @@ function needsWebSearchFrontend(msg) {
             showToast("Usuario promovido a Admin","#4caf50","✅");
             adminLoadUsers();
             window.pushAdminNotif&&window.pushAdminNotif("👑","Admin promovido",`UID ${uid.substring(0,12)}... ahora es admin`);
-        } catch(e){showToast("Error: "+e.message,"#ff4444","❌");}
+        } catch(e){showToast("Error: "+e.message,"#4f9cff","❌");}
     };
 
     window.adminRevokeAdmin = async (uid) => {
@@ -1735,7 +1709,7 @@ function needsWebSearchFrontend(msg) {
             await deleteDoc(doc(window.db,"admins",uid));
             showToast("Privilegios revocados","#ffaa00","⚠️");
             adminLoadUsers();
-        } catch(e){showToast("Error: "+e.message,"#ff4444","❌");}
+        } catch(e){showToast("Error: "+e.message,"#4f9cff","❌");}
     };
 
     window.adminDeleteChat = async (uidParam) => {
@@ -1765,7 +1739,7 @@ function needsWebSearchFrontend(msg) {
             showToast(`Usuario ${userName||uid.substring(0,8)} kickeado`,"#ffaa00","🚫");
             window.pushAdminNotif&&window.pushAdminNotif("🚫","Usuario kickeado",`${userName||uid.substring(0,12)} fue removido`);
             if(typeof adminLoadSessions==='function') adminLoadSessions();
-        } catch(e){showToast("Error al kickear: "+e.message,"#ff4444","❌");}
+        } catch(e){showToast("Error al kickear: "+e.message,"#4f9cff","❌");}
     };
 
     window.adminLoadStats = async () => {
@@ -1797,7 +1771,7 @@ function needsWebSearchFrontend(msg) {
                 <div class="admin-stat-card"><div class="stat-icon">🧠</div><div class="stat-val">${proUsers}</div><div class="stat-lbl">Usan modelo Pro</div></div>
                 <div class="admin-stat-card"><div class="stat-icon">⚡</div><div class="stat-val">${basicUsers}</div><div class="stat-lbl">Usan modelo Básico</div></div>
             </div>
-            <div class="admin-top-users"><h4 style="color:#ff8888;font-size:12px;margin:18px 0 10px;">🏆 Top usuarios</h4>
+            <div class="admin-top-users"><h4 style="color:#78b8ff;font-size:12px;margin:18px 0 10px;">🏆 Top usuarios</h4>
             ${topUsers.slice(0,5).map((u,i)=>`<div class="admin-top-user-row"><span class="top-rank">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</span><span class="top-name">${escapeHtml(u.name)}</span><span style="color:#666;font-size:11px;">${escapeHtml(u.email)}</span><span class="top-msgs">${u.msgs} msgs</span><span class="top-date">${fmtDate(u.last)}</span></div>`).join('')}
             </div>`;
         } catch(e){output.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
@@ -1839,7 +1813,7 @@ function needsWebSearchFrontend(msg) {
             await setDoc(doc(window.db,"config","broadcast"),{active:false,message:"",timestamp:Date.now()});
             output.innerHTML='<span class="admin-success">✅ Broadcast desactivado.</span>';
             showToast("Broadcast desactivado","#ffaa00","🔕");
-        } catch(e){showToast("Error","#ff4444","❌");}
+        } catch(e){showToast("Error","#4f9cff","❌");}
     };
 
     window._checkBroadcast = async () => {
@@ -1867,7 +1841,7 @@ function needsWebSearchFrontend(msg) {
             const data=snap.data();
             if(!data.message||data.read) return;
             await setDoc(doc(window.db,"private_messages",currentUser.uid),{...data,read:true});
-            showToast(`📩 Mensaje del admin: ${data.message.substring(0,50)}${data.message.length>50?'…':''}`, "#ff8888", "");
+            showToast(`📩 Mensaje del admin: ${data.message.substring(0,50)}${data.message.length>50?'…':''}`, "#78b8ff", "");
             const bot=document.createElement("div");bot.className="ai";
             bot.innerHTML=`📩 <b>Mensaje del administrador:</b><br>${escapeHtml(data.message)}`;
             bot.style.borderColor="rgba(255,200,50,0.4)";
@@ -1885,7 +1859,7 @@ function needsWebSearchFrontend(msg) {
             const snap=await getDocs(collection(window.db,"admins"));
             if(snap.empty){out.innerHTML='No hay admins adicionales.';return;}
             let html='<ul style="padding:0;margin:0;list-style:none;">';
-            snap.forEach(d=>{html+=`<li style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.1);display:flex;align-items:center;gap:10px;justify-content:space-between;"><span style="color:#ff8888;font-family:monospace;font-size:11px;">${d.id}</span><button onclick="adminRevokeAdmin('${d.id}')" class="admin-btn-danger" style="padding:4px 12px;font-size:11px;">Revocar</button></li>`;});
+            snap.forEach(d=>{html+=`<li style="padding:8px 0;border-bottom:1px solid rgba(255,59,59,0.1);display:flex;align-items:center;gap:10px;justify-content:space-between;"><span style="color:#78b8ff;font-family:monospace;font-size:11px;">${d.id}</span><button onclick="adminRevokeAdmin('${d.id}')" class="admin-btn-danger" style="padding:4px 12px;font-size:11px;">Revocar</button></li>`;});
             out.innerHTML=html+'</ul>';
         } catch(e){out.innerHTML=`<span class="admin-error">❌ ${escapeHtml(e.message)}</span>`;}
     };
@@ -1993,7 +1967,7 @@ function needsWebSearchFrontend(msg) {
 
     function renderApiKeysPanel(data,container) {
         const {keys,summary}=data;
-        const totalColor=summary.totalPct>=90?'#ff4444':summary.totalPct>=60?'#ffaa00':'#4caf50';
+        const totalColor=summary.totalPct>=90?'#4f9cff':summary.totalPct>=60?'#ffaa00':'#4caf50';
         let html=`<div class="apikeys-summary-card">
             <div class="apikeys-summary-header">
                 <div class="apikeys-summary-title"><span class="apikeys-globe-icon">🌐</span><div><div class="apikeys-summary-label">Uso Total de Tokens</div><div class="apikeys-summary-sub">${summary.keysConfigured} de 5 keys configuradas</div></div></div>
@@ -2003,7 +1977,7 @@ function needsWebSearchFrontend(msg) {
             <div class="apikeys-summary-footer"><div class="apikeys-remaining-chip" style="border-color:${totalColor}44;color:${totalColor};">♻️ ${summary.totalRemaining.toLocaleString()} tokens restantes</div><div class="apikeys-active-chip">🔑 Activa: <b>${summary.activeKeyLabel}</b></div><div style="font-size:11px;color:#555;">Actualizado: ${new Date(summary.timestamp||Date.now()).toLocaleTimeString('es-AR')}</div></div>
         </div><div class="apikeys-grid">`;
         keys.forEach((k,i)=>{
-            const pctColor=k.pct>=90?'#ff4444':k.pct>=60?'#ffaa00':'#4caf50';
+            const pctColor=k.pct>=90?'#4f9cff':k.pct>=60?'#ffaa00':'#4caf50';
             const statusIcon=!k.active?'⚫':k.blocked?'🔴':k.isCurrent?'🟢':'🟡';
             const statusLabel=!k.active?'Sin configurar':k.blocked?'Bloqueada (429)':k.isCurrent?'Activa':'En espera';
             const statusClass=!k.active?'key-status-off':k.blocked?'key-status-blocked':k.isCurrent?'key-status-active':'key-status-waiting';
@@ -2082,7 +2056,7 @@ window.adminLoadSandboxConfig = async function () {
         const emergencyBtn = document.getElementById("sbx-emergency-btn");
         if (d.emergencyStop) {
             emergencyBadge.textContent = "🛑 AUTONOMÍA DETENIDA";
-            emergencyBadge.style.color = "#ff6666";
+            emergencyBadge.style.color = "#6aaeff";
             emergencyBtn.textContent = "✅ Reactivar autonomía";
         } else {
             emergencyBadge.textContent = "🟢 Operando normalmente";
@@ -2137,10 +2111,10 @@ window.adminToggleEmergencyStop = async function () {
             emergencyStop: !current,
             emergencyStopAt: Date.now(),
         });
-        window.showToast && showToast(!current ? "🛑 Autonomía detenida globalmente" : "✅ Autonomía reactivada", !current ? "#ff4444" : "#4caf50", "");
+        window.showToast && showToast(!current ? "🛑 Autonomía detenida globalmente" : "✅ Autonomía reactivada", !current ? "#4f9cff" : "#4caf50", "");
         adminLoadSandboxConfig();
     } catch (e) {
-        window.showToast && showToast("Error: " + e.message, "#ff4444", "❌");
+        window.showToast && showToast("Error: " + e.message, "#4f9cff", "❌");
     }
 };
 
