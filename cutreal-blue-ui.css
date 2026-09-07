@@ -1,0 +1,19 @@
+/* CUT-REAL BLUE UI · override reversible y de baja carga */
+:root{--cutreal-blue:#4f9cff;--cutreal-cyan:#70e8ff;--cutreal-blue-deep:#102a61;--cutreal-blue-soft:#bfeeff;--cutreal-red:var(--cutreal-blue)}
+button,[role=button]{accent-color:var(--cutreal-blue)}
+button.super-danger,button.danger,.super-danger,.danger,.error,.status-error,.cancel,.admin-danger{color:#d9f4ff!important;border-color:rgba(79,156,255,.72)!important;background:linear-gradient(135deg,#173c82,#244e9f)!important;box-shadow:0 0 14px rgba(79,156,255,.18)!important}
+button:hover,button:focus-visible,.super-export-buttons button:hover,.super-export-actions button:hover{border-color:var(--cutreal-cyan)!important}
+a,[href],.download-link,.generated-image+span a{color:var(--cutreal-blue)!important}
+strong,b,em,i,mark,.highlight,.keyword,.accent,.red,.pink,.warning,.error,.admin-error,.super-judge-status,.super-action-mode{color:var(--cutreal-blue-soft)!important}
+hr,.divider,.separator,.chat-divider{border-color:rgba(79,156,255,.5)!important;background:rgba(79,156,255,.5)!important}
+input:focus,textarea:focus,select:focus{border-color:var(--cutreal-cyan)!important;box-shadow:0 0 0 2px rgba(112,232,255,.14)!important}
+.badge,.tag,.status,.pill{border-color:rgba(79,156,255,.42)!important;background:rgba(28,76,157,.28)!important;color:var(--cutreal-blue-soft)!important}
+@media(max-width:700px){button{min-height:40px}.download-link{display:inline-block;padding:5px 8px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+
+/* Neutraliza rojos heredados incluidos como estilos inline. */
+[style*="#ff"],[style*="#f00"],[style*="rgb(255"],[style*="red"]{color:#bfeeff!important;border-color:rgba(79,156,255,.58)!important}
+.cro-head button:hover,.cro-head button:focus-visible{border-color:#70e8ff!important;background:rgba(28,76,157,.9)!important;box-shadow:0 0 16px rgba(79,156,255,.35)!important}
+.chat-error-detail{color:#9fd5ff!important}.generated-image+span a{color:#78b8ff!important}
+
+.cutreal-icon{width:1.05em;height:1.05em;display:inline-block;vertical-align:-.18em;margin-right:.38em;stroke:currentColor;flex:none}
