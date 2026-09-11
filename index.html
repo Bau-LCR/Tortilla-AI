@@ -151,7 +151,7 @@
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
     </a>
 <button id="tools-menu-btn" class="tools-menu-btn" type="button" aria-expanded="false">HERRAMIENTAS</button>
-<div id="tools-menu" class="tools-menu" hidden><button data-space-open>✦ SPACE</button><button data-tool-target="super-nav-btn">⚡ SUPER</button><button data-tool-target="nexus-nav-btn">◉ RANDAR</button><button data-tool-target="sandbox-nav-btn">▣ SANDBOX</button><button data-tool-target="workspace-nav-btn">▤ WORKSPACE</button></div>
+<div id="tools-menu" class="tools-menu" hidden aria-label="Herramientas de Cut-real"><button data-tool-action="super"><span>⚡</span><b>SUPER</b><small>Inteligencia multi-modelo</small></button><button data-tool-action="sandbox"><span>▣</span><b>SANDBOX</b><small>Experimentación y código</small></button><button data-tool-action="workspace"><span>▤</span><b>WORKSPACE</b><small>Entorno de trabajo</small></button><button data-tool-action="space"><span>✦</span><b>SPACE</b><small>Simulación espacial</small></button><button data-tool-action="randar"><span>◉</span><b>RANDAR</b><small>Radar y datos públicos</small></button><button data-tool-action="admin" data-admin-only hidden><span>⚙</span><b>ADMIN</b><small>Administración protegida</small></button><button data-tool-action="logout" data-auth-only hidden><span>↪</span><b>CERRAR SESIÓN</b><small>Finalizar sesión actual</small></button><button data-tool-action="clear-chat" data-auth-only hidden><span>⌫</span><b>BORRAR CHAT</b><small>Eliminar conversación actual</small></button></div>
 </header>
 
 <!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
@@ -1364,11 +1364,11 @@
 <div id="space-view" hidden aria-label="Cut-real Space">
   <header class="space-top"><strong class="space-brand">CUT-REAL · SPACE</strong><span id="space-status" class="space-status">PAUSADO · t=0 s · 0 cuerpos</span><button class="space-close" data-space-close>Cerrar SPACE</button></header>
   <main class="space-main">
-    <aside class="space-panel"><h3>CATÁLOGO</h3><button id="space-load-solar">LOAD SOLAR SYSTEM</button><button id="space-load-empty">EMPTY SPACE</button><button id="space-add">CREATE CUSTOM OBJECT</button><h3>OBJETOS</h3><div id="space-object-list"></div></aside>
+    <aside class="space-panel"><h3>CATÁLOGO</h3><button id="space-load-solar">Cargar sistema solar</button><button id="space-load-empty">Espacio vacío</button><button id="space-add">Crear objeto personalizado</button><h3>OBJETOS</h3><div id="space-object-list"></div></aside>
     <section class="space-stage-wrap"><div id="space-stage" class="space-stage"></div></section>
     <aside class="space-panel"><h3>INSPECTOR</h3><div id="space-inspector">Seleccioná un objeto.</div><h3>VISUALIZACIÓN</h3><label>Modo<select id="space-mode"><option>3D SPACETIME GRID</option><option>SURFACE GRID</option><option>FIELD LINES</option><option>VECTOR FIELD</option><option>VOLUMETRIC CURVATURE</option><option>COMBINED</option></select></label><label>Visual amplification<input id="space-amplification" type="range" min="0.2" max="5" step="0.1" value="1.8"></label><h3>EVENT LOG</h3><div id="space-events" class="space-events"></div></aside>
   </main>
-  <footer class="space-foot"><div class="space-controls"><button id="space-play">▶ Play</button><button id="space-pause">Ⅱ Pause</button><button id="space-step">Step</button><button id="space-reset">Reset</button><button id="space-export">Export JSON</button><span class="space-status">PHYSICAL VALUES · VISUAL AMPLIFICATION SEPARATED</span></div></footer>
+  <footer class="space-foot"><div class="space-controls"><button id="space-play">▶ Reproducir</button><button id="space-pause">Ⅱ Pausar</button><button id="space-step">Paso</button><button id="space-reset">Reiniciar</button><button id="space-export">Exportar JSON</button><span class="space-status">VALORES FÍSICOS · AMPLIFICACIÓN VISUAL SEPARADA</span></div></footer>
 </div>
 <!-- FIREBASE -->
 <script type="module">
@@ -1407,7 +1407,7 @@
 <script src="space-core.js?v=space-20260911-01"></script>
 <script src="space-renderer.js?v=space-20260911-01"></script>
 <script src="space-ui.js?v=space-20260911-01"></script>
-<script src="cutreal-tools-menu.js?v=tools-20260911-01"></script>
+<script src="cutreal-tools-menu.js?v=tools-20260911-02"></script>
 <!-- MAIN: lógica principal del chat -->
 <script src="main.js?v=lowpoly-20260819-2"></script>
 <!-- Versionado para invalidar caché tras agregar tools low-poly -->
