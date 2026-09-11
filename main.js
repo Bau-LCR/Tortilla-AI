@@ -600,6 +600,8 @@ const formatearTexto = (texto) => {
             window.auth.onAuthStateChanged(async (user) => {
                 if (user) {
                     currentUser = user;
+                    window.__currentUserAuthenticated = true;
+                    window.dispatchEvent(new CustomEvent('cutreal:auth-state', { detail: { authenticated: true, uid: user.uid } }));
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "block";
                     const resetBtn = document.getElementById("resetChat");
@@ -627,6 +629,9 @@ const formatearTexto = (texto) => {
                     }, 2200);
                 } else {
                     currentUser = null;
+                    window.__currentUserAuthenticated = false;
+                    window.__isAdminFlag = false;
+                    window.dispatchEvent(new CustomEvent('cutreal:auth-state', { detail: { authenticated: false } }));
                     loginOverlay.style.display = "none";
                     if (logoutBtn) logoutBtn.style.display = "none";
                     const resetBtn = document.getElementById("resetChat");
