@@ -42,6 +42,11 @@
       features: ['public-tle', 'orbital-derived-position', 'map-2d', 'globe-3d', 'radar', 'public-network-registry', 'public-data-inspector'],
       status: 'public-data-dependent'
     },
+    space: {
+      label: 'SPACE',
+      features: ['three-dimensional-space', 'n-body-physics', 'volumetric-curvature-grid', 'spacetime-visualization', 'celestial-catalog', 'object-inspector', 'solar-system-preset', 'scenario-export', 'orbital-analysis', 'educational-mode', 'experimental-mode'],
+      status: 'available'
+    },
     notifications: {
       label: 'Notificaciones',
       features: ['browser-notifications'],
@@ -84,7 +89,7 @@
     },
     forMode(mode) {
       const normalized = String(mode || 'chat').toLowerCase();
-      const allowed = normalized === 'super' ? ['super', 'files', 'images', 'voice'] : normalized === 'sandbox' ? ['sandbox', 'files', 'images', 'voice'] : ['chat', 'files', 'images', 'voice', 'notifications'];
+      const allowed = normalized === 'super' ? ['super', 'files', 'images', 'voice'] : normalized === 'sandbox' ? ['sandbox', 'files', 'images', 'voice'] : normalized === 'space' ? ['space', 'files', 'images', 'voice'] : ['chat', 'files', 'images', 'voice', 'notifications'];
       return { mode: normalized, registryVersion: this.version, capabilities: allowed.map(key => this.listCapabilities(key)).filter(Boolean) };
     }
   };
