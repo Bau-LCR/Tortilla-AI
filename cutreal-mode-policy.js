@@ -1,7 +1,7 @@
 /* CUT-REAL compatibility policy: reversible presentation controls only. */
 (() => {
   'use strict';
-  const POLICY = { randarEnabled: false, cutrealOsEnabled: false };
+  const POLICY = { randarEnabled: true, cutrealOsEnabled: false };
   const hide = (selector, hidden) => document.querySelectorAll(selector).forEach(el => {
     el.hidden = hidden;
     el.setAttribute('aria-hidden', hidden ? 'true' : 'false');
@@ -21,7 +21,7 @@
   }
   function guard(event) {
     const target = event.target.closest?.('#nexus-nav-btn, #nexus-open-btn, .nexus-nav-floating, #cutreal-os-launch');
-    if (target && ((target.id || '').includes('nexus') || target.classList.contains('nexus-nav-floating') || target.id === 'cutreal-os-launch')) {
+    if (target && !POLICY.randarEnabled && ((target.id || '').includes('nexus') || target.classList.contains('nexus-nav-floating'))) {
       event.preventDefault(); event.stopImmediatePropagation();
     }
   }
