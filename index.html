@@ -45,6 +45,7 @@
     <link rel="stylesheet" href="cutreal-mode-policy.css?v=policy-20260830-01">
     <link rel="stylesheet" href="cutreal-blue-ui.css?v=blue-ui-20260907-01">
     <link rel="stylesheet" href="cutreal-face.css?v=face-20260907-01">
+    <link rel="stylesheet" href="space.css?v=space-20260911-01">
 </head>
     <script>
   if ('serviceWorker' in navigator) {
@@ -69,6 +70,7 @@
     </button>
     <button id="super-nav-btn" class="super-nav-btn" type="button" title="Abrir CUT-REAL AI SUPER">⚡ CUT-REAL AI SUPER</button>
     <button id="nexus-nav-btn" class="nexus-nav-btn" type="button" title="Abrir CUT-REAL RANDAR">◉ CUT-REAL RANDAR</button>
+    <button id="space-nav-btn" class="space-nav-btn" type="button" data-space-open title="Abrir CUT-REAL SPACE">✦ CUT-REAL SPACE</button>
 
     <div style="padding:0 12px 8px;">
         <input type="text" id="sidebar-search-input" class="admin-input" style="width:100%;font-size:12px;"
@@ -148,6 +150,8 @@
         <img src="Logo1.png" alt="Cut-real AI Logo" class="nav-logo-small">
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
     </a>
+<button id="tools-menu-btn" class="tools-menu-btn" type="button" aria-expanded="false">HERRAMIENTAS</button>
+<div id="tools-menu" class="tools-menu" hidden><button data-space-open>✦ SPACE</button><button data-tool-target="super-nav-btn">⚡ SUPER</button><button data-tool-target="nexus-nav-btn">◉ RANDAR</button><button data-tool-target="sandbox-nav-btn">▣ SANDBOX</button><button data-tool-target="workspace-nav-btn">▤ WORKSPACE</button></div>
 </header>
 
 <!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
@@ -1356,6 +1360,16 @@
     <div id="chat-search-results"></div>
 </div>
 
+<!-- CUT-REAL SPACE · módulo aislado -->
+<div id="space-view" hidden aria-label="Cut-real Space">
+  <header class="space-top"><strong class="space-brand">CUT-REAL · SPACE</strong><span id="space-status" class="space-status">PAUSADO · t=0 s · 0 cuerpos</span><button class="space-close" data-space-close>Cerrar SPACE</button></header>
+  <main class="space-main">
+    <aside class="space-panel"><h3>CATÁLOGO</h3><button id="space-load-solar">LOAD SOLAR SYSTEM</button><button id="space-load-empty">EMPTY SPACE</button><button id="space-add">CREATE CUSTOM OBJECT</button><h3>OBJETOS</h3><div id="space-object-list"></div></aside>
+    <section class="space-stage-wrap"><div id="space-stage" class="space-stage"></div></section>
+    <aside class="space-panel"><h3>INSPECTOR</h3><div id="space-inspector">Seleccioná un objeto.</div><h3>VISUALIZACIÓN</h3><label>Modo<select id="space-mode"><option>3D SPACETIME GRID</option><option>SURFACE GRID</option><option>FIELD LINES</option><option>VECTOR FIELD</option><option>VOLUMETRIC CURVATURE</option><option>COMBINED</option></select></label><label>Visual amplification<input id="space-amplification" type="range" min="0.2" max="5" step="0.1" value="1.8"></label><h3>EVENT LOG</h3><div id="space-events" class="space-events"></div></aside>
+  </main>
+  <footer class="space-foot"><div class="space-controls"><button id="space-play">▶ Play</button><button id="space-pause">Ⅱ Pause</button><button id="space-step">Step</button><button id="space-reset">Reset</button><button id="space-export">Export JSON</button><span class="space-status">PHYSICAL VALUES · VISUAL AMPLIFICATION SEPARATED</span></div></footer>
+</div>
 <!-- FIREBASE -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -1390,6 +1404,10 @@
 <script src="loquendo.js?v=voice-20260825-2"></script>
 <script src="cutreal-face.js?v=face-20260907-01"></script>
 <script src="cutreal-icons.js?v=icons-20260907-01"></script>
+<script src="space-core.js?v=space-20260911-01"></script>
+<script src="space-renderer.js?v=space-20260911-01"></script>
+<script src="space-ui.js?v=space-20260911-01"></script>
+<script src="cutreal-tools-menu.js?v=tools-20260911-01"></script>
 <!-- MAIN: lógica principal del chat -->
 <script src="main.js?v=lowpoly-20260819-2"></script>
 <!-- Versionado para invalidar caché tras agregar tools low-poly -->
