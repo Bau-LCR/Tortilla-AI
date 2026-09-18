@@ -1,0 +1,21 @@
+/* CUT-REAL PERFORMANCE LITE · reduce costo visual, conserva funciones */
+html { scroll-behavior: auto !important; }
+body::before { opacity: .35 !important; }
+#particles { display: none !important; }
+#orb-rings, .orb-ring, .glass-sheen::after, .particle { animation: none !important; }
+.main-header, .side-controls, #chat-extra-toolbar, .input-area, .chat-sidebar, .auth-card, .terms-card, .admin-card, .agent-mode-card, .voice-call-card, .super-card, .wks-workspace, .tools-menu { -webkit-backdrop-filter: blur(5px) saturate(108%) !important; backdrop-filter: blur(5px) saturate(108%) !important; }
+button, input, textarea, select { transition: border-color .12s ease, background-color .12s ease, color .12s ease !important; }
+button:hover, button:focus-visible { box-shadow: 0 0 10px rgba(80,181,255,.14) !important; }
+#chat .ai, #chat .user, .chat-visual-box, .chat-survey { box-shadow: 0 6px 16px rgba(0,0,0,.16) !important; }
+.space-body-overlay, .space-stage::after { contain: layout paint; }
+.sbx-btn-close, .super-close-btn, .nexus-close-btn, .wks-close-btn { color: #dff7ff !important; border-color: rgba(121,232,255,.58) !important; background: linear-gradient(135deg, rgba(29,83,166,.94), rgba(58,48,139,.9)) !important; cursor: pointer !important; }
+.sbx-btn-close:hover, .super-close-btn:hover, .nexus-close-btn:hover, .wks-close-btn:hover { color: #fff !important; border-color: #79e8ff !important; transform: translateY(-1px); }
+@media (max-width: 900px) {
+  body::before { display: none !important; }
+  .main-header, .side-controls, #chat-extra-toolbar, .input-area, .chat-sidebar, .auth-card, .terms-card, .admin-card, .agent-mode-card, .voice-call-card, .super-card, .wks-workspace, .tools-menu { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .main-header, .side-controls { box-shadow: none !important; }
+  .space-body-overlay { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
