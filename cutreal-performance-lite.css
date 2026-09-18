@@ -1,5 +1,6 @@
 /* CUT-REAL PERFORMANCE LITE · reduce costo visual, conserva funciones */
 html { scroll-behavior: auto !important; }
+#splash-screen { z-index: 20000 !important; }
 body::before { opacity: .35 !important; }
 #particles { display: none !important; }
 #orb-rings, .orb-ring, .glass-sheen::after, .particle { animation: none !important; }
