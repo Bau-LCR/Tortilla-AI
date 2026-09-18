@@ -242,10 +242,45 @@ const prepararCuadrosVisuales = (source) => {
     return { text, blocks };
 };
 
+// ── ENCUESTAS Y EXÁMENES INTERACTIVOS ───────────────────────
+const prepararEncuesta = (source) => {
+    const raw = String(source || '').replace(/\r\n?/g, '\n');
+    if (!/(examen|encuesta|cuestionario|opción múltiple|opcion multiple|selección múltiple|seleccion multiple)/i.test(raw)) return null;
+    const lines = raw.split('\n');
+    const questions = [];
+    let current = null;
+    let title = 'Encuesta de opción múltiple';
+    for (const line of lines) {
+        const clean = line.trim();
+        const normalized = clean.replace(/\*\*/g, '');
+        if (!clean) continue;
+        if (/^(#|##|###)/.test(clean)) { title = clean.replace(/^#+\s*/, '').replace(/\*\*/g, ''); continue; }
+        if (questions.length === 0 && /^(examen|encuesta|cuestionario)/i.test(normalized)) { title = normalized; continue; }
+        const question = normalized.match(/^(?:[-*•]\s*)?(?:\d+[.)]\s*)?(.+\?)\s*$/);
+        const option = normalized.match(/^(?:[-*•]\s*)?([A-D])[.)]\s*(.+)$/i);
+        if (question && !option) { current = { text: question[1].replace(/\*\*/g, ''), options: [], correct: '' }; questions.push(current); continue; }
+        if (option && current) {
+            const value = option[1].toUpperCase();
+            const text = option[2].replace(/\*\*/g, '').trim();
+            if (/\*\*/.test(clean)) current.correct = value;
+            current.options.push({ value, text });
+        }
+    }
+    const valid = questions.filter(q => q.options.length >= 2);
+    if (!valid.length) return null;
+    const form = document.createElement('form');
+    form.className = 'chat-survey';
+    form.setAttribute('aria-label', title);
+    form.innerHTML = `<h2>${escapeHtml(title)}</h2><p class="survey-instructions">Seleccioná una respuesta por pregunta y presioná <b>Enviar respuestas</b>.</p>` + valid.map((q, index) => `<fieldset class="survey-question" data-question data-correct="${q.correct}"><legend>${index + 1}. ${escapeHtml(q.text)}</legend>${q.options.map(o => `<label class="survey-option"><input type="radio" name="survey-${Date.now()}-${index}" value="${o.value}"> <span><b>${o.value})</b> ${escapeHtml(o.text)}</span></label>`).join('')}</fieldset>`).join('') + `<div class="survey-actions"><button type="submit">Enviar respuestas</button><button type="button" data-survey-ai hidden>Explicar mi resultado con Cut-real</button></div><div class="survey-result" hidden></div>`;
+    return form.outerHTML;
+};
+
 // ── FORMATEAR TEXTO (función completa y correcta) ──────────
 
 const formatearTexto = (texto) => {
     if (!texto) return "";
+    const survey = prepararEncuesta(texto);
+    if (survey) return survey;
     const visualBlocks = prepararCuadrosVisuales(texto);
     texto = visualBlocks.text;
     texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
