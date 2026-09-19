@@ -28,8 +28,16 @@
   function openWorkspace() {
     if (!openSandbox()) return false;
     const workspace = el('sbx-panel-workspace');
-    if (workspace) workspace.hidden = false;
+    if (workspace) { workspace.hidden = false; workspace.style.display = 'block'; }
     el('sandbox-tab-workspace')?.click();
+    return true;
+  }
+  function showPanel(id, display = 'block') {
+    const panel = el(id);
+    if (!panel) return false;
+    panel.hidden = false;
+    panel.setAttribute('aria-hidden', 'false');
+    panel.style.display = display;
     return true;
   }
   function closeAll() {
@@ -42,12 +50,12 @@
     document.body.classList.remove('super-view-active', 'nexus-open', 'space-open', 'sandbox-open');
   }
   function open(action) {
-    if (action === 'space') return window.CutRealSpace?.open?.() || document.getElementById('space-header-btn')?.click() || false;
-    if (action === 'super') return window.CutRealSuper?.open?.() || document.getElementById('super-nav-btn')?.click() || document.getElementById('super-open-btn')?.click() || false;
-    if (action === 'randar') return window.CutRealNexus?.open?.() || document.getElementById('nexus-nav-btn')?.click() || document.getElementById('nexus-open-btn')?.click() || false;
+    if (action === 'space') return window.CutRealSpace?.open?.() || document.getElementById('space-header-btn')?.click() || showPanel('space-view', 'flex');
+    if (action === 'super') return window.CutRealSuper?.open?.() || document.getElementById('super-nav-btn')?.click() || document.getElementById('super-open-btn')?.click() || showPanel('super-view', 'block');
+    if (action === 'randar') return window.CutRealNexus?.open?.() || document.getElementById('nexus-nav-btn')?.click() || document.getElementById('nexus-open-btn')?.click() || showPanel('nexus-view', 'block');
     if (action === 'sandbox') return window.openSandbox();
     if (action === 'workspace') return openWorkspace();
-    if (action === 'admin') return document.getElementById('admin-btn')?.click() || false;
+    if (action === 'admin') return document.getElementById('admin-btn')?.click() || showPanel('admin-overlay', 'flex');
     if (action === 'logout') return window.logout?.() || false;
     if (action === 'clear-chat') return window.resetChat?.() || false;
     return false;
