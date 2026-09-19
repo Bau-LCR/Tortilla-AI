@@ -1,6 +1,9 @@
 /* CUT-REAL PERFORMANCE LITE · reduce costo visual, conserva funciones */
 html { scroll-behavior: auto !important; }
 #splash-screen { z-index: 20000 !important; }
+#tools-menu-btn, #space-header-btn { position: relative !important; z-index: 10003 !important; pointer-events: auto !important; }
+#tools-menu { position: fixed !important; z-index: 10004 !important; pointer-events: auto !important; }
+#tools-menu button { position: relative !important; z-index: 10005 !important; pointer-events: auto !important; cursor: pointer !important; }
 body::before { opacity: .35 !important; }
 #particles { display: none !important; }
 #orb-rings, .orb-ring, .glass-sheen::after, .particle { animation: none !important; }
@@ -11,6 +14,13 @@ button:hover, button:focus-visible { box-shadow: 0 0 10px rgba(80,181,255,.14) !
 .space-body-overlay, .space-stage::after { contain: layout paint; }
 .sbx-btn-close, .super-close-btn, .nexus-close-btn, .wks-close-btn { color: #dff7ff !important; border-color: rgba(121,232,255,.58) !important; background: linear-gradient(135deg, rgba(29,83,166,.94), rgba(58,48,139,.9)) !important; cursor: pointer !important; }
 .sbx-btn-close:hover, .super-close-btn:hover, .nexus-close-btn:hover, .wks-close-btn:hover { color: #fff !important; border-color: #79e8ff !important; transform: translateY(-1px); }
+.cutreal-icon { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.16em; flex: 0 0 auto; }
+#attach-btn, #camera-btn { display: inline-flex !important; align-items: center; justify-content: center; width: 34px; height: 34px; color: #9edfff !important; border: 1px solid rgba(121,232,255,.22) !important; background: rgba(28,93,166,.18) !important; }
+#attach-btn:hover { color: #fff !important; border-color: #69d9ff !important; background: rgba(28,125,210,.36) !important; }
+#camera-btn { color: #c3b5ff !important; border-color: rgba(175,142,255,.28) !important; background: rgba(87,54,173,.2) !important; }
+#camera-btn:hover { color: #fff !important; border-color: #c5b2ff !important; background: rgba(110,74,207,.38) !important; }
+.quick-prompt-btn { display: flex !important; align-items: center; gap: 8px; }
+.quick-prompt-btn .cutreal-icon { width: 16px; height: 16px; color: #80dbff; }
 @media (max-width: 900px) {
   body::before { display: none !important; }
   .main-header, .side-controls, #chat-extra-toolbar, .input-area, .chat-sidebar, .auth-card, .terms-card, .admin-card, .agent-mode-card, .voice-call-card, .super-card, .wks-workspace, .tools-menu { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
