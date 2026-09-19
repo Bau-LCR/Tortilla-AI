@@ -42,11 +42,14 @@
     document.body.classList.remove('super-view-active', 'nexus-open', 'space-open', 'sandbox-open');
   }
   function open(action) {
-    if (action === 'space') return window.CutRealSpace?.open?.() || false;
-    if (action === 'super') return window.CutRealSuper?.open?.() || false;
-    if (action === 'randar') return window.CutRealNexus?.open?.() || false;
+    if (action === 'space') return window.CutRealSpace?.open?.() || document.getElementById('space-header-btn')?.click() || false;
+    if (action === 'super') return window.CutRealSuper?.open?.() || document.getElementById('super-nav-btn')?.click() || document.getElementById('super-open-btn')?.click() || false;
+    if (action === 'randar') return window.CutRealNexus?.open?.() || document.getElementById('nexus-nav-btn')?.click() || document.getElementById('nexus-open-btn')?.click() || false;
     if (action === 'sandbox') return window.openSandbox();
     if (action === 'workspace') return openWorkspace();
+    if (action === 'admin') return document.getElementById('admin-btn')?.click() || false;
+    if (action === 'logout') return window.logout?.() || false;
+    if (action === 'clear-chat') return window.resetChat?.() || false;
     return false;
   }
 
@@ -69,7 +72,7 @@
       const tool = event.target.closest('#tools-menu [data-tool-action]');
       if (tool) {
         const action = tool.dataset.toolAction;
-        if (['space', 'super', 'randar', 'sandbox', 'workspace'].includes(action)) {
+        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat'].includes(action)) {
           event.preventDefault();
           event.stopImmediatePropagation();
           open(action);
