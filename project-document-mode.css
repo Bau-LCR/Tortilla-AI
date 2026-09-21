@@ -53,3 +53,11 @@ body.cr-document-open{overflow:hidden!important}
 .cr-document-page h1,.cr-document-page h2,.cr-document-page h3{break-after:avoid}
 @media(max-width:900px){.cr-document-editor{padding:10px 0}.cr-document-page{width:calc(100% - 14px);min-height:980px;padding:38px 28px;margin-bottom:12px}}
 @media(max-width:520px){.cr-document-page{min-height:860px;padding:28px 18px}}
+
+/* MATEMÁTICAS · fórmulas y explicación sin colisiones con otros modos */
+.cr-math-tools{grid-template-columns:minmax(140px, .7fr) minmax(220px, 1.5fr) minmax(220px, 2fr) auto auto;align-items:center}
+.cr-math-tools textarea{min-height:46px;resize:vertical;border:1px solid #327aa8;border-radius:6px;background:#061532;color:#f2fcff;padding:8px;font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}
+.cr-math-display{min-height:70px;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px 16px;border:1px solid #397cad;border-radius:8px;background:#06142d;color:#f5fbff;font-size:22px;line-height:1.6;white-space:nowrap}
+.cr-math-display mjx-container{margin:0!important;max-width:100%;overflow-x:auto;overflow-y:hidden}
+@media(max-width:1100px){.cr-math-tools{grid-template-columns:1fr 1.5fr;}.cr-math-display{grid-column:1/-1}.cr-math-tools button{min-height:38px}}
+@media(max-width:520px){.cr-math-tools{grid-template-columns:1fr}.cr-math-display{grid-column:auto;font-size:18px;min-height:62px}.cr-math-tools textarea{font-size:13px}}
