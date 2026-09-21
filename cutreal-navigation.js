@@ -58,6 +58,8 @@
     if (action === 'admin') return document.getElementById('admin-btn')?.click() || showPanel('admin-overlay', 'flex');
     if (action === 'logout') return window.logout?.() || false;
     if (action === 'clear-chat') return window.resetChat?.() || false;
+    if (action === 'chat') { closeAll(); el('chat')?.scrollIntoView?.({ block: 'center' }); el('input')?.focus?.(); return true; }
+    if (action === 'paint') return window.CutRealPaint?.open?.() || showPanel('cutreal-paint', 'flex');
     return false;
   }
 
@@ -72,7 +74,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (closeButton.id === 'sandbox-close-btn') closeSandbox();
-        else if (closeButton.id === 'super-close-btn') window.CutRealSuper?.close?.();
+        else if (closeButton.id === 'super-close-btn') { window.CutRealSuper?.close?.(); hide(el('super-view')); document.body.classList.remove('super-view-active'); }
         else if (closeButton.id === 'nexus-close-btn') window.CutRealNexus?.close?.();
         else closeAll();
         return;
@@ -80,7 +82,7 @@
       const tool = event.target.closest('#tools-menu [data-tool-action]');
       if (tool) {
         const action = tool.dataset.toolAction;
-        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat'].includes(action)) {
+        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat', 'paint'].includes(action)) {
           event.preventDefault();
           event.stopImmediatePropagation();
           open(action);
