@@ -935,7 +935,7 @@ if (pdfPattern.test(lower)) return 'generate_pdf';
 async function generateDocxFromText(content, filename = 'documento') {
     if (!window.docx) { showToast('Biblioteca Word no disponible', '#4f9cff', '❌'); return; }
     const { Document, Paragraph, TextRun, HeadingLevel, Packer } = window.docx;
-    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2').replace(/[*_~`]/g, '');
+    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2');
     content = normalizeExportText(content);
     const lines = content.split('\n');
     const children = [];
@@ -979,7 +979,7 @@ function generatePdfFromText(content, filename = 'documento') {
     if (!window.jspdf) { showToast('Biblioteca PDF no disponible', '#4f9cff', '❌'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2').replace(/[*_~`]/g, '');
+    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2');
     content = normalizeExportText(content);
     const margin = 25.4, maxW = 210 - margin * 2;
     let y = 30;
