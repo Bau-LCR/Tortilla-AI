@@ -22,13 +22,18 @@ export default async function handler(req, res) {
   if (!base || !key) return json(res, 503, { error: 'Faltan PROJECTS_API_BASE_URL y PROJECTS_API_KEY en Vercel.' });
   const messages = Array.isArray(req.body?.mensajes) ? req.body.mensajes : [];
   if (!messages.length) return json(res, 400, { error: 'Faltan mensajes del proyecto.' });
+  const attachments = Array.isArray(req.body?.adjuntos) ? req.body.adjuntos.slice(0, 8) : [];
+  const webResults = Array.isArray(req.body?.resultadosWeb) ? req.body.resultadosWeb.slice(0, 8) : [];
   const configured = String(process.env.PROJECTS_MODEL || 'openai/gpt-oss-20b').trim();
   const requested = String(req.body?.providerModel || '').trim();
   const raw = requested && !['basic', 'pro', 'ultra'].includes(requested) ? requested : configured;
   const first = raw === 'llama-3.3-70b-versatile' ? 'openai/gpt-oss-20b' : raw;
   const candidates = [...new Set([first, 'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.1-8b-instant'])];
   const timeoutMs = Number(process.env.PROJECTS_TIMEOUT_MS || 90000);
-  const body = { messages, temperature: 0.15, max_tokens: Math.max(6000, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 6000)) };
+  const attachmentParts = [{ type: 'text', text: `Adjuntos disponibles para esta solicitud. No inventes su contenido. Archivos: ${attachments.map(item => `${item.name} (${item.type})`).join(', ') || 'ninguno'}. Fuentes web: ${webResults.length ? webResults.map(item => `${item.title || ''} ${item.url || ''}`).join(' | ') : 'ninguna'}.` }];
+  for (const item of attachments) { if (item.type === 'image' && item.data && item.mediaType) attachmentParts.push({ type: 'image_url', image_url: { url: `data:${item.mediaType};base64,${item.data}` } }); else if (item.text) attachmentParts[0].text += `\n\n--- ${item.name} ---\n${String(item.text).slice(0, 180000)}`; }
+  const enrichedMessages = [{ role: 'system', content: messages[0]?.content || '' }, ...(attachments.length || webResults.length ? [{ role: 'user', content: attachmentParts }] : []), ...messages.slice(1)];
+  const body = { messages: enrichedMessages, temperature: 0.15, max_tokens: Math.max(6000, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 6000)) };
   for (const model of candidates) {
     try {
       const { upstream, data } = await callModel(base, key, model, body, timeoutMs);
