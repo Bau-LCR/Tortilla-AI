@@ -7,6 +7,10 @@
   const MAX_VERSIONS = 40;
   const state = { projects: [], active: null };
   let codeMirrorInstance = null;
+  let cloudSaveTimer = null;
+  let cloudSyncInFlight = false;
+  let cloudSyncQueued = false;
+  let cloudUserId = null;
 
   const defaultFiles = () => ({
     'index.html': '<!doctype html>\n<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><h1>Proyecto</h1></body></html>',
@@ -29,12 +33,40 @@
       state.active = data.active || state.projects[0]?.id || null;
     } catch (_) { state.projects = []; }
   }
-  function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {} }
+  function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {} scheduleCloudSave(); }
   function active() { return state.projects.find(item => item.id === state.active); }
+  function firebaseReady() { return Boolean(cloudUserId && window.db && window.firestore?.doc && window.firestore?.setDoc); }
+  function projectDoc(projectId) { const { doc, collection } = window.firestore; return doc(collection(window.db, 'users', cloudUserId, 'projects'), projectId); }
+  function cloudRecord(project) { return { ...clone(project), ownerUid: cloudUserId, syncedAt: Date.now() }; }
+  function scheduleCloudSave() { if (!firebaseReady()) return; clearTimeout(cloudSaveTimer); cloudSaveTimer = setTimeout(flushCloudSave, 650); }
+  async function flushCloudSave() {
+    if (!firebaseReady()) return;
+    if (cloudSyncInFlight) { cloudSyncQueued = true; return; }
+    cloudSyncInFlight = true;
+    try { const { setDoc } = window.firestore; await Promise.all(state.projects.map(project => setDoc(projectDoc(project.id), cloudRecord(project), { merge: true }))); setStatus('Proyectos guardados en Firebase'); }
+    catch (error) { console.warn('No se pudieron sincronizar los proyectos:', error); setStatus('Guardado local · Firebase no disponible'); }
+    finally { cloudSyncInFlight = false; if (cloudSyncQueued) { cloudSyncQueued = false; scheduleCloudSave(); } }
+  }
+  async function loadCloudProjects(uid = cloudUserId) {
+    if (!uid || !window.db || !window.firestore?.collection) return;
+    cloudUserId = uid;
+    try {
+      const { collection, getDocs } = window.firestore;
+      const snapshot = await getDocs(collection(window.db, 'users', uid, 'projects'));
+      const remote = snapshot.docs.map(item => normaliseProject(item.data())).filter(item => item.id);
+      const merged = new Map(state.projects.map(item => [item.id, item]));
+      remote.forEach(item => { const local = merged.get(item.id); if (!local || Number(item.syncedAt || 0) >= Number(local.syncedAt || 0)) merged.set(item.id, item); });
+      state.projects = [...merged.values()].map(normaliseProject).sort((a, b) => Number(b.updatedAt || b.syncedAt || 0) - Number(a.updatedAt || a.syncedAt || 0));
+      state.active = state.active && state.projects.some(item => item.id === state.active) ? state.active : state.projects[0]?.id || null;
+      if (!state.projects.length) { const starter = defaults(); starter.name = 'Mi primer proyecto'; recordVersion(starter, 'Estado inicial'); state.projects.push(starter); state.active = starter.id; }
+      localStorage.setItem(key, JSON.stringify(state)); render(); await flushCloudSave(); setStatus('Proyectos sincronizados con Firebase');
+    } catch (error) { console.warn('No se pudieron cargar los proyectos de Firebase:', error); setStatus('Proyectos locales · no se pudo sincronizar Firebase'); }
+  }
+  async function deleteCloudProject(id) { if (!cloudUserId || !window.firestore?.deleteDoc) return; try { await window.firestore.deleteDoc(projectDoc(id)); } catch (error) { console.warn('No se pudo eliminar el proyecto en Firebase:', error); } }
   function open() { const panel = $('cutreal-projects'); if (!panel) return false; panel.hidden = false; panel.style.display = 'flex'; render(); return true; }
   function close() { const panel = $('cutreal-projects'); if (panel) { panel.hidden = true; panel.style.display = 'none'; } return true; }
-  function create() { const project = defaults(); project.name = $('cutreal-project-name')?.value.trim() || project.name; project.category = $('cutreal-project-category')?.value || project.category; project.model = $('cutreal-project-model')?.value || 'pro'; recordVersion(project, 'Proyecto creado'); state.projects.unshift(project); state.active = project.id; save(); render(); }
-  function remove(id = state.active) { const project = state.projects.find(item => item.id === id); if (!project) return; if (!confirm(`¿Eliminar el proyecto “${project.name}”?`)) return; state.projects = state.projects.filter(item => item.id !== id); state.active = state.projects[0]?.id || null; save(); render(); }
+  function create() { const project = defaults(); project.name = $('cutreal-project-name')?.value.trim() || project.name; project.category = $('cutreal-project-category')?.value || project.category; project.model = $('cutreal-project-model')?.value || 'pro'; project.updatedAt = Date.now(); recordVersion(project, 'Proyecto creado'); state.projects.unshift(project); state.active = project.id; save(); render(); }
+  function remove(id = state.active) { const project = state.projects.find(item => item.id === id); if (!project) return; if (!confirm(`¿Eliminar el proyecto “${project.name}”?`)) return; state.projects = state.projects.filter(item => item.id !== id); state.active = state.projects[0]?.id || null; save(); deleteCloudProject(id); render(); }
   function createFile() { const project = active(); const input = $('cr-project-new-file-name'); const file = safeFileName(input?.value); if (!project || !file) { setStatus('Nombre de archivo no válido. Usá letras, números, puntos, guiones o subcarpetas.'); return; } if (Object.prototype.hasOwnProperty.call(project.files, file)) { setStatus('Ese archivo ya existe.'); return; } recordVersion(project, `Antes de crear ${file}`); project.files[file] = ''; project.activeFile = file; if (input) input.value = ''; save(); renderEditor(); run(); setStatus(`Archivo creado · ${file}`); }
   function renameFile() { const project = active(); const current = project?.activeFile; if (!project || !current) return; const file = safeFileName(prompt('Nuevo nombre del archivo:', current)); if (!file || file === current) return; if (Object.prototype.hasOwnProperty.call(project.files, file)) { setStatus('Ese nombre ya está en uso.'); return; } recordVersion(project, `Antes de renombrar ${current}`); project.files[file] = project.files[current]; delete project.files[current]; project.activeFile = file; save(); renderEditor(); run(); setStatus(`Archivo renombrado · ${file}`); }
   function deleteFile() { const project = active(); const current = project?.activeFile; if (!project || !current || Object.keys(project.files).length <= 1) { setStatus('El proyecto debe conservar al menos un archivo.'); return; } if (!confirm(`¿Eliminar ${current}?`)) return; recordVersion(project, `Antes de eliminar ${current}`); delete project.files[current]; project.activeFile = Object.keys(project.files)[0]; save(); renderEditor(); run(); setStatus(`Archivo eliminado · ${current}`); }
@@ -185,7 +217,10 @@
   function toggleFullscreen() { const card = $('cutreal-projects')?.querySelector('.cr-project-card'); if (!card) return; if (document.fullscreenElement) { document.exitFullscreen?.(); } else if (card.requestFullscreen) { card.requestFullscreen().catch(() => card.classList.toggle('cr-project-fullscreen-fallback')); } else card.classList.toggle('cr-project-fullscreen-fallback'); }
   function togglePreviewViewport() { const panel = $('cr-project-preview-shell'); const button = $('cr-project-preview-expand'); if (!panel) return; const expanded = panel.classList.toggle('cr-project-preview-viewport'); document.body.classList.toggle('cr-project-preview-open', expanded); if (button) { button.setAttribute('aria-label', expanded ? 'Cerrar vista grande del preview' : 'Abrir preview en pantalla completa'); button.textContent = expanded ? '×' : '⛶'; } }
   function bind() { $('cr-project-close')?.addEventListener('click', close); $('cutreal-project-create')?.addEventListener('click', create); $('cr-project-run')?.addEventListener('click', run); $('cr-project-send')?.addEventListener('click', send); $('cr-project-delete-current')?.addEventListener('click', () => remove()); $('cr-project-share')?.addEventListener('click', shareProject); $('cr-project-import')?.addEventListener('click', importProject); $('cr-project-save-secret')?.addEventListener('click', saveSecret); $('cr-project-reveal-secret')?.addEventListener('click', revealSecret); $('cr-project-new-file')?.addEventListener('click', createFile); $('cr-project-rename-file')?.addEventListener('click', renameFile); $('cr-project-delete-file')?.addEventListener('click', deleteFile); $('cr-project-fullscreen')?.addEventListener('click', toggleFullscreen); $('cr-project-editor-expand')?.addEventListener('click', () => toggleProjectPanel('cr-project-editor-shell', 'cr-project-editor-expand')); $('cr-project-preview-expand')?.addEventListener('click', togglePreviewViewport); $('cr-project-model')?.addEventListener('change', event => { const project = active(); if (project) { project.model = event.target.value; save(); renderList(); } }); $('cr-project-new-file-name')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); createFile(); } }); $('cr-project-input')?.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }); document.addEventListener('keydown', event => { if (event.key === 'Escape' && $('cr-project-preview-shell')?.classList.contains('cr-project-preview-viewport')) togglePreviewViewport(); }); }
+  function handleAuthState(detail = {}) { const uid = detail.uid || window.auth?.currentUser?.uid || null; if (uid) loadCloudProjects(uid); else { cloudUserId = null; } }
   load(); if (!state.projects.length) { const starter = defaults(); starter.name = 'Mi primer proyecto'; recordVersion(starter, 'Estado inicial'); state.projects.push(starter); state.active = starter.id; save(); }
   window.CutRealProjects = { open, close, create, remove, shareProject, restoreVersion, getState: () => state };
+  window.addEventListener('cutreal:auth-state', event => handleAuthState(event.detail || {}));
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
+  setTimeout(() => { if (window.auth?.currentUser?.uid) handleAuthState({ uid: window.auth.currentUser.uid }); }, 1200);
 })();
