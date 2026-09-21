@@ -1,0 +1,2 @@
+/* CUT-REAL LAYOUT FIX · toggle sidebar y cierre coherente */
+(function(){'use strict';function isOpen(){return document.getElementById('chat-sidebar')?.classList.contains('sidebar-open')}window.toggleSidebar=function(){if(isOpen())window.closeSidebar?.();else window.openSidebar?.();const b=document.getElementById('sidebar-toggle-btn');b?.setAttribute('aria-expanded',String(!isOpen()));};document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('sidebar-toggle-btn');b?.setAttribute('aria-expanded','false');});})();
