@@ -33,18 +33,18 @@
       state.active = data.active || state.projects[0]?.id || null;
     } catch (_) { state.projects = []; }
   }
-  function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {} scheduleCloudSave(); }
+  function save() { const project = active(); if (project) project.updatedAt = Date.now(); try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {} scheduleCloudSave(); }
   function active() { return state.projects.find(item => item.id === state.active); }
   function firebaseReady() { return Boolean(cloudUserId && window.db && window.firestore?.doc && window.firestore?.setDoc); }
   function projectDoc(projectId) { const { doc, collection } = window.firestore; return doc(collection(window.db, 'users', cloudUserId, 'projects'), projectId); }
-  function cloudRecord(project) { return { ...clone(project), ownerUid: cloudUserId, syncedAt: Date.now() }; }
+  function cloudRecord(project) { const record = { id: project.id, name: project.name, category: project.category, model: project.model, activeFile: project.activeFile, files: clone(project.files), messages: clone((project.messages || []).slice(-120)), versions: clone((project.versions || []).slice(0, 8)), ownerUid: cloudUserId, updatedAt: Date.now(), syncedAt: Date.now() }; const bytes = new Blob([JSON.stringify(record)]).size; if (bytes > 850000) { record.versions = []; record.messages = record.messages.slice(-40); } return record; }
   function scheduleCloudSave() { if (!firebaseReady()) return; clearTimeout(cloudSaveTimer); cloudSaveTimer = setTimeout(flushCloudSave, 650); }
   async function flushCloudSave() {
     if (!firebaseReady()) return;
     if (cloudSyncInFlight) { cloudSyncQueued = true; return; }
     cloudSyncInFlight = true;
-    try { const { setDoc } = window.firestore; await Promise.all(state.projects.map(project => setDoc(projectDoc(project.id), cloudRecord(project), { merge: true }))); setStatus('Proyectos guardados en Firebase'); }
-    catch (error) { console.warn('No se pudieron sincronizar los proyectos:', error); setStatus('Guardado local · Firebase no disponible'); }
+    try { const { setDoc } = window.firestore; await Promise.all(state.projects.map(project => setDoc(projectDoc(project.id), cloudRecord(project), { merge: true }))); setStatus('Código guardado en Firebase'); }
+    catch (error) { console.warn('No se pudieron sincronizar los proyectos:', error); setStatus(`Guardado local · Firebase rechazó la escritura (${error.code || 'error'})`); }
     finally { cloudSyncInFlight = false; if (cloudSyncQueued) { cloudSyncQueued = false; scheduleCloudSave(); } }
   }
   async function loadCloudProjects(uid = cloudUserId) {
@@ -60,10 +60,10 @@
       state.active = state.active && state.projects.some(item => item.id === state.active) ? state.active : state.projects[0]?.id || null;
       if (!state.projects.length) { const starter = defaults(); starter.name = 'Mi primer proyecto'; recordVersion(starter, 'Estado inicial'); state.projects.push(starter); state.active = starter.id; }
       localStorage.setItem(key, JSON.stringify(state)); render(); await flushCloudSave(); setStatus('Proyectos sincronizados con Firebase');
-    } catch (error) { console.warn('No se pudieron cargar los proyectos de Firebase:', error); setStatus('Proyectos locales · no se pudo sincronizar Firebase'); }
+    } catch (error) { console.warn('No se pudieron cargar los proyectos de Firebase:', error); setStatus(`Proyectos locales · Firebase no respondió (${error.code || 'error'})`); }
   }
   async function deleteCloudProject(id) { if (!cloudUserId || !window.firestore?.deleteDoc) return; try { await window.firestore.deleteDoc(projectDoc(id)); } catch (error) { console.warn('No se pudo eliminar el proyecto en Firebase:', error); } }
-  function open() { const panel = $('cutreal-projects'); if (!panel) return false; panel.hidden = false; panel.style.display = 'flex'; render(); return true; }
+  function open() { const panel = $('cutreal-projects'); if (!panel) return false; panel.hidden = false; panel.style.display = 'flex'; render(); if (cloudUserId) loadCloudProjects(cloudUserId); return true; }
   function close() { const panel = $('cutreal-projects'); if (panel) { panel.hidden = true; panel.style.display = 'none'; } return true; }
   function create() { const project = defaults(); project.name = $('cutreal-project-name')?.value.trim() || project.name; project.category = $('cutreal-project-category')?.value || project.category; project.model = $('cutreal-project-model')?.value || 'pro'; project.updatedAt = Date.now(); recordVersion(project, 'Proyecto creado'); state.projects.unshift(project); state.active = project.id; save(); render(); }
   function remove(id = state.active) { const project = state.projects.find(item => item.id === id); if (!project) return; if (!confirm(`¿Eliminar el proyecto “${project.name}”?`)) return; state.projects = state.projects.filter(item => item.id !== id); state.active = state.projects[0]?.id || null; save(); deleteCloudProject(id); render(); }
