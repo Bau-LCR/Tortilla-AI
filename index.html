@@ -202,6 +202,31 @@
     </div>
 </div>
 
+<!-- AUTH BOOTSTRAP: no deja la interfaz desbloqueada mientras Firebase carga -->
+<script>
+(() => {
+  const TERMS_VERSION = '2026-09-21-v2';
+  function showAuthGate() {
+    if (window.auth?.currentUser) return;
+    const terms = document.getElementById('terms-overlay');
+    const login = document.getElementById('login-overlay');
+    const accepted = localStorage.getItem('cutreal_terms_accepted') === TERMS_VERSION;
+    if (terms) { terms.style.display = accepted ? 'none' : 'flex'; terms.hidden = accepted; }
+    if (login) { login.style.display = accepted ? 'flex' : 'none'; login.hidden = !accepted; }
+    document.getElementById('input')?.setAttribute('disabled', 'disabled');
+  }
+  window.__cutrealShowAuthGate = showAuthGate;
+  window.addEventListener('cutreal:auth-state', event => {
+    const authenticated = event.detail?.authenticated === true || Boolean(window.auth?.currentUser);
+    if (!authenticated) showAuthGate();
+    else { document.getElementById('terms-overlay')?.setAttribute('hidden', ''); document.getElementById('login-overlay')?.setAttribute('hidden', ''); }
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(showAuthGate, 60), { once: true });
+  else setTimeout(showAuthGate, 60);
+  setTimeout(showAuthGate, 900);
+})();
+</script>
+
 <!-- CONTROLES SUPERIORES -->
 <div class="side-controls" id="side-controls" data-collapsed="false">
     <button id="controls-collapse-btn" type="button" aria-expanded="true" aria-controls="side-controls" title="Retraer o expandir controles superiores">⌃</button>
@@ -1427,7 +1452,7 @@
 <script src="cutreal-tools-menu.js?v=tools-20260911-03"></script>
 <script src="cutreal-surveys.js?v=surveys-20260918-01"></script>
 <!-- MAIN: lógica principal del chat -->
-<script src="main.js?v=auth-voice-20260921-02"></script>
+<script src="main.js?v=auth-voice-20260921-03"></script>
 <!-- Versionado para invalidar caché tras agregar tools low-poly -->
 <script src="cutreal-memory.js?v=memory-20260921-01"></script>
 <script src="sandbox-catalog.js?v=catalog-20260921-03"></script>
