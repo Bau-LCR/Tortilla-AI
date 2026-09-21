@@ -5,6 +5,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 // ===== CONSTANTES =====
 const ADMIN_UID  = "8qZG7egWbIeMy7HqtwkKEdLasMw2";
 const TERMS_KEY  = "cutreal_terms_accepted";
+const TERMS_VERSION = "2026-09-21-v2";
 const MODEL_KEY  = "cutreal_model_preference";
 
 // ===== ESTADO GLOBAL =====
@@ -371,7 +372,7 @@ const formatearTexto = (texto) => {
 
     // ===== TÉRMINOS Y CONDICIONES =====
     window.acceptTerms = () => {
-        localStorage.setItem(TERMS_KEY, "accepted");
+        localStorage.setItem(TERMS_KEY, TERMS_VERSION);
         termsOverlay.style.display = "none";
         loginOverlay.style.display = "flex";
     };
@@ -574,10 +575,11 @@ const formatearTexto = (texto) => {
     }
 };
 
-    window.logout = () => {
-        if (!window.auth) return;
+    window.logout = async () => {
+        if (!window.auth || !window.signOut) return;
         document.body.style.opacity = "0.5";
-        window.signOut(window.auth).then(() => location.reload());
+        try { await window.signOut(window.auth); location.reload(); }
+        catch (error) { document.body.style.opacity = "1"; alert(`No se pudo cerrar sesión: ${error.message || error}`); }
     };
 
     // ===== RENDERIZAR HISTORIAL =====
@@ -640,7 +642,13 @@ const formatearTexto = (texto) => {
                     currentUser = user;
                     window.__currentUserAuthenticated = true;
                     window.dispatchEvent(new CustomEvent('cutreal:auth-state', { detail: { authenticated: true, uid: user.uid } }));
+                    if (localStorage.getItem(TERMS_KEY) === TERMS_VERSION && window.firestore?.setDoc) {
+                        const { doc, setDoc } = window.firestore;
+                        setDoc(doc(window.db, 'users', user.uid), { termsVersion: TERMS_VERSION, termsAcceptedAt: Date.now() }, { merge: true }).catch(error => console.warn('No se pudo guardar la aceptación de términos:', error));
+                    }
                     loginOverlay.style.display = "none";
+                    termsOverlay.style.display = "none";
+                    if (input) input.removeAttribute('disabled');
                     if (logoutBtn) logoutBtn.style.display = "block";
                     const resetBtn = document.getElementById("resetChat");
                     if (resetBtn) resetBtn.style.display = "block";
@@ -679,9 +687,12 @@ const formatearTexto = (texto) => {
                     window.CutRealSandbox && window.CutRealSandbox.onAuthReady(null);
                     if (adminBtn) adminBtn.style.display = "none";
                     document.getElementById('sidebar-toggle-btn').style.display='none'; // ← AGREGAR
-                    const accepted = localStorage.getItem(TERMS_KEY);
-                    if (!accepted) termsOverlay.style.display = "flex";
-                    else loginOverlay.style.display = "flex";
+                    if (input) { input.value = ''; input.setAttribute('disabled', 'disabled'); }
+                    chat.innerHTML = '<div class="ai">La sesión está cerrada. Aceptá los términos e iniciá sesión para continuar.</div>';
+                    document.querySelectorAll('[data-auth-only]').forEach(node => { node.hidden = true; node.style.display = 'none'; });
+                    const accepted = localStorage.getItem(TERMS_KEY) === TERMS_VERSION;
+                    termsOverlay.style.display = accepted ? "none" : "flex";
+                    loginOverlay.style.display = accepted ? "flex" : "none";
                 }
             });
         } else {
