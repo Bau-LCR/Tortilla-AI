@@ -34,3 +34,14 @@ body.cr-document-open{overflow:hidden!important}
 .cr-special-tools button:hover{background:#1b70ad}
 @media(max-width:900px){.cr-project-document-shell{width:calc(100% - 8px);height:calc(100% - 8px);margin:4px}.cr-document-editor{width:calc(100% - 12px);margin:6px auto}.cr-special-tools{grid-template-columns:1fr 1fr}.cr-special-tools label:first-child{grid-column:1/-1}}
 @media(max-width:520px){.cr-project-document-shell.cr-document-fullscreen{inset:4px!important}.cr-special-tools{grid-template-columns:1fr}.cr-special-tools label:first-child{grid-column:auto}.cr-category-tools-head{display:block}.cr-category-tools-head span{display:block;margin-top:4px}}
+
+/* MULTIMEDIA Y ADJUNTOS */
+.cr-document-color{display:inline-flex;align-items:center;gap:3px;height:30px;padding:0 6px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;font-weight:700;font-size:11px}
+.cr-document-color input{width:22px;height:22px;padding:0;border:0;background:transparent;cursor:pointer}
+.cr-document-editor img{display:block;max-width:100%;height:auto;margin:14px auto;border:1px solid #b9cde2;border-radius:5px;box-shadow:0 3px 12px rgba(20,50,90,.16)}
+.cr-project-attachments{display:flex;flex-wrap:wrap;gap:5px;padding:4px 10px;background:#061832;color:#bdefff;font-size:11px}
+.cr-project-attachment-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid #3c91bd;border-radius:999px;background:#0c386b}
+.cr-project-attachment-chip button{border:0;background:transparent;color:#dffaff;cursor:pointer;font-size:14px;line-height:1}
+.cr-project-attach{padding:9px 10px;color:#e9fbff;background:#0e467f;border:1px solid #5edcff;border-radius:8px;cursor:pointer}
+.cr-project-attach:hover{background:#1b70ad}
+@media(max-width:520px){.cr-document-color{order:2}.cr-project-attach{padding:8px;font-size:11px}}
