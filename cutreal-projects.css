@@ -52,3 +52,10 @@ body.cr-project-preview-open{overflow:hidden!important}
 .cr-preview-shell.cr-project-preview-viewport .cr-project-toolbar{min-height:44px;padding:6px 12px;font-size:13px}
 .cr-preview-shell.cr-project-preview-viewport .cr-project-preview{height:calc(100% - 45px)!important;min-height:0!important;background:#fff}
 @media(max-width:900px){.cr-preview-shell.cr-project-preview-viewport{inset:5px!important;border-radius:10px!important}.cr-preview-shell.cr-project-preview-viewport .cr-project-preview{height:calc(100% - 44px)!important}}
+
+/* RECUPERACIÓN DE SOLICITUDES LARGAS */
+.cr-project-continue{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px solid rgba(111,220,255,.22)}
+.cr-project-continue button{min-width:154px;padding:8px 12px;border:1px solid #66dcff;border-radius:8px;background:linear-gradient(135deg,#0d5592,#2453a7);color:#effcff;font-weight:800;cursor:pointer;transition:filter .18s,transform .18s,opacity .18s}
+.cr-project-continue button:not(:disabled):hover{filter:brightness(1.2);transform:translateY(-1px)}
+.cr-project-continue button:disabled{cursor:not-allowed;opacity:.58;background:#17375d;border-color:#4b79a1}
+.cr-project-continue small{color:#9fc9df;font-size:11px;line-height:1.35}
