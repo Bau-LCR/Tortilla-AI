@@ -58,7 +58,9 @@
     if (action === 'admin') return document.getElementById('admin-btn')?.click() || showPanel('admin-overlay', 'flex');
     if (action === 'logout') return window.logout?.() || false;
     if (action === 'clear-chat') return window.resetChat?.() || false;
-    if (action === 'chat') { closeAll(); el('chat')?.scrollIntoView?.({ block: 'center' }); el('input')?.focus?.(); return true; }
+    if (action === 'paint-ai') return window.CutRealAIPaint?.open?.() || false;
+    if (action === 'projects') return window.CutRealProjects?.open?.() || false;
+    if (action === 'chat') { closeAll(); const chat = el('chat'); if (chat) { chat.hidden = false; chat.style.display = ''; chat.scrollIntoView?.({ block: 'center' }); } el('input')?.focus?.(); return true; }
     return false;
   }
 
@@ -81,7 +83,7 @@
       const tool = event.target.closest('#tools-menu [data-tool-action]');
       if (tool) {
         const action = tool.dataset.toolAction;
-        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat'].includes(action)) {
+        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat', 'paint-ai', 'projects'].includes(action)) {
           event.preventDefault();
           event.stopImmediatePropagation();
           open(action);
