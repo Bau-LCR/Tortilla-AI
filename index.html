@@ -50,6 +50,8 @@
     <link rel="stylesheet" href="cutreal-performance-lite.css?v=performance-lite-20260919-01">
     <link rel="stylesheet" href="cutreal-ai-paint.css?v=paint-ai-20260921-01">
     <link rel="stylesheet" href="cutreal-projects.css?v=projects-20260921-01">
+    <link rel="stylesheet" href="cutreal-admin-icons.css?v=admin-icons-20260921-01">
+    <link rel="stylesheet" href="cutreal-workspace-fix.css?v=workspace-fix-20260921-01">
 </head>
     <script>
   if ('serviceWorker' in navigator) {
@@ -1273,6 +1275,7 @@
     <button id="agent-mode-btn" class="chat-extra-btn" title="Abrir CUT-REAL AGENT">◉ Agent</button>
     <span id="voice-call-status" class="voice-call-status" aria-live="polite">Voz lista</span>
 </div>
+<div id="model-selector-wrap" class="model-selector-wrap"><div class="model-selector"><button class="model-btn" onclick="setModel('basic')" title="Modelo Básico"><span class="model-icon">⚡</span><span class="model-label">Básico</span></button><button class="model-btn" onclick="setModel('pro')" title="Modelo Pro"><span class="model-icon">◆</span><span class="model-label">Pro</span></button><button class="model-btn ultra-btn" onclick="setModel('ultra')" title="Modelo Ultra"><span class="model-icon">✦</span><span class="model-label">Ultra</span></button></div></div>
 <div class="input-area">
     <input type="file" id="file-input" accept="application/pdf,.docx,image/jpeg,image/jpg,image/png,image/webp,image/gif" style="display: none;">
     <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;">
@@ -1423,7 +1426,6 @@
 <script src="main.js?v=lowpoly-20260819-2"></script>
 <!-- Versionado para invalidar caché tras agregar tools low-poly -->
 <script src="cutreal-memory.js?v=memory-20260921-01"></script>
-<script src="cutreal-chat-export.js?v=chat-export-20260921-01"></script>
 <script src="sandbox-catalog.js?v=catalog-20260921-01"></script>
 <script src="sandbox-frontend.js?v=sandbox-20260921-01"></script>
 <script src="workspace.js?v=workspace-20260921-01"></script>
@@ -2022,6 +2024,7 @@ window.adminSectionAction = function(name) {
 </script>
 <script src="cutreal-mode-policy.js?v=policy-20260830-01"></script>
 <script src="cutreal-spanish-ui.js?v=spanish-ui-20260830-01"></script>
+<script src="cutreal-admin-icons.js?v=admin-icons-20260921-01"></script>
 <script src="cutreal-navigation.js?v=navigation-20260921-01"></script>
 <footer class="copyright">
     <p>Cut-real AI no es un ser humano. Puede cometer errores, así que verificá las respuestas.</p>
