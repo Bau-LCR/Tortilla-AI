@@ -1,0 +1,11 @@
+/* PROJECT MODE · editor documental tipo Word */
+.cr-project-document-shell{display:flex;flex-direction:column;min-height:0;height:100%;background:#e9eef7;color:#17243a;border:1px solid #6baee0;border-radius:10px;overflow:hidden}
+.cr-project-document-shell[hidden]{display:none!important}
+.cr-document-toolbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:8px;background:#0b2d5e;color:#e9f8ff;border-bottom:1px solid #4a9dcc}
+.cr-document-toolbar button,.cr-document-toolbar select{height:30px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;padding:3px 8px;cursor:pointer;font-weight:700}
+.cr-document-toolbar button:hover,.cr-document-toolbar select:hover{background:#1a5da0;border-color:#a5efff}
+.cr-document-title{flex:1;min-width:180px;height:32px;border:1px solid #62bde5;border-radius:5px;background:#061d42;color:#fff;padding:5px 9px;font-size:14px;font-weight:700}
+.cr-document-editor{flex:1;min-height:350px;overflow:auto;width:min(100%,900px);margin:18px auto;padding:54px 64px;background:#fff;color:#1d2633;font-family:'Times New Roman',serif;font-size:16px;line-height:1.65;box-shadow:0 4px 20px rgba(15,35,70,.16);outline:none}
+.cr-document-editor h1{font-size:28px;line-height:1.2;margin:0 0 20px;color:#142d55}.cr-document-editor h2{font-size:22px;color:#193e70}.cr-document-editor h3{font-size:18px;color:#214c7d}.cr-document-editor p{margin:0 0 12px}.cr-document-editor ul,.cr-document-editor ol{padding-left:28px}.cr-document-status{padding:6px 10px;background:#d9e6f5;color:#315b80;font-size:11px;text-align:right}
+@media(max-width:900px){.cr-document-editor{width:calc(100% - 14px);margin:7px auto;padding:28px 24px;min-height:310px}.cr-document-toolbar{gap:4px}.cr-document-title{flex-basis:100%;order:-1}.cr-document-toolbar button,.cr-document-toolbar select{flex:0 0 auto}}
+@media(max-width:520px){.cr-document-editor{padding:22px 16px;font-size:15px}.cr-document-toolbar button,.cr-document-toolbar select{font-size:11px;padding:3px 6px}.cr-document-title{font-size:13px}}
