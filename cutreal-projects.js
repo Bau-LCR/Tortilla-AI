@@ -132,20 +132,43 @@
     return { count: changedFiles.size, files: [...changedFiles] };
   }
 
+  function isImplementationRequest(text) { return /\b(crea|crear|hacé|hacer|hace|desarroll|program|c[oó]digo|implement|modific|actualiz|agreg|añad|constru|diseñ|aplicaci[oó]n|web|ia|inteligencia artificial|memoria|memoria|mensaje|api|funci[oó]n|archivo|proyecto)\b/i.test(String(text || '')); }
+  function extractCodeChanges(text, files) {
+    const changes = [];
+    const blocks = String(text || '').matchAll(/```(?:html|css|javascript|js|json|markdown|md|text|txt)?\s*([\s\S]*?)```/gi);
+    const found = [...blocks].map(match => match[1].trim()).filter(Boolean);
+    if (!found.length) return changes;
+    const lower = String(text).toLowerCase();
+    const preferred = lower.includes('style') || lower.includes('css') ? 'style.css' : lower.includes('script') || lower.includes('javascript') || lower.includes('js') ? 'script.js' : lower.includes('json') ? 'config.json' : 'index.html';
+    found.forEach((content, index) => { const file = index === 0 ? preferred : Object.keys(files).find(name => ![preferred, 'index.html', 'style.css', 'script.js'].includes(name)) || `generated-${index + 1}.txt`; changes.push({ file, operation: 'set', content }); });
+    return changes;
+  }
+  async function askProjectAgent(project, system, messageList) {
+    const response = await fetch('/api/project-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: project.model, mensajes: [{ role: 'system', content: system }, ...messageList] }) });
+    const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || `El endpoint /api/project-chat respondió HTTP ${response.status}.`);
+    const rawReply = data.choices?.[0]?.message?.content || data.error || ''; return { rawReply, payload: parseAiPayload(rawReply) };
+  }
   async function send() {
     const project = active(); const input = $('cr-project-input'); const chat = $('cr-project-chat'); const text = input?.value.trim(); if (!project || !text || !chat) return;
     input.value = ''; project.model = $('cr-project-model')?.value || project.model || 'pro'; project.messages.push({ role: 'user', content: text }); save(); renderChat();
-    const thinking = document.createElement('div'); thinking.className = 'cr-project-msg ai cr-project-thinking'; thinking.innerHTML = '<b>IA del proyecto:</b> <span class="cr-project-dots"><i></i><i></i><i></i></span> Analizando y editando archivos…'; chat.appendChild(thinking); chat.scrollTop = chat.scrollHeight;
-    const system = `Sos el agente exclusivo del proyecto ${project.name}. Categoría: ${project.category}. No mezcles Sandbox, SUPER ni Chat Normal. Sos un agente de desarrollo con acceso directo al editor: podés leer, crear, modificar, renombrar y eliminar archivos del proyecto sin pedirle al usuario que copie el código. Conocés y debés usar estas operaciones: set para escribir o crear un archivo, replace para cambios puntuales, append para agregar contenido, rename con file y from para cambiar nombres, y delete para eliminar archivos. Podés trabajar con cualquier archivo seguro (HTML, CSS, JavaScript, JSON, Markdown, SVG, TXT y subcarpetas simples), no solamente los archivos iniciales. Respondé ÚNICAMENTE JSON válido, sin Markdown, con esta forma: {"message":"explicación breve en español","changes":[{"file":"ruta/archivo.ext","operation":"set|create|replace|append|rename|delete","content":"contenido para set/create/append","oldText":"texto exacto para replace","newText":"reemplazo","from":"archivo anterior para rename"}]}. Aplicá los cambios directamente y mantené coherencia entre archivos relacionados. No le pidas al usuario el código actual: ya lo tenés en el contexto. Revisá siempre el estado actual antes de modificarlo. Archivos actuales disponibles: ${JSON.stringify(project.files)}`;
+    const thinking = document.createElement('div'); thinking.className = 'cr-project-msg ai cr-project-thinking'; thinking.innerHTML = '<b>IA del proyecto:</b> <span class="cr-project-dots"><i></i><i></i><i></i></span> Analizando y aplicando cambios…'; chat.appendChild(thinking); chat.scrollTop = chat.scrollHeight;
+    const system = `Sos el agente exclusivo del proyecto ${project.name}. Categoría: ${project.category}. No mezcles Sandbox, SUPER ni Chat Normal. Tenés acceso directo al editor y debés actuar como una herramienta de programación: podés leer, crear, modificar, renombrar y eliminar archivos sin pedir al usuario que copie el código. Usá set o create para crear/escribir, replace para cambios puntuales, append para agregar, rename con file y from para cambiar nombres, y delete para eliminar. Podés usar cualquier archivo seguro HTML, CSS, JavaScript, JSON, Markdown, SVG o TXT y subcarpetas simples. Respondé ÚNICAMENTE JSON válido sin Markdown: {"message":"explicación breve en español","changes":[{"file":"ruta/archivo.ext","operation":"set|create|replace|append|rename|delete","content":"contenido","oldText":"texto exacto","newText":"reemplazo","from":"archivo anterior"}]}. Si el usuario pide construir, programar, crear una IA, memoria, API, interfaz o función, tenés que aplicar los cambios directamente en los archivos en esta misma respuesta. Nunca devuelvas solo un tutorial o un bloque de código sin changes. Mantené coherencia entre archivos y revisá el estado actual. Archivos actuales: ${JSON.stringify(project.files)}`;
+    const implementation = isImplementationRequest(text);
     try {
-      const response = await fetch('/api/project-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: project.model, mensajes: [{ role: 'system', content: system }, ...project.messages.slice(-14)] }) });
-      const data = await response.json().catch(() => ({})); if (thinking.isConnected) thinking.remove();
-      if (!response.ok) throw new Error(data.error || `El endpoint /api/project-chat respondió HTTP ${response.status}.`);
-      const rawReply = data.choices?.[0]?.message?.content || data.error || '';
-      const payload = parseAiPayload(rawReply); const result = applyChanges(project, payload.changes);
-      if (result.count) { recordVersion(project, `IA: ${text.slice(0, 100)}`); project.messages.push({ role: 'assistant', content: `${payload.message || 'Cambios aplicados.'}\n\nArchivos actualizados en tiempo real: ${result.files.join(', ')}.` }); save(); render(); run(); }
-      else { project.messages.push({ role: 'assistant', content: payload.message || rawReply || 'La IA no propuso cambios.' }); save(); renderChat(); }
-      setStatus(result.count ? `IA actualizó ${result.files.join(', ')} · guardado` : 'Respuesta recibida · sin cambios de archivos');
+      let result = await askProjectAgent(project, system, project.messages.slice(-14));
+      let changes = Array.isArray(result.payload.changes) ? result.payload.changes : [];
+      // Respaldo para modelos que ignoran JSON: convierte bloques de código en cambios aplicables.
+      if (!changes.length) changes = extractCodeChanges(result.rawReply, project.files);
+      // Segunda pasada automática: transforma una respuesta explicativa en operaciones concretas.
+      if (!changes.length && implementation) {
+        const repairSystem = `${system}\nLa respuesta anterior no produjo cambios. Ahora corregí eso. Convertí el pedido del usuario en cambios concretos y completos sobre los archivos actuales. Es obligatorio devolver al menos un objeto en changes si el pedido requiere código. No expliques el código fuera del JSON.`;
+        const repairMessages = [...project.messages.slice(-14), { role: 'assistant', content: result.rawReply }, { role: 'user', content: `Aplicá ahora los cambios solicitados en forma ejecutable. Pedido original: ${text}` }];
+        result = await askProjectAgent(project, repairSystem, repairMessages); changes = Array.isArray(result.payload.changes) ? result.payload.changes : extractCodeChanges(result.rawReply, project.files);
+      }
+      if (thinking.isConnected) thinking.remove();
+      const applied = applyChanges(project, changes);
+      if (applied.count) { recordVersion(project, `IA: ${text.slice(0, 100)}`); project.messages.push({ role: 'assistant', content: `${result.payload.message || 'Cambios aplicados automáticamente.'}\n\nArchivos actualizados: ${applied.files.join(', ')}.` }); save(); render(); run(); setStatus(`IA aplicó cambios en ${applied.files.join(', ')} · guardado`); }
+      else { project.messages.push({ role: 'assistant', content: implementation ? 'La IA no generó un cambio aplicable. Intentá describir qué debe construir o modificar y volveré a repararlo automáticamente.' : (result.payload.message || result.rawReply || 'Respuesta recibida.') }); save(); renderChat(); setStatus('Respuesta recibida · no hubo cambios aplicables'); }
     } catch (error) { if (thinking.isConnected) thinking.remove(); project.messages.push({ role: 'assistant', content: `No se pudo responder desde Proyectos: ${error.message}` }); save(); renderChat(); }
   }
 
