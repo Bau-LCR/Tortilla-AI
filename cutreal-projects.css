@@ -27,3 +27,21 @@
 .cr-project-editor-shell.cr-project-panel-expanded .CodeMirror{height:calc(100% - 35px)}
 .cr-project-preview-shell.cr-project-panel-expanded .cr-project-preview{height:calc(100% - 35px)}
 @media(max-width:900px){.cr-project-work{grid-template-rows:auto minmax(300px,1fr) minmax(230px,36%);height:560px;min-height:560px}.cr-editor-shell,.cr-preview-shell{resize:vertical;margin:4px}.cr-editor-shell .CodeMirror{min-height:250px}.cr-project-preview{min-height:190px}.cr-project-toolbar{min-height:36px}}
+
+/* PROJECTS FILE MANAGER + FULLSCREEN */
+.cr-project-head{position:relative}
+.cr-project-fullscreen{margin-left:auto;margin-right:8px;width:38px;height:38px;border:1px solid #65dfff;border-radius:8px;background:#123b70;color:#fff;font-size:22px;cursor:pointer}
+.cr-project-fullscreen:hover{background:#1f72b2}
+.cr-project-head>div:first-child{flex:1}
+.cr-project-filesbar{min-width:0;background:#081a35;border-bottom:1px solid #1d3e62}
+.cr-project-filesbar .cr-project-file-tabs{border-bottom:1px solid #163b60}
+.cr-project-file-actions{display:flex;align-items:center;gap:6px;padding:6px 8px;overflow-x:auto}
+.cr-project-file-actions input{min-width:150px;flex:1;padding:7px 9px;color:#eaffff;background:#061126;border:1px solid #275d86;border-radius:7px}
+.cr-project-file-actions button{white-space:nowrap;padding:7px 9px;color:#c9f5ff;background:#0b3260;border:1px solid #3e9cca;border-radius:7px;cursor:pointer}
+.cr-project-file-actions button:hover{background:#145b99;color:#fff}
+.cr-project-card:fullscreen,.cr-project-card.cr-project-fullscreen-fallback{width:100vw;height:100vh;max-width:none;min-height:0;border-radius:0}
+.cr-project-card:fullscreen .cr-project-body,.cr-project-card.cr-project-fullscreen-fallback .cr-project-body{min-height:0}
+.cr-project-card:fullscreen .cr-project-work,.cr-project-card.cr-project-fullscreen-fallback .cr-project-work{grid-template-rows:auto minmax(420px,1fr) minmax(280px,34%)}
+@media(max-width:900px){.cr-project-file-actions{flex-wrap:wrap}.cr-project-file-actions input{flex-basis:100%;min-width:0}.cr-project-file-actions button{flex:1}.cr-project-fullscreen{margin-right:4px}}
+
+.cr-project-card{width:min(98vw,1900px);height:min(98vh,1200px)}
