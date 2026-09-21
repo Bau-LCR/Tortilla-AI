@@ -9,14 +9,14 @@
 
     // ── CONFIGURACIÓN ───────────────────────────────────────
     const CFG = {
-        rate:   0.85,   // Ritmo pausado, típico de una voz de asistente
-        pitch:  0.20,   // Tono grave y sintético
+        rate:   0.80,   // Narración pausada y clara
+        pitch:  0.10,   // Registro grave original, sin imitar a una persona concreta
         volume: 1.0,
         mode: 'loquendo',
         // Un único perfil público. El fallback técnico solo selecciona una voz
         // española disponible del navegador; nunca se ofrece como otra opción.
         profiles: {
-            loquendo: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
+            loquendo: { label: 'Loquendo · voz única', rate: .80, pitch: .10, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
             // Alias interno histórico: no se muestra como opción ni se ofrece en la interfaz.
             narrator: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
             natural: { label: 'Loquendo · voz única', rate: .82, pitch: .16, prefs: ['Microsoft Jorge','Microsoft Pablo','Microsoft Raul','Google español','español'] },
