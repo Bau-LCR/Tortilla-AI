@@ -45,3 +45,10 @@
 @media(max-width:900px){.cr-project-file-actions{flex-wrap:wrap}.cr-project-file-actions input{flex-basis:100%;min-width:0}.cr-project-file-actions button{flex:1}.cr-project-fullscreen{margin-right:4px}}
 
 .cr-project-card{width:min(98vw,1900px);height:min(98vh,1200px)}
+
+/* PREVIEW VIEWPORT · independiente del límite inferior del panel */
+body.cr-project-preview-open{overflow:hidden!important}
+.cr-preview-shell.cr-project-preview-viewport{position:fixed!important;inset:10px!important;z-index:19000!important;width:auto!important;height:auto!important;min-height:0!important;margin:0!important;resize:none!important;border:1px solid #67e7ff!important;border-radius:14px!important;box-shadow:0 24px 100px rgba(0,0,0,.85),0 0 0 9999px rgba(1,8,24,.78);background:#071a35!important}
+.cr-preview-shell.cr-project-preview-viewport .cr-project-toolbar{min-height:44px;padding:6px 12px;font-size:13px}
+.cr-preview-shell.cr-project-preview-viewport .cr-project-preview{height:calc(100% - 45px)!important;min-height:0!important;background:#fff}
+@media(max-width:900px){.cr-preview-shell.cr-project-preview-viewport{inset:5px!important;border-radius:10px!important}.cr-preview-shell.cr-project-preview-viewport .cr-project-preview{height:calc(100% - 44px)!important}}
