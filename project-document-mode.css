@@ -45,3 +45,11 @@ body.cr-document-open{overflow:hidden!important}
 .cr-project-attach{padding:9px 10px;color:#e9fbff;background:#0e467f;border:1px solid #5edcff;border-radius:8px;cursor:pointer}
 .cr-project-attach:hover{background:#1b70ad}
 @media(max-width:520px){.cr-document-color{order:2}.cr-project-attach{padding:8px;font-size:11px}}
+
+/* PAGINACIÓN VISUAL A4 */
+.cr-document-editor{background:#dfe7f1;padding:18px 0;box-sizing:border-box}
+.cr-document-page{width:min(794px,calc(100% - 30px));min-height:1123px;margin:0 auto 18px;padding:54px 64px;box-sizing:border-box;background:#fff;color:#1d2633;box-shadow:0 4px 20px rgba(15,35,70,.18);overflow:hidden}
+.cr-document-page:last-child{margin-bottom:0}
+.cr-document-page h1,.cr-document-page h2,.cr-document-page h3{break-after:avoid}
+@media(max-width:900px){.cr-document-editor{padding:10px 0}.cr-document-page{width:calc(100% - 14px);min-height:980px;padding:38px 28px;margin-bottom:12px}}
+@media(max-width:520px){.cr-document-page{min-height:860px;padding:28px 18px}}
