@@ -526,7 +526,10 @@ const formatearTexto = (texto) => {
 
     // ===== FIREBASE AUTH =====
    window.login = async () => {
-    if (!window.auth) return;
+    if (!window.auth) {
+        for (let attempt = 0; attempt < 30 && !window.auth; attempt++) await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    if (!window.auth || !window.signInWithPopup) { alert("Firebase todavía no terminó de cargar. Recargá la página e intentá nuevamente."); return; }
 
     const isNative = window.Capacitor?.isNativePlatform?.() === true;
 
