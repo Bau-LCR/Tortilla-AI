@@ -41,7 +41,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 1900);
 
     const capabilityBrief = (() => { try { const identity = window.CutRealIdentity || {}; const registry = window.CutRealCapabilities?.listCapabilities?.() || []; return `IDENTIDAD CUT-REAL AI: ${identity.name || 'Cut-real AI'}. Estilo: ${identity.style || 'analítico y seguro'}. Reglas: ${(identity.rules || []).join(' | ')}. CAPACIDADES REGISTRADAS: ${JSON.stringify(registry)}. Conocé estas capacidades, pero nunca afirmes que una acción está disponible si el estado real de la interfaz, permisos o proveedor indica lo contrario. Explicá claramente qué módulo debe usar el usuario: Chat Normal, SUPER, Proyectos, Sandbox, RANDAR, SPACE, voz, archivos o Paint IA.`; } catch (_) { return 'IDENTIDAD CUT-REAL AI: asistente analítico y seguro. No inventar capacidades.'; } })();
-    const systemPrompt = { role: "system", content: capabilityBrief };
+    const platformBrief = (() => { try { return `REGISTRO COMPACTO DE CUT-REAL: ${JSON.stringify(window.CutRealPlatformContext || {})}. Para explicar el funcionamiento de la web, usá este registro y analizá solo archivos o fragmentos concretos si el usuario los solicita; no hagas una autoauditoría completa por defecto.`; } catch (_) { return ''; } })();
+    const systemPrompt = { role: "system", content: `${capabilityBrief}\n${platformBrief}` };
     let currentUser = null;
     let historial   = [systemPrompt];
     let lastAssistantResponse = '';
