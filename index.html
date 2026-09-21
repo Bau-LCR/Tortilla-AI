@@ -48,6 +48,8 @@
     <link rel="stylesheet" href="space.css?v=space-20260911-01">
     <link rel="stylesheet" href="cutreal-global-theme.css?v=global-theme-20260918-01">
     <link rel="stylesheet" href="cutreal-performance-lite.css?v=performance-lite-20260919-01">
+    <link rel="stylesheet" href="cutreal-ai-paint.css?v=paint-ai-20260921-01">
+    <link rel="stylesheet" href="cutreal-projects.css?v=projects-20260921-01">
 </head>
     <script>
   if ('serviceWorker' in navigator) {
@@ -153,7 +155,7 @@
         <h2 class="nav-title">Cut-real <span class="red-text">AI</span></h2>
     </a>
 <button id="tools-menu-btn" class="tools-menu-btn" type="button" aria-expanded="false">HERRAMIENTAS</button><button id="space-header-btn" class="space-header-btn" type="button" data-space-open title="Abrir simulador espacial">✦ SPACE</button>
-<div id="tools-menu" class="tools-menu" hidden aria-label="Herramientas de Cut-real"><button type="button" data-tool-action="chat" onclick="window.CutRealNavigation?.open('chat')"><span>◉</span><b>CHAT NORMAL</b><small>Conversación principal de Cut-real</small></button><button type="button" data-tool-action="super" onclick="window.CutRealNavigation?.open('super')"><span>⚡</span><b>SUPER</b><small>Inteligencia multi-modelo</small></button><button type="button" data-tool-action="sandbox" onclick="window.CutRealNavigation?.open('sandbox')"><span>▣</span><b>SANDBOX</b><small>Experimentación y código</small></button><button type="button" data-tool-action="workspace" onclick="window.CutRealNavigation?.open('workspace')"><span>▤</span><b>WORKSPACE</b><small>Entorno de trabajo</small></button><button type="button" data-tool-action="space" data-space-open onclick="window.CutRealNavigation?.open('space')"><span>✦</span><b>SPACE</b><small>Simulación espacial</small></button><button type="button" data-tool-action="randar" onclick="window.CutRealNavigation?.open('randar')"><span>◉</span><b>RANDAR</b><small>Radar y datos públicos</small></button><button type="button" data-tool-action="admin" data-admin-only hidden onclick="window.CutRealNavigation?.open('admin')"><span>⚙</span><b>ADMIN</b><small>Administración protegida</small></button><button type="button" data-tool-action="logout" data-auth-only hidden onclick="window.CutRealNavigation?.open('logout')"><span>↪</span><b>CERRAR SESIÓN</b><small>Finalizar sesión actual</small></button><button type="button" data-tool-action="clear-chat" data-auth-only hidden onclick="window.CutRealNavigation?.open('clear-chat')"><span>⌫</span><b>BORRAR CHAT</b><small>Eliminar conversación actual</small></button></div>
+<div id="tools-menu" class="tools-menu" hidden aria-label="Herramientas de Cut-real"><button type="button" data-tool-action="chat" onclick="window.CutRealNavigation?.open('chat')"><span>◉</span><b>CHAT NORMAL</b><small>Conversación principal de Cut-real</small></button><button type="button" data-tool-action="paint-ai" onclick="window.CutRealNavigation?.open('paint-ai')"><span>✎</span><b>PAINT IA</b><small>Dibujos generados por la IA</small></button><button type="button" data-tool-action="projects" onclick="window.CutRealNavigation?.open('projects')"><span>▦</span><b>PROYECTOS</b><small>Chats y código por proyecto</small></button><button type="button" data-tool-action="super" onclick="window.CutRealNavigation?.open('super')"><span>⚡</span><b>SUPER</b><small>Inteligencia multi-modelo</small></button><button type="button" data-tool-action="sandbox" onclick="window.CutRealNavigation?.open('sandbox')"><span>▣</span><b>SANDBOX</b><small>Experimentación y código</small></button><button type="button" data-tool-action="workspace" onclick="window.CutRealNavigation?.open('workspace')"><span>▤</span><b>WORKSPACE</b><small>Entorno de trabajo</small></button><button type="button" data-tool-action="space" data-space-open onclick="window.CutRealNavigation?.open('space')"><span>✦</span><b>SPACE</b><small>Simulación espacial</small></button><button type="button" data-tool-action="randar" onclick="window.CutRealNavigation?.open('randar')"><span>◉</span><b>RANDAR</b><small>Radar y datos públicos</small></button><button type="button" data-tool-action="admin" data-admin-only hidden onclick="window.CutRealNavigation?.open('admin')"><span>⚙</span><b>ADMIN</b><small>Administración protegida</small></button><button type="button" data-tool-action="logout" data-auth-only hidden onclick="window.CutRealNavigation?.open('logout')"><span>↪</span><b>CERRAR SESIÓN</b><small>Finalizar sesión actual</small></button><button type="button" data-tool-action="clear-chat" data-auth-only hidden onclick="window.CutRealNavigation?.open('clear-chat')"><span>⌫</span><b>BORRAR CHAT</b><small>Eliminar conversación actual</small></button></div>
 </header>
 
 <!-- OVERLAY DE TÉRMINOS Y CONDICIONES -->
@@ -1228,6 +1230,9 @@
 </div>
 
         
+
+<div id="cutreal-ai-paint" class="cutreal-ai-paint" hidden aria-hidden="true"><section class="cutreal-ai-paint-card"><header class="cutreal-ai-paint-head"><div><small> CUT-REAL AI · CREATIVE ENGINE</small><h2>Paint IA</h2><p>Describí el dibujo y la IA lo generará dentro de la web.</p></div><button id="cutreal-ai-close" class="cutreal-ai-close" type="button" aria-label="Cerrar Paint IA">×</button></header><textarea id="cutreal-ai-prompt" class="cutreal-ai-prompt" placeholder="Ej.: un gato astronauta low-poly sobre la Luna, estilo ilustración azul y cyan…"></textarea><div class="cutreal-ai-actions"><button id="cutreal-ai-generate" type="button">✦ Generar dibujo</button><button id="cutreal-ai-download" type="button" hidden>⇩ Descargar PNG</button></div><p id="cutreal-ai-status" class="cutreal-ai-status">Listo para recibir una descripción.</p><img id="cutreal-ai-image" class="cutreal-ai-result" alt="Dibujo generado por Cut-real AI" hidden></section></div>
+<div id="cutreal-projects" class="cutreal-projects" hidden aria-hidden="true"><section class="cr-project-card"><header class="cr-project-head"><div><small>CUT-REAL AI · PROJECT MODE</small><h2>Proyectos</h2><p>Espacio separado de Chat Normal, SUPER, Sandbox y Workspace.</p></div><button id="cr-project-close" class="cr-project-close" type="button" aria-label="Cerrar Proyectos">×</button></header><div class="cr-project-createbar"><input id="cutreal-project-name" placeholder="Nombre del proyecto"><select id="cutreal-project-category"><option value="programacion">Programación</option><option value="dibujo">Dibujo</option><option value="archivo">Archivo / informe</option><option value="estudio">Estudio</option><option value="negocio">Negocio</option></select><button id="cutreal-project-create" type="button">+ Nuevo proyecto</button></div><div class="cr-project-body"><aside id="cutreal-project-list" class="cr-project-list"></aside><section class="cr-project-work"><div id="cr-project-file-tabs" class="cr-project-file-tabs"></div><textarea id="cr-project-editor" class="cr-project-editor" spellcheck="false"></textarea><div><button id="cr-project-run" class="cr-project-run" type="button">▶ Ejecutar preview</button><span id="cr-project-status" class="cr-project-status">Listo</span><iframe id="cr-project-preview" class="cr-project-preview" sandbox="allow-scripts"></iframe></div></section><section class="cr-project-chatcol"><div id="cr-project-chat" class="cr-project-chat"></div><div class="cr-project-inputrow"><textarea id="cr-project-input" class="cr-project-input" rows="2" placeholder="Pedile algo a la IA de este proyecto…"></textarea><button id="cr-project-send" class="cr-project-send" type="button">Enviar</button></div></section></div></section></div>
 <!-- CHAT -->
 <div id="chat">
     <div class="ai">Hola, soy <b>Cut-real AI</b>.</div>
@@ -1417,9 +1422,13 @@
 <!-- MAIN: lógica principal del chat -->
 <script src="main.js?v=lowpoly-20260819-2"></script>
 <!-- Versionado para invalidar caché tras agregar tools low-poly -->
-<script src="sandbox-catalog.js?v=catalog-37-lowpoly-20260823"></script>
-<script src="sandbox-frontend.js?v=dedicated-frontend-20260823-5013"></script>
-<script src="workspace.js"></script>
+<script src="cutreal-memory.js?v=memory-20260921-01"></script>
+<script src="cutreal-chat-export.js?v=chat-export-20260921-01"></script>
+<script src="sandbox-catalog.js?v=catalog-20260921-01"></script>
+<script src="sandbox-frontend.js?v=sandbox-20260921-01"></script>
+<script src="workspace.js?v=workspace-20260921-01"></script>
+<script src="cutreal-ai-paint.js?v=paint-ai-20260921-01"></script>
+<script src="cutreal-projects.js?v=projects-20260921-01"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
