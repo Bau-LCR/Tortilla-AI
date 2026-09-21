@@ -1,0 +1,12 @@
+/* CUT-REAL LAYOUT FIX · pantalla única y controles actuales */
+html,body{height:100%;overflow:hidden!important}
+body{min-height:100vh}
+#side-controls,.side-controls{display:none!important;visibility:hidden!important;pointer-events:none!important}
+#chat{width:min(860px,calc(100vw - 48px))!important;height:calc(100vh - 310px)!important;min-height:260px!important;max-height:none!important;margin:74px auto 0!important;box-sizing:border-box!important;overflow-y:auto!important;overflow-x:hidden!important}
+#chat-extra-toolbar{width:min(860px,calc(100vw - 48px))!important;height:auto!important;min-height:38px!important;margin:6px auto!important;align-items:center!important;justify-content:flex-start!important;overflow:visible!important}
+#model-selector-wrap{width:min(860px,calc(100vw - 48px))!important;height:42px!important;min-height:42px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important}
+#model-selector-wrap .model-selector{width:100%!important;justify-content:center!important}
+.input-area{width:min(860px,calc(100vw - 48px))!important;margin:6px auto 0!important;box-sizing:border-box!important}
+.sidebar-share-block{flex:0 0 auto;margin:10px 12px;padding:10px;border:1px solid rgba(100,205,255,.28);border-radius:10px;background:rgba(8,32,70,.72)}.sidebar-share-title{display:block;margin-bottom:7px;color:#a9eaff;font-size:11px;font-weight:700}.sidebar-share-row{display:flex;gap:5px}.sidebar-share-row input{min-width:0;flex:1;padding:7px;color:#e8fbff;background:#06142c;border:1px solid #2b618b;border-radius:7px;font-size:11px}.sidebar-share-row button{padding:7px 9px;color:#e8fbff;background:#124b83;border:1px solid #55cfff;border-radius:7px;cursor:pointer;font-size:11px}.sidebar-share-row button:hover{background:#1d6baa}.chat-share-row{display:none!important}
+.sidebar-close-btn{display:none!important}
+@media(max-width:900px){html,body{overflow:hidden!important}#chat{width:calc(100vw - 20px)!important;height:calc(100vh - 320px)!important;min-height:220px!important;margin-top:64px!important}#chat-extra-toolbar,#model-selector-wrap,.input-area{width:calc(100vw - 20px)!important}.chat-extra-toolbar{gap:4px!important}.chat-extra-btn{flex:1 1 auto!important;min-height:32px!important}.sidebar-share-block{margin:8px}.main-header{z-index:100!important}}
