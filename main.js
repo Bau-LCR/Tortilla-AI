@@ -497,6 +497,7 @@ const formatearTexto = (texto) => {
             return msg;
         });
         try {
+            await window.CutRealMemory?.save?.(currentUser.uid, historialParaGuardar);
             await setDoc(doc(window.db, "chats", currentUser.uid), {
                 mensajes:  historialParaGuardar,
                 updatedAt: Date.now(),
@@ -508,6 +509,7 @@ const formatearTexto = (texto) => {
     }
 
     async function cargarDeNube(uid) {
+        window.CutRealMemory?.hydrate?.(uid);
         chat.innerHTML = "<div class='ai'>Sincronizando mensajes<span class='loading-dots'></span></div>";
         const { doc, getDoc } = window.firestore;
         try {
@@ -1335,6 +1337,7 @@ function needsWebSearchFrontend(msg) {
         const visualFormatInstruction = /cuadro conceptual|mapa conceptual|cuadro sin[oó]ptico|mapa neuronal|cuadro comparativo|tabla comparativa/i.test(rawMsg)
             ? '\n\n[INSTRUCCIÓN DE FORMATO: entregá la información como un cuadro visual real. Para un cuadro conceptual o sinóptico, usá una tabla Markdown con encabezados claros, filas breves y relaciones jerárquicas. Para un cuadro comparativo, usá una tabla Markdown con una columna por criterio o alternativa. No simules tablas con barras sueltas, no escribas separadores como texto y no mezcles el cuadro con párrafos largos.]'
             : '';
+        const memoryInstruction = window.CutRealMemory?.context?.(currentUser?.uid) || "";
         const capabilityInstruction = window.CutRealCapabilities?.forMode
             ? `\n\n[CAPABILITY REGISTRY · modo CHAT: ${JSON.stringify(window.CutRealCapabilities.forMode('chat'))}. Usá solo capacidades registradas; si una depende del navegador, permiso, ruta o configuración, indicá esa condición. Nunca expongas claves, tokens ni secretos.]`
             : '';
@@ -1400,7 +1403,7 @@ function needsWebSearchFrontend(msg) {
             }
             window.removeAttachment();
         } else {
-                        mensajeParaAPI = { role:"user", content:`${rawMsg}${visualFormatInstruction}${capabilityInstruction}` };
+                        mensajeParaAPI = { role:"user", content:`${rawMsg}${visualFormatInstruction}${memoryInstruction}${capabilityInstruction}` };
 
             previewHTML    = `<b>Tú:</b> ${formatearTexto(rawMsg)}`;
         }
