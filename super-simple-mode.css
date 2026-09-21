@@ -1,47 +1,55 @@
-/* SUPER simple mode: presentación reducida y reversible. */
-[id*="neutral"],[class*="neutral"],[id*="judge"],[class*="judge"],[id*="design-system"],[class*="design-system"],[id*="knowledge-core"],[class*="knowledge-core"],[id*="video-lab"],[class*="video-lab"],[id*="image-lab"],[class*="image-lab"],[id*="creative-lab"],[class*="creative-lab"]{display:none!important}
-#super-export-knowledge,#super-export-judge{display:none!important}
-#super-view .super-overlay-header .super-eyebrow,#super-view .super-card-head .super-eyebrow{letter-spacing:.08em}
-#super-view .super-result-section{display:block!important}
-#super-view .super-final-answer{font-size:clamp(14px,1.3vw,18px);line-height:1.65}
-@media(max-width:700px){#super-view .super-card{padding:12px!important}#super-view .super-result-section{margin-top:10px}}
+/* PROJECT MODE · editor documental tipo Word */
+.cr-project-document-shell{display:flex;flex-direction:column;min-height:0;height:100%;background:#e9eef7;color:#17243a;border:1px solid #6baee0;border-radius:10px;overflow:hidden}
+.cr-project-document-shell[hidden]{display:none!important}
+.cr-document-toolbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:8px;background:#0b2d5e;color:#e9f8ff;border-bottom:1px solid #4a9dcc}
+.cr-document-toolbar button,.cr-document-toolbar select{height:30px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;padding:3px 8px;cursor:pointer;font-weight:700}
+.cr-document-toolbar button:hover,.cr-document-toolbar select:hover{background:#1a5da0;border-color:#a5efff}
+.cr-document-title{flex:1;min-width:180px;height:32px;border:1px solid #62bde5;border-radius:5px;background:#061d42;color:#fff;padding:5px 9px;font-size:14px;font-weight:700}
+.cr-document-editor{flex:1;min-height:350px;overflow:auto;width:min(100%,900px);margin:18px auto;padding:54px 64px;background:#fff;color:#1d2633;font-family:'Times New Roman',serif;font-size:16px;line-height:1.65;box-shadow:0 4px 20px rgba(15,35,70,.16);outline:none}
+.cr-document-editor h1{font-size:28px;line-height:1.2;margin:0 0 20px;color:#142d55}.cr-document-editor h2{font-size:22px;color:#193e70}.cr-document-editor h3{font-size:18px;color:#214c7d}.cr-document-editor p{margin:0 0 12px}.cr-document-editor ul,.cr-document-editor ol{padding-left:28px}.cr-document-status{padding:6px 10px;background:#d9e6f5;color:#315b80;font-size:11px;text-align:right}
+@media(max-width:900px){.cr-document-editor{width:calc(100% - 14px);margin:7px auto;padding:28px 24px;min-height:310px}.cr-document-toolbar{gap:4px}.cr-document-title{flex-basis:100%;order:-1}.cr-document-toolbar button,.cr-document-toolbar select{flex:0 0 auto}}
+@media(max-width:520px){.cr-document-editor{padding:22px 16px;font-size:15px}.cr-document-toolbar button,.cr-document-toolbar select{font-size:11px;padding:3px 6px}.cr-document-title{font-size:13px}}
 
-/* Retiro explícito de paneles solicitados: solo presentación, sin borrar lógica. */
-#super-ai-world,#super-intelligence-core,#super-mission-control,#super-map-card,.super-inspector-panel,#super-world-agents-panel,#super-specialist-network,#super-creative-status,#super-quick-image,#super-quick-video,#super-template-select,#super-template-apply,[id*="handoff"],[class*="handoff"],[id*="goal-tracker"],[class*="goal-tracker"],[id*="integrated-output"],[class*="integrated-output"],[id*="magic-context"],[class*="magic-context"],[id*="files-context"],[class*="files-context"],[id*="best-model"],[class*="best-model"],[id*="router"],[class*="router"],[id*="operating-notes"],[class*="operating-notes"]{display:none!important}
-#super-view .super-layout{grid-template-columns:minmax(0,1fr)!important}
-#super-view .super-workspace{min-width:0;max-width:1100px;margin-inline:auto}
-#super-view .super-config-panel{max-width:100%;}
-@media(max-width:700px){#super-view .super-layout{display:block!important}#super-view .super-config-panel,#super-view .super-workspace{width:100%;max-width:none}}
+/* DOCUMENTO GRANDE Y PANTALLA COMPLETA */
+.cr-project-document-shell{position:relative;min-width:0;min-height:0;width:calc(100% - 12px);height:calc(100% - 12px);margin:6px;resize:both;overflow:hidden}
+.cr-project-document-shell.cr-document-fullscreen{position:fixed!important;inset:8px!important;z-index:19000!important;width:auto!important;height:auto!important;margin:0!important;resize:none!important;border:1px solid #80eaff;box-shadow:0 24px 100px rgba(0,0,0,.9),0 0 0 9999px rgba(1,8,24,.8)}
+body.cr-document-open{overflow:hidden!important}
+.cr-document-editor{min-height:0;max-width:none;width:min(100% - 30px,1100px);flex:1 1 auto;resize:both;overflow:auto}
+.cr-document-toolbar{position:relative;z-index:2}
+.cr-format-wrap{position:relative;display:inline-flex}
+.cr-document-format-menu{position:absolute;top:36px;right:0;z-index:10;display:grid;min-width:190px;padding:6px;border:1px solid #63ccec;border-radius:8px;background:#08234a;box-shadow:0 14px 35px rgba(0,0,0,.55)}
+.cr-document-format-menu[hidden]{display:none!important}
+.cr-document-format-menu button{width:100%;text-align:left;border:0;border-bottom:1px solid rgba(130,220,255,.14);background:transparent;color:#e8faff;padding:9px;cursor:pointer}
+.cr-document-format-menu button:hover{background:#155b9a}
+/* HERRAMIENTAS DE NEGOCIO Y ESTUDIO */
+.cr-project-category-tools{margin:6px;border:1px solid #3f9dcc;border-radius:10px;background:#071e40;color:#e8faff;overflow:auto;padding:12px}
+.cr-project-category-tools[hidden]{display:none!important}
+.cr-category-tools-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;color:#83e6ff;text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+.cr-category-tools-head span{color:#9bbbd0;font-size:11px;text-transform:none;letter-spacing:0}
+.cr-special-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.cr-special-tools[hidden]{display:none!important}
+.cr-special-tools label{display:flex;flex-direction:column;gap:4px;color:#9fcce0;font-size:11px}
+.cr-special-tools input{border:1px solid #327aa8;border-radius:6px;background:#061532;color:#f2fcff;padding:8px}
+.cr-special-tools button{border:1px solid #64dfff;border-radius:7px;background:#104b86;color:#effcff;padding:8px;cursor:pointer}
+.cr-special-tools button:hover{background:#1b70ad}
+@media(max-width:900px){.cr-project-document-shell{width:calc(100% - 8px);height:calc(100% - 8px);margin:4px}.cr-document-editor{width:calc(100% - 12px);margin:6px auto}.cr-special-tools{grid-template-columns:1fr 1fr}.cr-special-tools label:first-child{grid-column:1/-1}}
+@media(max-width:520px){.cr-project-document-shell.cr-document-fullscreen{inset:4px!important}.cr-special-tools{grid-template-columns:1fr}.cr-special-tools label:first-child{grid-column:auto}.cr-category-tools-head{display:block}.cr-category-tools-head span{display:block;margin-top:4px}}
 
-/* Recuperación solicitada: los mapas y el proceso de cada IA sí son información esencial. */
-#super-view #super-intelligence-core{display:block!important}
-#super-view #super-neural-network,
-#super-view #super-task-tree,
-#super-view #super-knowledge-core,
-#super-view #super-map-card,
-#super-view #super-process-output{display:block!important}
-#super-view #super-neural-network-stage{display:block!important;min-height:280px}
-#super-view #super-neural-network-stage .super-neural-agents{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
-#super-view #super-world-agents-panel{display:block!important}
-#super-view .super-world-agent{display:block!important}
-#super-view .super-neural-agent{display:flex!important;flex-direction:column;gap:4px;text-align:left}
-#super-view .super-neural-agent strong{color:#8bc8ff!important}
-#super-view .super-neural-agent small{color:#b8d9ff!important}
-#super-view .super-neural-agent em{color:#72f0c3!important;font-style:normal}
-#super-view .super-map-card{display:block!important}
-#super-view .super-map-canvas,#super-view .super-knowledge-canvas{display:block!important;width:100%;max-width:100%;min-height:280px}
-#super-view #super-cross-modal-map,#super-view #super-best-model-router,#super-view #super-integrated-output,#super-view #super-intelligence-more{display:none!important}
-@media(max-width:700px){#super-view #super-intelligence-core{margin-top:12px}#super-view #super-neural-network-stage{min-height:360px}#super-view #super-neural-network-stage .super-neural-agents{grid-template-columns:1fr 1fr}}
+/* MULTIMEDIA Y ADJUNTOS */
+.cr-document-color{display:inline-flex;align-items:center;gap:3px;height:30px;padding:0 6px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;font-weight:700;font-size:11px}
+.cr-document-color input{width:22px;height:22px;padding:0;border:0;background:transparent;cursor:pointer}
+.cr-document-editor img{display:block;max-width:100%;height:auto;margin:14px auto;border:1px solid #b9cde2;border-radius:5px;box-shadow:0 3px 12px rgba(20,50,90,.16)}
+.cr-project-attachments{display:flex;flex-wrap:wrap;gap:5px;padding:4px 10px;background:#061832;color:#bdefff;font-size:11px}
+.cr-project-attachment-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid #3c91bd;border-radius:999px;background:#0c386b}
+.cr-project-attachment-chip button{border:0;background:transparent;color:#dffaff;cursor:pointer;font-size:14px;line-height:1}
+.cr-project-attach{padding:9px 10px;color:#e9fbff;background:#0e467f;border:1px solid #5edcff;border-radius:8px;cursor:pointer}
+.cr-project-attach:hover{background:#1b70ad}
+@media(max-width:520px){.cr-document-color{order:2}.cr-project-attach{padding:8px;font-size:11px}}
 
-/* Sandbox: azul claro integral para editor, catálogo, toolbar, estados, selects y botones. */
-#sandbox-overlay{--sbx-blue-1:#0d3b78;--sbx-blue-2:#1769bd;--sbx-blue-3:#39bff5;--sbx-blue-4:#a9e8ff;--sbx-cyan:#66dcff;--sbx-green:#39bff5!important;--sbx-lime:#a9e8ff!important}
-#sandbox-overlay .sbx-topbar,#sandbox-overlay .sbx-mode-bar,#sandbox-overlay .sbx-mobile-tabs{background:linear-gradient(135deg,#071d3d,#0d3468)!important;border-color:rgba(102,220,255,.42)!important}
-#sandbox-overlay .sbx-panel-left,#sandbox-overlay .sbx-panel-right,#sandbox-overlay .sbx-future-dock{background:linear-gradient(145deg,rgba(12,48,99,.96),rgba(5,20,48,.98))!important;border-color:rgba(102,220,255,.42)!important}
-#sandbox-overlay .sbx-btn,#sandbox-overlay .sbx-mode-bar button,#sandbox-overlay .sbx-mobile-tabs button,#sandbox-overlay .sbx-future-group button{background:linear-gradient(135deg,#1457a1,#1d7bd1)!important;border-color:rgba(133,229,255,.66)!important;color:#eafaff!important}
-#sandbox-overlay .sbx-btn-accent,#sandbox-overlay .sbx-btn-toggle,#sandbox-overlay .sbx-status-active,#sandbox-overlay .sbx-save-ok,#sandbox-overlay #sandbox-send-btn{background:linear-gradient(135deg,#1a73c9,#38bce9)!important;border-color:#a3efff!important;color:#fff!important}
-#sandbox-overlay .sbx-btn-close{background:linear-gradient(135deg,#164e9b,#257ed0)!important;color:#fff!important}
-#sandbox-overlay input,#sandbox-overlay textarea,#sandbox-overlay select{background:#071f46!important;border-color:rgba(111,218,255,.58)!important;color:#eafaff!important}
-#sandbox-overlay .sbx-status-pill,#sandbox-overlay .sbx-api-usage,#sandbox-overlay .sbx-save-state{background:rgba(22,103,180,.58)!important;border-color:rgba(137,231,255,.5)!important;color:#d8f6ff!important}
-#sandbox-overlay .sbx-chat>*{background:rgba(24,105,185,.34)!important;border-color:rgba(118,220,255,.34)!important}
-#sandbox-overlay .sbx-logo,#sandbox-overlay .sbx-future-head,#sandbox-overlay .sbx-future-group>span{color:#9deaff!important}
-#sandbox-overlay .sbx-btn:hover,#sandbox-overlay .sbx-btn:focus-visible,#sandbox-overlay .sbx-mode-bar button:hover,#sandbox-overlay .sbx-mobile-tabs button:hover{box-shadow:0 0 16px rgba(57,191,245,.38)!important;border-color:#b8f2ff!important}
+/* PAGINACIÓN VISUAL A4 */
+.cr-document-editor{background:#dfe7f1;padding:18px 0;box-sizing:border-box}
+.cr-document-page{width:min(794px,calc(100% - 30px));min-height:1123px;margin:0 auto 18px;padding:54px 64px;box-sizing:border-box;background:#fff;color:#1d2633;box-shadow:0 4px 20px rgba(15,35,70,.18);overflow:hidden}
+.cr-document-page:last-child{margin-bottom:0}
+.cr-document-page h1,.cr-document-page h2,.cr-document-page h3{break-after:avoid}
+@media(max-width:900px){.cr-document-editor{padding:10px 0}.cr-document-page{width:calc(100% - 14px);min-height:980px;padding:38px 28px;margin-bottom:12px}}
+@media(max-width:520px){.cr-document-page{min-height:860px;padding:28px 18px}}
