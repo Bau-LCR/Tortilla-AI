@@ -30,3 +30,11 @@ button:hover, button:focus-visible { box-shadow: 0 0 10px rgba(80,181,255,.14) !
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* PERFIL RÁPIDO · conserva estética azul/cyber sin filtros costosos */
+html.cr-performance-lite *,html.cr-performance-lite *::before,html.cr-performance-lite *::after{animation:none!important;transition:none!important}
+html.cr-performance-lite .glass-sheen::after,html.cr-performance-lite #orb-rings,html.cr-performance-lite .orb-ring,html.cr-performance-lite #particles,html.cr-performance-lite body::before{display:none!important}
+html.cr-performance-lite *,html.cr-performance-lite *::before,html.cr-performance-lite *::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;filter:none!important}
+html.cr-performance-lite .main-header,html.cr-performance-lite #chat,html.cr-performance-lite .input-area,html.cr-performance-lite .side-controls,html.cr-performance-lite .tools-menu,html.cr-performance-lite .cr-project-card,html.cr-performance-lite .wks-workspace,html.cr-performance-lite .admin-card{box-shadow:0 8px 24px rgba(0,0,0,.22)!important;background-color:rgba(7,20,43,.96)!important}
+html.cr-performance-lite .particle{display:none!important}
+@media(max-width:900px){html.cr-performance-lite .main-header,html.cr-performance-lite #chat,html.cr-performance-lite .input-area,html.cr-performance-lite .side-controls{box-shadow:none!important}}
