@@ -59,7 +59,6 @@
     if (action === 'logout') return window.logout?.() || false;
     if (action === 'clear-chat') return window.resetChat?.() || false;
     if (action === 'chat') { closeAll(); el('chat')?.scrollIntoView?.({ block: 'center' }); el('input')?.focus?.(); return true; }
-    if (action === 'paint') return window.CutRealPaint?.open?.() || showPanel('cutreal-paint', 'flex');
     return false;
   }
 
@@ -82,7 +81,7 @@
       const tool = event.target.closest('#tools-menu [data-tool-action]');
       if (tool) {
         const action = tool.dataset.toolAction;
-        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat', 'paint'].includes(action)) {
+        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat'].includes(action)) {
           event.preventDefault();
           event.stopImmediatePropagation();
           open(action);
