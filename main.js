@@ -39,7 +39,8 @@ document.addEventListener("DOMContentLoaded", function () {
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
 
-    const systemPrompt = { role: "system", content: "Configurado en el servidor." };
+    const capabilityBrief = (() => { try { const identity = window.CutRealIdentity || {}; const registry = window.CutRealCapabilities?.listCapabilities?.() || []; return `IDENTIDAD CUT-REAL AI: ${identity.name || 'Cut-real AI'}. Estilo: ${identity.style || 'analítico y seguro'}. Reglas: ${(identity.rules || []).join(' | ')}. CAPACIDADES REGISTRADAS: ${JSON.stringify(registry)}. Conocé estas capacidades, pero nunca afirmes que una acción está disponible si el estado real de la interfaz, permisos o proveedor indica lo contrario. Explicá claramente qué módulo debe usar el usuario: Chat Normal, SUPER, Proyectos, Sandbox, RANDAR, SPACE, voz, archivos o Paint IA.`; } catch (_) { return 'IDENTIDAD CUT-REAL AI: asistente analítico y seguro. No inventar capacidades.'; } })();
+    const systemPrompt = { role: "system", content: capabilityBrief };
     let currentUser = null;
     let historial   = [systemPrompt];
     let lastAssistantResponse = '';
@@ -1486,6 +1487,9 @@ function needsWebSearchFrontend(msg) {
                     mensajes:  historial,
                     hasImage,
                     model:     selectedModel,
+                    modelId:   selectedModel,
+                    tier:      selectedModel,
+                    providerModel: ({ basic: 'llama-3.1-8b-instant', pro: 'llama-3.3-70b-versatile', ultra: 'openai/gpt-oss-120b' })[selectedModel],
                     userId:    currentUser.uid,
                 }),
             });
