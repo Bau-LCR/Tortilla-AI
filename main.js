@@ -919,6 +919,8 @@ if (pdfPattern.test(lower)) return 'generate_pdf';
 async function generateDocxFromText(content, filename = 'documento') {
     if (!window.docx) { showToast('Biblioteca Word no disponible', '#4f9cff', '❌'); return; }
     const { Document, Paragraph, TextRun, HeadingLevel, Packer } = window.docx;
+    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2').replace(/[*_~`]/g, '');
+    content = normalizeExportText(content);
     const lines = content.split('\n');
     const children = [];
 
@@ -946,7 +948,7 @@ async function generateDocxFromText(content, filename = 'documento') {
         }
     });
 
-    const doc = new Document({ sections: [{ properties: {}, children }] });
+    const doc = new Document({ styles: { default: { document: { run: { font: 'Times New Roman', size: 24 }, paragraph: { spacing: { line: 480, after: 0 } } } } }, sections: [{ properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } }, children }] });
     const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -961,8 +963,10 @@ function generatePdfFromText(content, filename = 'documento') {
     if (!window.jspdf) { showToast('Biblioteca PDF no disponible', '#4f9cff', '❌'); return; }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const margin = 18, maxW = 210 - margin * 2;
-    let y = 22;
+    const normalizeExportText = value => String(value || '').replace(/\[\[([^\]]+)\]\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^\s*#{1,6}\s*/gm, '').replace(/^\s*(?:---+|___+|\*\*\*+)\s*$/gm, '').replace(/[!’]/g, '→').replace(/\s+([,.;:!?])/g, '$1').replace(/([a-záéíóúñ])\s{2,}([a-záéíóúñ])/gi, '$1 $2').replace(/[*_~`]/g, '');
+    content = normalizeExportText(content);
+    const margin = 25.4, maxW = 210 - margin * 2;
+    let y = 30;
 
     const addPage = () => { doc.addPage(); y = 22; };
 
@@ -972,40 +976,40 @@ function generatePdfFromText(content, filename = 'documento') {
         if (!t) { y += 4; return; }
 
         if (t.startsWith('# ')) {
-            doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.setTextColor(68,136,255);
+            doc.setFontSize(18); doc.setFont('times','bold'); doc.setTextColor(68,136,255);
             const split = doc.splitTextToSize(t.substring(2), maxW);
             if (y + split.length * 8 > 270) addPage();
             doc.text(split, margin, y); y += split.length * 9 + 3;
         } else if (t.startsWith('## ')) {
-            doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(68,136,255);
+            doc.setFontSize(14); doc.setFont('times','bold'); doc.setTextColor(68,136,255);
             const split = doc.splitTextToSize(t.substring(3), maxW);
             if (y + split.length * 7 > 270) addPage();
             doc.text(split, margin, y); y += split.length * 7 + 3;
         } else if (t.startsWith('### ')) {
-            doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(50,50,50);
+            doc.setFontSize(12); doc.setFont('times','bold'); doc.setTextColor(50,50,50);
             const split = doc.splitTextToSize(t.substring(4), maxW);
-            if (y + split.length * 6 > 270) addPage();
-            doc.text(split, margin, y); y += split.length * 6 + 2;
+            if (y + split.length * 7 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 7 + 2;
         } else if (t.startsWith('- ') || t.startsWith('* ')) {
-            doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(50,50,50);
+            doc.setFontSize(12); doc.setFont('times','normal'); doc.setTextColor(50,50,50);
             const clean = '• ' + t.substring(2).replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1');
             const split = doc.splitTextToSize(clean, maxW - 4);
-            if (y + split.length * 6 > 270) addPage();
-            doc.text(split, margin + 4, y); y += split.length * 6 + 1;
+            if (y + split.length * 7 > 270) addPage();
+            doc.text(split, margin + 4, y); y += split.length * 7 + 1;
         } else {
-            doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(50,50,50);
+            doc.setFontSize(12); doc.setFont('times','normal'); doc.setTextColor(50,50,50);
             const clean = t.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1').replace(/`([^`]+)`/g,'$1');
             const split = doc.splitTextToSize(clean, maxW);
-            if (y + split.length * 6 > 270) addPage();
-            doc.text(split, margin, y); y += split.length * 6 + 2;
+            if (y + split.length * 7 > 270) addPage();
+            doc.text(split, margin, y); y += split.length * 7 + 2;
         }
     });
 
     const total = doc.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
-        doc.setPage(i); doc.setFontSize(8); doc.setFont('helvetica','normal');
+        doc.setPage(i); doc.setFontSize(8); doc.setFont('times','normal');
         doc.setTextColor(160,160,160);
-        doc.text(`Generado por Cut-real AI  •  Página ${i} de ${total}`, margin, 292);
+        doc.text(`Generado por Cut-real AI · Página ${i} de ${total}`, margin, 292);
     }
     doc.save(`${filename}.pdf`);
     showToast('Archivo PDF descargado', '#4caf50', '📄');
