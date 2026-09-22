@@ -59,3 +59,9 @@ body.cr-project-preview-open{overflow:hidden!important}
 .cr-project-continue button:not(:disabled):hover{filter:brightness(1.2);transform:translateY(-1px)}
 .cr-project-continue button:disabled{cursor:not-allowed;opacity:.58;background:#17375d;border-color:#4b79a1}
 .cr-project-continue small{color:#9fc9df;font-size:11px;line-height:1.35}
+
+/* RECUPERACIÓN DEL WORKSPACE · nunca colapsar archivos, editor y Preview */
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-project-filesbar{display:block!important;visibility:visible!important;min-height:78px!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell{display:flex!important;visibility:visible!important;flex-direction:column!important;min-height:260px!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-preview-shell{display:flex!important;visibility:visible!important;flex-direction:column!important;min-height:220px!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell .CodeMirror{display:block!important;visibility:visible!important}
