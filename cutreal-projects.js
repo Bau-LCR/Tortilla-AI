@@ -170,6 +170,7 @@
   function updateLineCount(value) { const count = String(value ?? '').split('\n').length; if ($('cr-project-lines')) $('cr-project-lines').textContent = `${count} ${count === 1 ? 'línea' : 'líneas'}`; }
   function renderEditor() {
     const project = active(); const editor = $('cr-project-editor'); const tabs = $('cr-project-file-tabs'); if (!project || !editor || !tabs) return;
+    const shell = $('cr-project-editor-shell'); if (shell) { shell.hidden = false; shell.style.display = 'flex'; }
     if (codeMirrorInstance) { codeMirrorInstance.toTextArea(); codeMirrorInstance = null; }
     tabs.innerHTML = Object.keys(project.files).map(file => `<button type="button" class="${file === project.activeFile ? 'active' : ''}" data-project-file="${esc(file)}">${esc(file)}</button>`).join('');
     tabs.querySelectorAll('[data-project-file]').forEach(button => button.addEventListener('click', () => { project.activeFile = button.dataset.projectFile; save(); renderEditor(); }));
@@ -180,7 +181,7 @@
       editor.style.display = 'none';
       codeMirrorInstance = window.CodeMirror.fromTextArea(editor, { mode: editorMode(project.activeFile), theme: 'dracula', lineNumbers: true, lineWrapping: false, autoCloseBrackets: true, autoCloseTags: true, tabSize: 2, indentUnit: 2, viewportMargin: Infinity });
       codeMirrorInstance.setValue(initial); codeMirrorInstance.on('change', instance => onChange(instance.getValue()));
-      setTimeout(() => codeMirrorInstance?.refresh(), 0);
+      setTimeout(() => { codeMirrorInstance?.refresh(); const node = shell?.querySelector('.CodeMirror'); if (node) { node.style.display = 'block'; node.style.visibility = 'visible'; } }, 0);
     } else { editor.style.display = 'block'; editor.value = initial; editor.oninput = () => onChange(editor.value); }
     updateLineCount(initial);
   }
@@ -194,6 +195,7 @@
   }
   function render() {
     renderList(); renderEditor(); renderDocument(); renderChat(); const project = active();
+    if (project && !isDocumentProject(project)) setTimeout(() => run(), 0);
     if ($('cr-project-model') && project) $('cr-project-model').value = project.model || 'pro';
     if ($('cutreal-project-category') && project) $('cutreal-project-category').value = project.category || 'programacion';
     if ($('cr-project-id') && project) $('cr-project-id').textContent = `ID: ${project.id}`;
