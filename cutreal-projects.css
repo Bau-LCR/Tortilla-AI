@@ -71,3 +71,9 @@ body.cr-project-preview-open{overflow:hidden!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell,#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-preview-shell{visibility:visible!important;opacity:1!important;overflow:hidden!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-project-preview{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;min-height:180px!important;height:calc(100% - 35px)!important;background:#fff!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell textarea.cr-project-editor{display:block;visibility:visible;min-height:240px}
+
+/* PROGRAMACIÓN ESTABLE · editor directo y Preview visible */
+#cutreal-projects .cr-project-work[data-document-mode="workspace"]{display:grid!important;grid-template-rows:auto minmax(300px,1fr) minmax(240px,34%)!important;height:100%!important;min-height:0!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-project-editor-shell,#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-project-preview-shell{display:flex!important;visibility:visible!important;opacity:1!important;min-height:0!important;flex-direction:column!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] textarea.cr-project-editor{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important;min-height:240px!important;resize:none!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] iframe.cr-project-preview{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:calc(100% - 35px)!important;min-height:200px!important;background:#fff!important}
