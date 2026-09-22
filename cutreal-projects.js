@@ -198,11 +198,39 @@
     chat.scrollTop = chat.scrollHeight;
   }
   function render() {
-    renderList(); renderEditor(); renderDocument(); renderChat(); const project = active();
+    renderList(); renderEditor(); renderDocument(); restoreProgrammingWorkspace(); renderChat(); const project = active();
     if (project && !isDocumentProject(project)) setTimeout(() => run(), 0);
     if ($('cr-project-model') && project) $('cr-project-model').value = project.model || 'pro';
     if ($('cutreal-project-category') && project) $('cutreal-project-category').value = project.category || 'programacion';
     if ($('cr-project-id') && project) $('cr-project-id').textContent = `ID: ${project.id}`;
+  }
+  function restoreProgrammingWorkspace() {
+    const project = active();
+    if (!project || isDocumentProject(project)) return;
+    const root = document.querySelector('#cutreal-projects');
+    const work = root?.querySelector('.cr-project-work');
+    const files = root?.querySelector('.cr-project-filesbar');
+    const editorShell = $('cr-project-editor-shell');
+    const editor = $('cr-project-editor');
+    const previewShell = $('cr-project-preview-shell');
+    const preview = $('cr-project-preview');
+    if (!work || !editorShell || !editor || !previewShell || !preview) return;
+    work.dataset.documentMode = 'workspace';
+    [files, editorShell, previewShell].forEach(node => {
+      if (!node) return;
+      node.hidden = false;
+      node.removeAttribute('aria-hidden');
+    });
+    editorShell.style.cssText += ';display:flex!important;visibility:visible!important;opacity:1!important;min-height:280px!important;';
+    editor.style.cssText += ';display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important;min-height:240px!important;';
+    previewShell.style.cssText += ';display:flex!important;visibility:visible!important;opacity:1!important;min-height:220px!important;';
+    preview.style.cssText += ';display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;height:100%!important;min-height:200px!important;background:#fff!important;';
+    updateLineCount(editor.value || '');
+    requestAnimationFrame(() => {
+      editorShell.hidden = false;
+      previewShell.hidden = false;
+      if (preview.srcdoc !== (project.files['index.html'] || '')) run();
+    });
   }
   function run() {
     const project = active(); const frame = $('cr-project-preview'); if (!project || !frame) return;
