@@ -113,3 +113,21 @@ body.cr-project-preview-open{overflow:hidden!important}
 #cutreal-projects .cr-project-work[data-document-mode="document"]>.cr-project-document-shell{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1!important;grid-row:1/-1!important;min-width:0!important;min-height:0!important;width:100%!important;height:100%!important}
 /* Solo Programación usa el administrador de archivos y el resultado web */
 #cutreal-projects .cr-project-work[data-document-mode="workspace"]>.cr-project-document-shell{display:none!important;visibility:hidden!important}
+
+/* VISOR DE ADJUNTOS · PDF e imágenes sin interferir con los módulos */
+.cr-project-attachment-chip{display:inline-flex;align-items:center;gap:4px;max-width:100%}
+.cr-project-attachment-open{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;background:transparent;color:#dffaff;text-decoration:underline;cursor:pointer;font:inherit;text-align:left}
+.cr-project-attachment-open:hover{color:#fff;background:rgba(83,196,255,.16);border-radius:5px}
+.cr-project-attachment-viewer{position:fixed;inset:0;z-index:24000;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(1,7,20,.86);backdrop-filter:blur(4px)}
+.cr-project-attachment-viewer[hidden]{display:none!important}
+.cr-project-attachment-viewer-card{display:flex;flex-direction:column;width:min(1200px,96vw);height:min(900px,94vh);min-height:300px;overflow:hidden;border:1px solid #67e5ff;border-radius:14px;background:#071a35;box-shadow:0 24px 100px rgba(0,0,0,.85)}
+.cr-project-attachment-viewer-card:fullscreen{width:100vw;height:100vh;border-radius:0}
+.cr-project-attachment-viewer-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;color:#eaffff;background:#0b2d5e;border-bottom:1px solid #3b94c3}
+.cr-project-attachment-viewer-card>header div{display:flex;gap:6px}
+.cr-project-attachment-viewer-card>header button{width:34px;height:32px;border:1px solid #62dfff;border-radius:7px;background:#123e78;color:#fff;font-size:20px;cursor:pointer}
+.cr-project-attachment-viewer-card>header button:hover{background:#1b70ad}
+.cr-project-attachment-viewer-body{display:flex;flex:1;min-height:0;align-items:center;justify-content:center;background:#17243a}
+.cr-project-attachment-viewer-body iframe{width:100%;height:100%;border:0;background:#fff}
+.cr-project-attachment-viewer-body img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+body.cr-project-attachment-viewer-open{overflow:hidden!important}
+@media(max-width:600px){.cr-project-attachment-viewer{padding:5px}.cr-project-attachment-viewer-card{width:100%;height:calc(100vh - 10px);border-radius:10px}.cr-project-attachment-open{max-width:190px}}
