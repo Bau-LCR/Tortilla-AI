@@ -133,8 +133,8 @@
     // Los modos especiales agregan herramientas, pero no deben borrar el editor ni el Preview.
     // Solo los proyectos documentales usan exclusivamente el editor tipo Word.
     if (files) files.hidden = documentMode;
-    if (code) code.hidden = documentMode;
-    if (preview) preview.hidden = documentMode;
+    if (code) { code.hidden = documentMode; code.style.display = documentMode ? 'none' : 'flex'; }
+    if (preview) { preview.hidden = documentMode; preview.style.display = documentMode ? 'none' : 'flex'; }
     if (!documentMode) {
       files?.removeAttribute('hidden'); code?.removeAttribute('hidden'); preview?.removeAttribute('hidden');
       if (files) files.style.display = 'block';
