@@ -105,3 +105,11 @@ body.cr-project-preview-open{overflow:hidden!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"]>.cr-editor-shell>.cr-project-editor{display:block!important;flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:240px!important;visibility:visible!important;opacity:1!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"]>.cr-preview-shell>.cr-project-preview{display:block!important;flex:1 1 auto!important;width:100%!important;height:auto!important;min-height:200px!important;visibility:visible!important;opacity:1!important;background:#fff!important}
 @media(max-width:900px){#cutreal-projects .cr-project-work[data-document-mode="workspace"]{grid-template-rows:auto minmax(300px,1fr) minmax(240px,38%)!important;min-height:650px!important;height:650px!important}}
+
+/* MODOS DOCUMENTALES · nunca mostrar código ni Preview en Archivo/Informe */
+#cutreal-projects .cr-project-work[data-document-mode="document"]>.cr-editor-shell,
+#cutreal-projects .cr-project-work[data-document-mode="document"]>.cr-preview-shell,
+#cutreal-projects .cr-project-work[data-document-mode="document"]>.cr-project-filesbar{display:none!important;visibility:hidden!important}
+#cutreal-projects .cr-project-work[data-document-mode="document"]>.cr-project-document-shell{display:flex!important;visibility:visible!important;opacity:1!important;grid-column:1!important;grid-row:1/-1!important;min-width:0!important;min-height:0!important;width:100%!important;height:100%!important}
+/* Solo Programación usa el administrador de archivos y el resultado web */
+#cutreal-projects .cr-project-work[data-document-mode="workspace"]>.cr-project-document-shell{display:none!important;visibility:hidden!important}
