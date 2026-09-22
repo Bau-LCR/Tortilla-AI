@@ -125,9 +125,10 @@
   function saveDocumentField(project, reason = 'Edición documental') { if (!project) return; clearTimeout(project._documentSaveTimer); project._documentSaveTimer = setTimeout(() => { recordVersion(project, reason); save(); if ($('cr-document-status')) $('cr-document-status').textContent = 'Guardado y sincronizado'; }, 500); }
   function renderMathPanel(project) { const display = $('cr-math-display'); if (!display || project?.category !== 'matematicas') return; const expression = String(project.categoryData?.mathExpression || '').trim(); display.textContent = expression ? `\\[${expression}\\]` : 'La fórmula aparecerá aquí.'; if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise([display]).catch(() => { display.textContent = expression || 'No se pudo renderizar la fórmula.'; }); else if (expression) setTimeout(() => renderMathPanel(project), 900); }
   function renderDocument() {
-    const project = active(); const shell = $('cr-project-document-shell'); const editor = $('cr-document-editor'); const files = document.querySelector('#cutreal-projects .cr-project-filesbar'); const code = $('cr-project-editor-shell'); const preview = $('cr-project-preview-shell');
+    const project = active(); const shell = $('cr-project-document-shell'); const editor = $('cr-document-editor'); const work = document.querySelector('#cutreal-projects .cr-project-work'); const files = document.querySelector('#cutreal-projects .cr-project-filesbar'); const code = $('cr-project-editor-shell'); const preview = $('cr-project-preview-shell');
     if (!project || !shell || !editor) return;
     const documentMode = isDocumentProject(project); const specialMode = isSpecialProject(project);
+    if (work) work.dataset.documentMode = documentMode ? 'document' : 'workspace';
     shell.hidden = !documentMode;
     // Los modos especiales agregan herramientas, pero no deben borrar el editor ni el Preview.
     // Solo los proyectos documentales usan exclusivamente el editor tipo Word.
@@ -176,10 +177,11 @@
     let checkpoint;
     const onChange = value => { project.files[project.activeFile] = value; updateLineCount(value); save(); clearTimeout(checkpoint); checkpoint = setTimeout(() => { recordVersion(project, `Edición manual de ${project.activeFile}`); save(); run(); setStatus(`Guardado y preview actualizado · ${project.activeFile}`); }, 700); };
     if (window.CodeMirror) {
+      editor.style.display = 'none';
       codeMirrorInstance = window.CodeMirror.fromTextArea(editor, { mode: editorMode(project.activeFile), theme: 'dracula', lineNumbers: true, lineWrapping: false, autoCloseBrackets: true, autoCloseTags: true, tabSize: 2, indentUnit: 2, viewportMargin: Infinity });
       codeMirrorInstance.setValue(initial); codeMirrorInstance.on('change', instance => onChange(instance.getValue()));
       setTimeout(() => codeMirrorInstance?.refresh(), 0);
-    } else { editor.value = initial; editor.oninput = () => onChange(editor.value); }
+    } else { editor.style.display = 'block'; editor.value = initial; editor.oninput = () => onChange(editor.value); }
     updateLineCount(initial);
   }
   function renderChat() {
