@@ -129,9 +129,11 @@
     if (!project || !shell || !editor) return;
     const documentMode = isDocumentProject(project); const specialMode = isSpecialProject(project);
     shell.hidden = !documentMode;
-    if (files) files.hidden = documentMode || specialMode;
-    if (code) code.hidden = documentMode || specialMode;
-    if (preview) preview.hidden = documentMode || specialMode;
+    // Los modos especiales agregan herramientas, pero no deben borrar el editor ni el Preview.
+    // Solo los proyectos documentales usan exclusivamente el editor tipo Word.
+    if (files) files.hidden = documentMode;
+    if (code) code.hidden = documentMode;
+    if (preview) preview.hidden = documentMode;
     const tools = $('cr-project-category-tools'); if (tools) tools.hidden = !specialMode;
     const business = $('cr-business-tools'); const study = $('cr-study-tools'); const math = $('cr-math-tools'); if (business) business.hidden = project.category !== 'negocio'; if (study) study.hidden = project.category !== 'estudio'; if (math) math.hidden = project.category !== 'matematicas';
     if (specialMode) { const data = project.categoryData || {}; [['cr-business-objective','objective'],['cr-business-audience','audience'],['cr-business-kpi','kpi'],['cr-study-subject','subject'],['cr-study-level','level'],['cr-math-topic','mathTopic'],['cr-math-expression','mathExpression']].forEach(([id, key]) => { const input = $(id); if (input) input.value = data[key] || ''; }); renderMathPanel(project); }
