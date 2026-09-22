@@ -65,3 +65,9 @@ body.cr-project-preview-open{overflow:hidden!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell{display:flex!important;visibility:visible!important;flex-direction:column!important;min-height:260px!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-preview-shell{display:flex!important;visibility:visible!important;flex-direction:column!important;min-height:220px!important}
 #cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell .CodeMirror{display:block!important;visibility:visible!important}
+
+/* RESTAURACIÓN DEFINITIVA DEL WORKSPACE DE PROGRAMACIÓN */
+#cutreal-projects .cr-project-work[data-document-mode="workspace"]{display:grid!important;grid-template-rows:auto minmax(280px,1fr) minmax(220px,34%)!important;min-height:0!important;height:100%!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell,#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-preview-shell{visibility:visible!important;opacity:1!important;overflow:hidden!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-project-preview{display:block!important;visibility:visible!important;opacity:1!important;width:100%!important;min-height:180px!important;height:calc(100% - 35px)!important;background:#fff!important}
+#cutreal-projects .cr-project-work[data-document-mode="workspace"] .cr-editor-shell textarea.cr-project-editor{display:block;visibility:visible;min-height:240px}
