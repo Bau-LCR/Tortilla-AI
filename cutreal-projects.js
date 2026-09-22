@@ -135,6 +135,12 @@
     if (files) files.hidden = documentMode;
     if (code) code.hidden = documentMode;
     if (preview) preview.hidden = documentMode;
+    if (!documentMode) {
+      files?.removeAttribute('hidden'); code?.removeAttribute('hidden'); preview?.removeAttribute('hidden');
+      if (files) files.style.display = 'block';
+      if (code) code.style.display = 'flex';
+      if (preview) preview.style.display = 'flex';
+    }
     const tools = $('cr-project-category-tools'); if (tools) tools.hidden = !specialMode;
     const business = $('cr-business-tools'); const study = $('cr-study-tools'); const math = $('cr-math-tools'); if (business) business.hidden = project.category !== 'negocio'; if (study) study.hidden = project.category !== 'estudio'; if (math) math.hidden = project.category !== 'matematicas';
     if (specialMode) { const data = project.categoryData || {}; [['cr-business-objective','objective'],['cr-business-audience','audience'],['cr-business-kpi','kpi'],['cr-study-subject','subject'],['cr-study-level','level'],['cr-math-topic','mathTopic'],['cr-math-expression','mathExpression']].forEach(([id, key]) => { const input = $(id); if (input) input.value = data[key] || ''; }); renderMathPanel(project); }
@@ -172,17 +178,14 @@
     const project = active(); const editor = $('cr-project-editor'); const tabs = $('cr-project-file-tabs'); if (!project || !editor || !tabs) return;
     const shell = $('cr-project-editor-shell'); if (shell) { shell.hidden = false; shell.style.display = 'flex'; }
     if (codeMirrorInstance) { codeMirrorInstance.toTextArea(); codeMirrorInstance = null; }
+    // El editor base de Programación usa el textarea visible; así no depende de que CodeMirror cargue.
+    editor.style.display = 'block'; editor.style.visibility = 'visible';
     tabs.innerHTML = Object.keys(project.files).map(file => `<button type="button" class="${file === project.activeFile ? 'active' : ''}" data-project-file="${esc(file)}">${esc(file)}</button>`).join('');
     tabs.querySelectorAll('[data-project-file]').forEach(button => button.addEventListener('click', () => { project.activeFile = button.dataset.projectFile; save(); renderEditor(); }));
     const initial = project.files[project.activeFile] || '';
     let checkpoint;
     const onChange = value => { project.files[project.activeFile] = value; updateLineCount(value); save(); clearTimeout(checkpoint); checkpoint = setTimeout(() => { recordVersion(project, `Edición manual de ${project.activeFile}`); save(); run(); setStatus(`Guardado y preview actualizado · ${project.activeFile}`); }, 700); };
-    if (window.CodeMirror) {
-      editor.style.display = 'none';
-      codeMirrorInstance = window.CodeMirror.fromTextArea(editor, { mode: editorMode(project.activeFile), theme: 'dracula', lineNumbers: true, lineWrapping: false, autoCloseBrackets: true, autoCloseTags: true, tabSize: 2, indentUnit: 2, viewportMargin: Infinity });
-      codeMirrorInstance.setValue(initial); codeMirrorInstance.on('change', instance => onChange(instance.getValue()));
-      setTimeout(() => { codeMirrorInstance?.refresh(); const node = shell?.querySelector('.CodeMirror'); if (node) { node.style.display = 'block'; node.style.visibility = 'visible'; } }, 0);
-    } else { editor.style.display = 'block'; editor.value = initial; editor.oninput = () => onChange(editor.value); }
+    editor.value = initial; editor.oninput = () => onChange(editor.value);
     updateLineCount(initial);
   }
   function renderChat() {
