@@ -126,19 +126,27 @@
   function renderMathPanel(project) { const display = $('cr-math-display'); if (!display || project?.category !== 'matematicas') return; const expression = String(project.categoryData?.mathExpression || '').trim(); display.textContent = expression ? `\\[${expression}\\]` : 'La fórmula aparecerá aquí.'; if (window.MathJax?.typesetPromise) window.MathJax.typesetPromise([display]).catch(() => { display.textContent = expression || 'No se pudo renderizar la fórmula.'; }); else if (expression) setTimeout(() => renderMathPanel(project), 900); }
   function renderDocument() {
     const project = active(); const shell = $('cr-project-document-shell'); const editor = $('cr-document-editor'); const work = document.querySelector('#cutreal-projects .cr-project-work'); const files = document.querySelector('#cutreal-projects .cr-project-filesbar'); const code = $('cr-project-editor-shell'); const preview = $('cr-project-preview-shell');
-    if (!project || !shell || !editor) return;
+    if (!project) return;
     const documentMode = isDocumentProject(project); const specialMode = isSpecialProject(project);
     if (work) work.dataset.documentMode = documentMode ? 'document' : 'workspace';
-    shell.hidden = !documentMode;
+    if (shell) shell.hidden = !documentMode;
     // Los modos especiales agregan herramientas, pero no deben borrar el editor ni el Preview.
     // Solo los proyectos documentales usan exclusivamente el editor tipo Word.
     if (files) files.hidden = documentMode;
     if (code) code.hidden = documentMode;
     if (preview) preview.hidden = documentMode;
+    if (!documentMode) {
+      files?.removeAttribute('hidden'); code?.removeAttribute('hidden'); preview?.removeAttribute('hidden');
+      if (files) files.style.display = 'block';
+      if (code) code.style.display = 'flex';
+      if (preview) preview.style.display = 'flex';
+      if (!project.files || !Object.keys(project.files).length) { project.files = defaultFiles(); project.activeFile = 'index.html'; save(); }
+    }
     const tools = $('cr-project-category-tools'); if (tools) tools.hidden = !specialMode;
     const business = $('cr-business-tools'); const study = $('cr-study-tools'); const math = $('cr-math-tools'); if (business) business.hidden = project.category !== 'negocio'; if (study) study.hidden = project.category !== 'estudio'; if (math) math.hidden = project.category !== 'matematicas';
     if (specialMode) { const data = project.categoryData || {}; [['cr-business-objective','objective'],['cr-business-audience','audience'],['cr-business-kpi','kpi'],['cr-study-subject','subject'],['cr-study-level','level'],['cr-math-topic','mathTopic'],['cr-math-expression','mathExpression']].forEach(([id, key]) => { const input = $(id); if (input) input.value = data[key] || ''; }); renderMathPanel(project); }
     if (!documentMode) return;
+    if (!shell || !editor) return;
     $('cr-document-title').value = project.documentTitle || project.name || 'Informe';
     editor.innerHTML = project.documentHtml || '<p></p>';
     ensureDocumentPages(editor);
