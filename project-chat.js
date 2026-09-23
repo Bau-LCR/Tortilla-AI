@@ -18,8 +18,14 @@ async function callModel(base, key, model, body, timeoutMs) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Método no permitido' });
   const base = String(process.env.PROJECTS_API_BASE_URL || '').replace(/\/$/, '');
-  const key = process.env.PROJECTS_API_KEY;
-  if (!base || !key) return json(res, 503, { error: 'Faltan PROJECTS_API_BASE_URL y PROJECTS_API_KEY en Vercel.' });
+  const configuredKeys = [];
+  [process.env.PROJECTS_API_KEY, process.env.PROJECTS_API_KEY_2, process.env.PROJECTS_API_KEY_3, process.env.PROJECTS_API_KEY_4].forEach(value => { if (value) configuredKeys.push(String(value).trim()); });
+  if (process.env.PROJECTS_API_KEYS) {
+    try { const parsed = JSON.parse(process.env.PROJECTS_API_KEYS); if (Array.isArray(parsed)) parsed.forEach(value => { if (value) configuredKeys.push(String(value).trim()); }); }
+    catch (_) { String(process.env.PROJECTS_API_KEYS).split(',').forEach(value => { if (value.trim()) configuredKeys.push(value.trim()); }); }
+  }
+  const keys = [...new Set(configuredKeys)].filter(Boolean);
+  if (!base || !keys.length) return json(res, 503, { error: 'Faltan PROJECTS_API_BASE_URL y al menos una clave de Proyectos (PROJECTS_API_KEY o PROJECTS_API_KEY_2).' });
   const messages = Array.isArray(req.body?.mensajes) ? req.body.mensajes : [];
   if (!messages.length) return json(res, 400, { error: 'Faltan mensajes del proyecto.' });
   const attachments = Array.isArray(req.body?.adjuntos) ? req.body.adjuntos.slice(0, 8) : [];
@@ -36,16 +42,18 @@ export default async function handler(req, res) {
   for (const item of attachments) { if (item.type === 'image' && item.data && item.mediaType) attachmentParts.push({ type: 'image_url', image_url: { url: `data:${item.mediaType};base64,${item.data}` } }); else if (item.text) attachmentParts[0].text += `\n\n--- ${item.name} ---\n${String(item.text).slice(0, 180000)}`; }
   const enrichedMessages = [{ role: 'system', content: messages[0]?.content || '' }, ...(attachments.length || webResults.length ? [{ role: 'user', content: attachmentParts }] : []), ...messages.slice(1)];
   const body = { messages: enrichedMessages, temperature: 0.15, max_tokens: Math.max(6000, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 6000)) };
-  for (const model of candidates) {
+  let lastDetail = '';
+  for (const key of keys) for (const model of candidates) {
     try {
       const { upstream, data } = await callModel(base, key, model, body, timeoutMs);
       if (upstream.ok) return json(res, 200, { ...data, projectProvider: true, model });
-      const detail = String(data.error?.message || '');
-      if (!isModelError(detail)) return json(res, upstream.status, { error: detail || `Proveedor de Proyectos HTTP ${upstream.status}` });
+      const detail = String(data.error?.message || ''); lastDetail = detail || `Proveedor de Proyectos HTTP ${upstream.status}`;
+      const retryable = isModelError(detail) || [401, 403, 408, 429, 500, 502, 503].includes(upstream.status);
+      if (!retryable) return json(res, upstream.status, { error: lastDetail });
     } catch (error) {
-      if (error.name === 'AbortError') return json(res, 504, { error: 'Tiempo agotado en el proveedor de Proyectos.' });
-      if (model === candidates.at(-1)) return json(res, 502, { error: 'No se pudo contactar al proveedor de Proyectos.' });
+      if (error.name === 'AbortError') { lastDetail = 'Tiempo agotado en el proveedor de Proyectos.'; continue; }
+      lastDetail = error.message || 'No se pudo contactar al proveedor de Proyectos.';
     }
   }
-  return json(res, 403, { error: `La clave de Proyectos no tiene acceso a los modelos configurados (${candidates.join(', ')}). Revisá PROJECTS_API_BASE_URL, PROJECTS_API_KEY y PROJECTS_MODEL.` });
+  return json(res, 403, { error: `${lastDetail || 'Ninguna clave de Proyectos pudo completar la solicitud.'} Modelos probados: ${candidates.join(', ')}. Claves configuradas: ${keys.length}.` });
 }
