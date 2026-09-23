@@ -1,59 +1,83 @@
-/* PROJECT CHAT API · proveedor separado del Chat Normal */
-function json(res, status, payload) { res.status(status).setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(payload)); }
-function isModelError(message) { return /model|does not exist|access|permission|not found/i.test(String(message || '')); }
-async function callModel(base, key, model, body, timeoutMs) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    let upstream = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ ...body, model, response_format: { type: 'json_object' } }), signal: controller.signal });
-    let data = await upstream.json().catch(() => ({}));
-    // Algunos modelos compatibles no aceptan response_format; se reintenta sin perder la solicitud.
-    if (!upstream.ok && /response_format|json_object|unsupported/i.test(String(data.error?.message || ''))) {
-      upstream = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ ...body, model }), signal: controller.signal });
-      data = await upstream.json().catch(() => ({}));
-    }
-    return { upstream, data };
-  } finally { clearTimeout(timer); }
-}
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return json(res, 405, { error: 'Método no permitido' });
-  const base = String(process.env.PROJECTS_API_BASE_URL || '').replace(/\/$/, '');
-  const configuredKeys = [];
-  [process.env.PROJECTS_API_KEY, process.env.PROJECTS_API_KEY_2, process.env.PROJECTS_API_KEY_3, process.env.PROJECTS_API_KEY_4].forEach(value => { if (value) configuredKeys.push(String(value).trim()); });
-  if (process.env.PROJECTS_API_KEYS) {
-    try { const parsed = JSON.parse(process.env.PROJECTS_API_KEYS); if (Array.isArray(parsed)) parsed.forEach(value => { if (value) configuredKeys.push(String(value).trim()); }); }
-    catch (_) { String(process.env.PROJECTS_API_KEYS).split(',').forEach(value => { if (value.trim()) configuredKeys.push(value.trim()); }); }
-  }
-  const keys = [...new Set(configuredKeys)].filter(Boolean);
-  if (!base || !keys.length) return json(res, 503, { error: 'Faltan PROJECTS_API_BASE_URL y al menos una clave de Proyectos (PROJECTS_API_KEY o PROJECTS_API_KEY_2).' });
-  const messages = Array.isArray(req.body?.mensajes) ? req.body.mensajes : [];
-  if (!messages.length) return json(res, 400, { error: 'Faltan mensajes del proyecto.' });
-  const attachments = Array.isArray(req.body?.adjuntos) ? req.body.adjuntos.slice(0, 8) : [];
-  const webResults = Array.isArray(req.body?.resultadosWeb) ? req.body.resultadosWeb.slice(0, 8) : [];
-  // El modelo del proyecto es independiente del Chat Normal. Si Vercel conserva
-  // un ID antiguo o sin acceso, se prueban modelos compatibles en orden.
-  const configured = String(process.env.PROJECTS_MODEL || 'llama-3.1-8b-instant').trim();
-  const requested = String(req.body?.providerModel || '').trim();
-  const raw = requested && !['basic', 'pro', 'ultra'].includes(requested) ? requested : configured;
-  const first = raw === 'llama-3.3-70b-versatile' ? 'llama-3.1-8b-instant' : raw;
-  const candidates = [...new Set([first, 'llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'qwen/qwen3-32b'])];
-  const timeoutMs = Number(process.env.PROJECTS_TIMEOUT_MS || 90000);
-  const attachmentParts = [{ type: 'text', text: `Adjuntos disponibles para esta solicitud. No inventes su contenido. Archivos: ${attachments.map(item => `${item.name} (${item.type})`).join(', ') || 'ninguno'}. Fuentes web: ${webResults.length ? webResults.map(item => `${item.title || ''} ${item.url || ''}`).join(' | ') : 'ninguna'}.` }];
-  for (const item of attachments) { if (item.type === 'image' && item.data && item.mediaType) attachmentParts.push({ type: 'image_url', image_url: { url: `data:${item.mediaType};base64,${item.data}` } }); else if (item.text) attachmentParts[0].text += `\n\n--- ${item.name} ---\n${String(item.text).slice(0, 180000)}`; }
-  const enrichedMessages = [{ role: 'system', content: messages[0]?.content || '' }, ...(attachments.length || webResults.length ? [{ role: 'user', content: attachmentParts }] : []), ...messages.slice(1)];
-  const body = { messages: enrichedMessages, temperature: 0.15, max_tokens: Math.max(6000, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 6000)) };
-  let lastDetail = '';
-  for (const key of keys) for (const model of candidates) {
-    try {
-      const { upstream, data } = await callModel(base, key, model, body, timeoutMs);
-      if (upstream.ok) return json(res, 200, { ...data, projectProvider: true, model });
-      const detail = String(data.error?.message || ''); lastDetail = detail || `Proveedor de Proyectos HTTP ${upstream.status}`;
-      const retryable = isModelError(detail) || [401, 403, 408, 429, 500, 502, 503].includes(upstream.status);
-      if (!retryable) return json(res, upstream.status, { error: lastDetail });
-    } catch (error) {
-      if (error.name === 'AbortError') { lastDetail = 'Tiempo agotado en el proveedor de Proyectos.'; continue; }
-      lastDetail = error.message || 'No se pudo contactar al proveedor de Proyectos.';
-    }
-  }
-  return json(res, 403, { error: `${lastDetail || 'Ninguna clave de Proyectos pudo completar la solicitud.'} Modelos probados: ${candidates.join(', ')}. Claves configuradas: ${keys.length}.` });
-}
+/* PROJECT MODE · editor documental tipo Word */
+.cr-project-document-shell{display:flex;flex-direction:column;min-height:0;height:100%;background:#e9eef7;color:#17243a;border:1px solid #6baee0;border-radius:10px;overflow:hidden}
+.cr-project-document-shell[hidden]{display:none!important}
+.cr-document-toolbar{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:8px;background:#0b2d5e;color:#e9f8ff;border-bottom:1px solid #4a9dcc}
+.cr-document-toolbar button,.cr-document-toolbar select{height:30px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;padding:3px 8px;cursor:pointer;font-weight:700}
+.cr-document-toolbar button:hover,.cr-document-toolbar select:hover{background:#1a5da0;border-color:#a5efff}
+.cr-document-title{flex:1;min-width:180px;height:32px;border:1px solid #62bde5;border-radius:5px;background:#061d42;color:#fff;padding:5px 9px;font-size:14px;font-weight:700}
+.cr-document-editor{flex:1;min-height:350px;overflow:auto;width:min(100%,900px);margin:18px auto;padding:54px 64px;background:#fff;color:#1d2633;font-family:'Times New Roman',serif;font-size:16px;line-height:1.65;box-shadow:0 4px 20px rgba(15,35,70,.16);outline:none}
+.cr-document-editor h1{font-size:28px;line-height:1.2;margin:0 0 20px;color:#142d55}.cr-document-editor h2{font-size:22px;color:#193e70}.cr-document-editor h3{font-size:18px;color:#214c7d}.cr-document-editor p{margin:0 0 12px}.cr-document-editor ul,.cr-document-editor ol{padding-left:28px}.cr-document-status{padding:6px 10px;background:#d9e6f5;color:#315b80;font-size:11px;text-align:right}
+@media(max-width:900px){.cr-document-editor{width:calc(100% - 14px);margin:7px auto;padding:28px 24px;min-height:310px}.cr-document-toolbar{gap:4px}.cr-document-title{flex-basis:100%;order:-1}.cr-document-toolbar button,.cr-document-toolbar select{flex:0 0 auto}}
+@media(max-width:520px){.cr-document-editor{padding:22px 16px;font-size:15px}.cr-document-toolbar button,.cr-document-toolbar select{font-size:11px;padding:3px 6px}.cr-document-title{font-size:13px}}
+
+/* DOCUMENTO GRANDE Y PANTALLA COMPLETA */
+.cr-project-document-shell{position:relative;min-width:0;min-height:0;width:calc(100% - 12px);height:calc(100% - 12px);margin:6px;resize:both;overflow:hidden}
+.cr-project-document-shell.cr-document-fullscreen{position:fixed!important;inset:8px!important;z-index:19000!important;width:auto!important;height:auto!important;margin:0!important;resize:none!important;border:1px solid #80eaff;box-shadow:0 24px 100px rgba(0,0,0,.9),0 0 0 9999px rgba(1,8,24,.8)}
+body.cr-document-open{overflow:hidden!important}
+.cr-document-editor{min-height:0;max-width:none;width:min(100% - 30px,1100px);flex:1 1 auto;resize:both;overflow:auto}
+.cr-document-toolbar{position:relative;z-index:2}
+.cr-format-wrap{position:relative;display:inline-flex}
+.cr-document-format-menu{position:absolute;top:36px;right:0;z-index:10;display:grid;min-width:190px;padding:6px;border:1px solid #63ccec;border-radius:8px;background:#08234a;box-shadow:0 14px 35px rgba(0,0,0,.55)}
+.cr-document-format-menu[hidden]{display:none!important}
+.cr-document-format-menu button{width:100%;text-align:left;border:0;border-bottom:1px solid rgba(130,220,255,.14);background:transparent;color:#e8faff;padding:9px;cursor:pointer}
+.cr-document-format-menu button:hover{background:#155b9a}
+/* HERRAMIENTAS DE NEGOCIO Y ESTUDIO */
+.cr-project-category-tools{margin:6px;border:1px solid #3f9dcc;border-radius:10px;background:#071e40;color:#e8faff;overflow:auto;padding:12px}
+.cr-project-category-tools[hidden]{display:none!important}
+.cr-category-tools-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px;color:#83e6ff;text-transform:uppercase;letter-spacing:.07em;font-size:12px}
+.cr-category-tools-head span{color:#9bbbd0;font-size:11px;text-transform:none;letter-spacing:0}
+.cr-special-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.cr-special-tools[hidden]{display:none!important}
+.cr-special-tools label{display:flex;flex-direction:column;gap:4px;color:#9fcce0;font-size:11px}
+.cr-special-tools input{border:1px solid #327aa8;border-radius:6px;background:#061532;color:#f2fcff;padding:8px}
+.cr-special-tools button{border:1px solid #64dfff;border-radius:7px;background:#104b86;color:#effcff;padding:8px;cursor:pointer}
+.cr-special-tools button:hover{background:#1b70ad}
+@media(max-width:900px){.cr-project-document-shell{width:calc(100% - 8px);height:calc(100% - 8px);margin:4px}.cr-document-editor{width:calc(100% - 12px);margin:6px auto}.cr-special-tools{grid-template-columns:1fr 1fr}.cr-special-tools label:first-child{grid-column:1/-1}}
+@media(max-width:520px){.cr-project-document-shell.cr-document-fullscreen{inset:4px!important}.cr-special-tools{grid-template-columns:1fr}.cr-special-tools label:first-child{grid-column:auto}.cr-category-tools-head{display:block}.cr-category-tools-head span{display:block;margin-top:4px}}
+
+/* MULTIMEDIA Y ADJUNTOS */
+.cr-document-color{display:inline-flex;align-items:center;gap:3px;height:30px;padding:0 6px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;font-weight:700;font-size:11px}
+.cr-document-color input{width:22px;height:22px;padding:0;border:0;background:transparent;cursor:pointer}
+.cr-document-editor img{display:block;max-width:100%;height:auto;margin:14px auto;border:1px solid #b9cde2;border-radius:5px;box-shadow:0 3px 12px rgba(20,50,90,.16)}
+.cr-project-attachments{display:flex;flex-wrap:wrap;gap:5px;padding:4px 10px;background:#061832;color:#bdefff;font-size:11px}
+.cr-project-attachment-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border:1px solid #3c91bd;border-radius:999px;background:#0c386b}
+.cr-project-attachment-chip button{border:0;background:transparent;color:#dffaff;cursor:pointer;font-size:14px;line-height:1}
+.cr-project-attach{padding:9px 10px;color:#e9fbff;background:#0e467f;border:1px solid #5edcff;border-radius:8px;cursor:pointer}
+.cr-project-attach:hover{background:#1b70ad}
+@media(max-width:520px){.cr-document-color{order:2}.cr-project-attach{padding:8px;font-size:11px}}
+
+/* PAGINACIÓN VISUAL A4 */
+.cr-document-editor{background:#dfe7f1;padding:18px 0;box-sizing:border-box}
+.cr-document-page{width:min(794px,calc(100% - 30px));min-height:1123px;margin:0 auto 18px;padding:54px 64px;box-sizing:border-box;background:#fff;color:#1d2633;box-shadow:0 4px 20px rgba(15,35,70,.18);overflow:hidden}
+.cr-document-page:last-child{margin-bottom:0}
+.cr-document-page h1,.cr-document-page h2,.cr-document-page h3{break-after:avoid}
+@media(max-width:900px){.cr-document-editor{padding:10px 0}.cr-document-page{width:calc(100% - 14px);min-height:980px;padding:38px 28px;margin-bottom:12px}}
+@media(max-width:520px){.cr-document-page{min-height:860px;padding:28px 18px}}
+
+/* MATEMÁTICAS · fórmulas y explicación sin colisiones con otros modos */
+.cr-math-tools{grid-template-columns:minmax(140px, .7fr) minmax(220px, 1.5fr) minmax(220px, 2fr) auto auto;align-items:center}
+.cr-math-tools textarea{min-height:46px;resize:vertical;border:1px solid #327aa8;border-radius:6px;background:#061532;color:#f2fcff;padding:8px;font:14px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}
+.cr-math-display{min-height:70px;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px 16px;border:1px solid #397cad;border-radius:8px;background:#06142d;color:#f5fbff;font-size:22px;line-height:1.6;white-space:nowrap}
+.cr-math-display mjx-container{margin:0!important;max-width:100%;overflow-x:auto;overflow-y:hidden}
+@media(max-width:1100px){.cr-math-tools{grid-template-columns:1fr 1.5fr;}.cr-math-display{grid-column:1/-1}.cr-math-tools button{min-height:38px}}
+@media(max-width:520px){.cr-math-tools{grid-template-columns:1fr}.cr-math-display{grid-column:auto;font-size:18px;min-height:62px}.cr-math-tools textarea{font-size:13px}}
+
+/* FORMATO DOCUMENTAL AVANZADO */
+.cr-document-editor b,.cr-document-editor strong,.cr-document-editor i,.cr-document-editor em{color:inherit!important}
+.cr-document-highlight{gap:5px!important}
+.cr-document-highlight input{background:#fff59d!important}
+#cr-document-line-spacing{min-width:122px}
+.cr-document-autocorrect{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 6px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;font-size:11px;font-weight:700}
+.cr-document-autocorrect input{accent-color:#57cfff}
+#cr-document-ai-notes[aria-pressed="true"]{background:#246e9d;border-color:#b9f4ff}
+.cr-document-editor table{width:100%;border-collapse:collapse;margin:14px 0;table-layout:fixed}
+.cr-document-editor th,.cr-document-editor td{min-width:32px;border:1px solid #9bb4ca;padding:7px;vertical-align:top;word-break:break-word}
+.cr-document-editor th{background:#eaf2fb;font-weight:700}
+.cr-document-editor img[src^="http"]{max-width:100%;height:auto}
+.cr-document-editor.cr-ai-notes-visible [data-ai-note]{position:relative;outline:2px dashed #8b7cff;background:rgba(139,124,255,.12)}
+.cr-document-editor.cr-ai-notes-visible [data-ai-note]::after{content:attr(data-ai-note);display:block;margin:5px 0;padding:5px 7px;border-left:3px solid #8b7cff;background:#eeeaff;color:#3d3275;font:11px/1.35 Arial,sans-serif}
+@media(max-width:900px){.cr-document-toolbar{max-height:180px;overflow:auto}.cr-document-autocorrect{font-size:10px}.cr-document-editor table{font-size:13px}}
+
+.cr-document-editor u,.cr-document-editor b,.cr-document-editor strong,.cr-document-editor i,.cr-document-editor em{color:inherit!important}
+.cr-document-context-menu{position:fixed;z-index:25000;display:grid;min-width:175px;padding:5px;border:1px solid #67dfff;border-radius:8px;background:#08234a;box-shadow:0 14px 35px rgba(0,0,0,.55)}
+.cr-document-context-menu[hidden]{display:none!important}.cr-document-context-menu button{border:0;border-bottom:1px solid rgba(130,220,255,.16);background:transparent;color:#effcff;padding:8px 10px;text-align:left;cursor:pointer}.cr-document-context-menu button:hover{background:#155b9a}
