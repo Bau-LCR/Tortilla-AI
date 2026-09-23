@@ -61,3 +61,19 @@ body.cr-document-open{overflow:hidden!important}
 .cr-math-display mjx-container{margin:0!important;max-width:100%;overflow-x:auto;overflow-y:hidden}
 @media(max-width:1100px){.cr-math-tools{grid-template-columns:1fr 1.5fr;}.cr-math-display{grid-column:1/-1}.cr-math-tools button{min-height:38px}}
 @media(max-width:520px){.cr-math-tools{grid-template-columns:1fr}.cr-math-display{grid-column:auto;font-size:18px;min-height:62px}.cr-math-tools textarea{font-size:13px}}
+
+/* FORMATO DOCUMENTAL AVANZADO */
+.cr-document-editor b,.cr-document-editor strong,.cr-document-editor i,.cr-document-editor em{color:inherit!important}
+.cr-document-highlight{gap:5px!important}
+.cr-document-highlight input{background:#fff59d!important}
+#cr-document-line-spacing{min-width:122px}
+.cr-document-autocorrect{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 6px;border:1px solid #62bde5;border-radius:5px;background:#123e78;color:#effcff;font-size:11px;font-weight:700}
+.cr-document-autocorrect input{accent-color:#57cfff}
+#cr-document-ai-notes[aria-pressed="true"]{background:#246e9d;border-color:#b9f4ff}
+.cr-document-editor table{width:100%;border-collapse:collapse;margin:14px 0;table-layout:fixed}
+.cr-document-editor th,.cr-document-editor td{min-width:32px;border:1px solid #9bb4ca;padding:7px;vertical-align:top;word-break:break-word}
+.cr-document-editor th{background:#eaf2fb;font-weight:700}
+.cr-document-editor img[src^="http"]{max-width:100%;height:auto}
+.cr-document-editor.cr-ai-notes-visible [data-ai-note]{position:relative;outline:2px dashed #8b7cff;background:rgba(139,124,255,.12)}
+.cr-document-editor.cr-ai-notes-visible [data-ai-note]::after{content:attr(data-ai-note);display:block;margin:5px 0;padding:5px 7px;border-left:3px solid #8b7cff;background:#eeeaff;color:#3d3275;font:11px/1.35 Arial,sans-serif}
+@media(max-width:900px){.cr-document-toolbar{max-height:180px;overflow:auto}.cr-document-autocorrect{font-size:10px}.cr-document-editor table{font-size:13px}}
