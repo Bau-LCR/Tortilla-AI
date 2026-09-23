@@ -131,3 +131,24 @@ body.cr-project-preview-open{overflow:hidden!important}
 .cr-project-attachment-viewer-body img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
 body.cr-project-attachment-viewer-open{overflow:hidden!important}
 @media(max-width:600px){.cr-project-attachment-viewer{padding:5px}.cr-project-attachment-viewer-card{width:100%;height:calc(100vh - 10px);border-radius:10px}.cr-project-attachment-open{max-width:190px}}
+
+/* PRESENTACIONES Y MATEMÁTICAS · paneles aislados del workbench de código */
+#cutreal-projects .cr-project-work[data-document-mode="canvas"]{display:block!important;min-width:0;min-height:0;height:100%;overflow:auto!important}
+.cr-project-presentation-shell,.cr-project-math-canvas-shell{height:100%;min-height:620px;background:#061832;color:#e8faff;border:1px solid #367ead;border-radius:10px;overflow:hidden}
+.cr-project-presentation-shell[hidden],.cr-project-math-canvas-shell[hidden]{display:none!important}
+.cr-presentation-toolbar,.cr-math-canvas-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px;background:#0b2d5e;border-bottom:1px solid #4a9dcc}
+.cr-presentation-toolbar button,.cr-math-canvas-toolbar button,.cr-presentation-toolbar select,.cr-presentation-toolbar input{min-height:31px;border:1px solid #62bde5;border-radius:6px;background:#123e78;color:#effcff;padding:5px 9px;cursor:pointer}
+.cr-presentation-toolbar button:hover,.cr-math-canvas-toolbar button:hover{background:#1b70ad}
+.cr-presentation-toolbar label,.cr-math-canvas-toolbar label{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#c4ecfa}
+.cr-presentation-stage{display:flex;gap:12px;height:calc(100% - 52px);min-height:560px;padding:12px;overflow:auto;background:linear-gradient(135deg,#071a35,#0d3156)}
+.cr-presentation-thumbs{display:flex;flex-direction:column;gap:7px;width:145px;min-width:145px;overflow:auto}
+.cr-presentation-thumb{display:flex;align-items:center;gap:6px;width:100%;min-height:58px;padding:6px;border:1px solid #387da9;border-radius:7px;background:#0b2d5e;color:#e8faff;text-align:left;cursor:pointer}
+.cr-presentation-thumb.active{border-color:#a3f0ff;background:#155b9a;box-shadow:0 0 0 2px rgba(112,225,255,.2)}
+.cr-presentation-thumb span{font-weight:700}.cr-presentation-thumb small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr-presentation-slide{position:relative;flex:1;width:min(1280px,calc(100% - 160px));min-height:500px;aspect-ratio:16/9;margin:auto;padding:7%;box-sizing:border-box;color:#14243c;outline:none;overflow:auto;box-shadow:0 12px 45px rgba(0,0,0,.45);background:#fff}
+.cr-presentation-slide[data-orientation="portrait"]{aspect-ratio:9/16;max-width:720px}
+.cr-presentation-slide h1{font-size:clamp(28px,5vw,72px);margin-top:0}.cr-presentation-slide h2{font-size:clamp(22px,3.5vw,46px)}.cr-presentation-slide p{font-size:clamp(16px,2vw,30px);line-height:1.45}.cr-presentation-slide img{max-width:90%;height:auto;display:block;margin:16px auto}
+.cr-project-presentation-shell.cr-presentation-presenting{position:fixed;inset:0;z-index:22000;border:0;border-radius:0;background:#000}.cr-project-presentation-shell.cr-presentation-presenting .cr-presentation-stage{height:100vh}.cr-project-presentation-shell.cr-presentation-presenting .cr-presentation-toolbar,.cr-project-presentation-shell.cr-presentation-presenting .cr-presentation-thumbs{display:none}.cr-project-presentation-shell.cr-presentation-presenting .cr-presentation-slide{width:100%;height:100%;max-width:none;max-height:none;aspect-ratio:auto}
+.cr-math-canvas{position:relative;height:calc(100% - 52px);min-height:560px;overflow:auto;background-color:#071a35;background-image:linear-gradient(rgba(101,198,255,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(101,198,255,.16) 1px,transparent 1px);background-size:28px 28px;cursor:crosshair}
+.cr-math-nodes{position:relative;min-width:100%;min-height:100%;padding:50px;box-sizing:border-box;transform-origin:top left}.cr-math-node{display:block;width:max-content;max-width:90%;min-width:80px;margin:24px;padding:10px 15px;border:1px solid #59d8ff;border-radius:8px;background:rgba(9,42,79,.92);color:#f3fcff;outline:none;box-shadow:0 8px 25px rgba(0,0,0,.25)}.cr-math-node.equation{font-size:25px;color:#fff59d}.cr-math-node:focus{box-shadow:0 0 0 2px #a9f2ff}
+@media(max-width:700px){.cr-project-presentation-shell,.cr-project-math-canvas-shell{min-height:540px}.cr-presentation-stage{min-height:480px}.cr-presentation-thumbs{width:90px;min-width:90px}.cr-presentation-thumb{font-size:10px;min-height:48px}.cr-presentation-slide{width:calc(100% - 102px);min-height:360px;padding:8% 6%}.cr-presentation-toolbar button,.cr-math-canvas-toolbar button{font-size:11px;padding:5px 7px}.cr-math-canvas{min-height:480px}}
