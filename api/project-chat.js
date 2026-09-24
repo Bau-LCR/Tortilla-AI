@@ -32,12 +32,12 @@ export default async function handler(req, res) {
   const webResults = Array.isArray(req.body?.resultadosWeb) ? req.body.resultadosWeb.slice(0, 8) : [];
   // El modelo del proyecto es independiente del Chat Normal. Si Vercel conserva
   // un ID antiguo o sin acceso, se prueban modelos compatibles en orden.
-  const configured = String(process.env.PROJECTS_MODEL || 'llama-3.1-8b-instant').trim();
+  const configured = String(process.env.PROJECTS_MODEL || 'openai/gpt-oss-20b').trim();
   const requested = String(req.body?.providerModel || '').trim();
   const raw = requested && !['basic', 'pro', 'ultra'].includes(requested) ? requested : configured;
-  const unsupported = /qwen\/qwen3-32b|llama-3\.3-70b-versatile/i.test(raw);
-  const first = unsupported ? 'llama-3.1-8b-instant' : raw;
-  const candidates = [...new Set([first, 'llama-3.1-8b-instant', 'openai/gpt-oss-20b'])];
+  const unsupported = /qwen\/qwen3-32b|llama-3\.3-70b-versatile|llama-3\.1-8b-instant/i.test(raw);
+  const first = unsupported ? 'openai/gpt-oss-20b' : raw;
+  const candidates = [...new Set([first, 'openai/gpt-oss-20b', 'openai/gpt-oss-120b'])];
   const timeoutMs = Number(process.env.PROJECTS_TIMEOUT_MS || 90000);
   const attachmentParts = [{ type: 'text', text: `Adjuntos disponibles para esta solicitud. No inventes su contenido. Archivos: ${attachments.map(item => `${item.name} (${item.type})`).join(', ') || 'ninguno'}. Fuentes web: ${webResults.length ? webResults.map(item => `${item.title || ''} ${item.url || ''}`).join(' | ') : 'ninguna'}.` }];
   for (const item of attachments) { if (item.type === 'image' && item.data && item.mediaType) attachmentParts.push({ type: 'image_url', image_url: { url: `data:${item.mediaType};base64,${item.data}` } }); else if (item.text) attachmentParts[0].text += `\n\n--- ${item.name} ---\n${String(item.text).slice(0, 180000)}`; }
