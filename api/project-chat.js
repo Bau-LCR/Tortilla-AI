@@ -35,14 +35,14 @@ export default async function handler(req, res) {
   const configured = String(process.env.PROJECTS_MODEL || 'openai/gpt-oss-20b').trim();
   const requested = String(req.body?.providerModel || '').trim();
   const raw = requested && !['basic', 'pro', 'ultra'].includes(requested) ? requested : configured;
-  const unsupported = /qwen\/qwen3-32b|llama-3\.3-70b-versatile|llama-3\.1-8b-instant/i.test(raw);
-  const first = unsupported ? 'openai/gpt-oss-20b' : raw;
+  const allowedModels = new Set(['openai/gpt-oss-20b','openai/gpt-oss-120b']);
+  const first = allowedModels.has(raw) ? raw : 'openai/gpt-oss-20b';
   const candidates = [...new Set([first, 'openai/gpt-oss-20b', 'openai/gpt-oss-120b'])];
   const timeoutMs = Number(process.env.PROJECTS_TIMEOUT_MS || 90000);
   const attachmentParts = [{ type: 'text', text: `Adjuntos disponibles para esta solicitud. No inventes su contenido. Archivos: ${attachments.map(item => `${item.name} (${item.type})`).join(', ') || 'ninguno'}. Fuentes web: ${webResults.length ? webResults.map(item => `${item.title || ''} ${item.url || ''}`).join(' | ') : 'ninguna'}.` }];
   for (const item of attachments) { if (item.type === 'image' && item.data && item.mediaType) attachmentParts.push({ type: 'image_url', image_url: { url: `data:${item.mediaType};base64,${item.data}` } }); else if (item.text) attachmentParts[0].text += `\n\n--- ${item.name} ---\n${String(item.text).slice(0, 180000)}`; }
-  const enrichedMessages = [{ role: 'system', content: messages[0]?.content || '' }, ...(attachments.length || webResults.length ? [{ role: 'user', content: attachmentParts }] : []), ...messages.slice(1)];
-  const body = { messages: enrichedMessages, temperature: 0.15, max_tokens: Math.max(6000, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 6000)) };
+  const cleanMessages = messages.map(item => ({ role: item?.role === 'assistant' ? 'assistant' : item?.role === 'system' ? 'system' : 'user', content: typeof item?.content === 'string' ? item.content : JSON.stringify(item?.content || '') })); const enrichedMessages = [{ role: 'system', content: cleanMessages[0]?.content || '' }, ...(attachments.length || webResults.length ? [{ role: 'user', content: attachmentParts }] : []), ...cleanMessages.slice(1).slice(-18)];
+  const body = { messages: enrichedMessages, temperature: 0.15, max_tokens: Math.min(4000, Math.max(1800, Number(process.env.PROJECTS_MAX_OUTPUT_TOKENS || 3200))) };
   let lastDetail = '';
   for (const key of keys) for (const model of candidates) {
     try {
