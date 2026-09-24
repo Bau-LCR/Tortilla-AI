@@ -174,3 +174,8 @@ body.cr-project-attachment-viewer-open{overflow:hidden!important}
 
 /* Matemáticas: no mostrar artefactos de LaTeX ni selección global; Programación usa un único editor coloreado. */
 .cr-math-node{overflow:visible!important}.cr-math-node-content{color:inherit!important;text-decoration:none!important}.cr-math-node-content mjx-container{color:inherit!important}.cr-math-empty{opacity:.7;font-style:italic}.cr-project-editor{display:none!important}.cr-editor-shell .CodeMirror{display:block!important;visibility:visible!important;opacity:1!important}
+
+/* Categorías sin API ni controles de archivos de Programación. */
+#cutreal-projects[data-project-category="matematicas"] #cr-project-api-key,#cutreal-projects[data-project-category="matematicas"] #cr-project-save-secret,#cutreal-projects[data-project-category="matematicas"] #cr-project-reveal-secret,#cutreal-projects[data-project-category="matematicas"] #cr-project-secret-status,#cutreal-projects[data-project-category="archivo"] #cr-project-api-key,#cutreal-projects[data-project-category="archivo"] #cr-project-save-secret,#cutreal-projects[data-project-category="archivo"] #cr-project-reveal-secret,#cutreal-projects[data-project-category="archivo"] #cr-project-secret-status{display:none!important}
+#cutreal-projects[data-project-category="matematicas"] .cr-project-importbar,#cutreal-projects[data-project-category="archivo"] .cr-project-importbar{gap:8px}
+.cr-math-graph{display:block;width:240px;height:140px;margin-top:6px;background:rgba(2,15,35,.65);border-radius:6px}.cr-math-graph-title{font-weight:700;color:#fff59d;font-size:14px}.cr-math-node[data-math-index]{touch-action:none}
