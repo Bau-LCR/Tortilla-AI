@@ -8,7 +8,7 @@
     'style.css': 'body { margin: 0; font-family: system-ui, sans-serif; background: #0b1424; color: #eef5ff; }\nmain { max-width: 900px; margin: 12vh auto; padding: 32px; }',
     'script.js': 'console.log("Proyecto iniciado");'
   };
-  const state = { open: false, files: { ...defaults }, active: 'index.html', busy: false, history: [] };
+  const state = { open: false, files: { ...defaults }, active: 'index.html', busy: false, history: [], lastErrors: null };
   const esc = value => String(value ?? '').replace(/[&<>"]/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[ch]));
   function load() {
     try {
@@ -60,6 +60,7 @@
     const frame = $('programmer-preview');
     if (!frame) return;
     frame.srcdoc = makePreviewDocument();
+    state.lastErrors = null;
     setStatus('Vista previa actualizada · ejecución aislada', 'success');
     save();
   }
@@ -79,14 +80,14 @@
   function safeFilePath(path) {
     return typeof path === 'string' && path.length <= 100 && !path.startsWith('/') && !path.includes('..') && /^[\w./-]+$/.test(path);
   }
-  async function send() {
+  async function send(promptOverride) {
     const field = $('programmer-prompt');
-    const prompt = field?.value.trim();
+    const prompt = String(promptOverride || field?.value || '').trim();
     if (!prompt || state.busy) return;
     syncEditor();
     state.busy = true;
     if ($('programmer-send')) $('programmer-send').disabled = true;
-    field.value = '';
+    if (!promptOverride && field) field.value = '';
     addMessage('user', prompt);
     state.history.push({ role: 'user', content: prompt });
     setStatus('Gemini está trabajando en tu proyecto…', 'working');
@@ -141,6 +142,8 @@
     $('programmer-prompt')?.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(); } });
     $('programmer-editor')?.addEventListener('input', () => { syncEditor(); save(); setStatus('Cambios locales guardados', 'idle'); });
     $('programmer-run')?.addEventListener('click', run);
+    $('programmer-fix-errors')?.addEventListener('click', () => { if (!state.lastErrors) { setStatus('No hay errores de ejecución detectados en la vista previa.', 'idle'); return; } send('Corregí este error de ejecución detectado en la vista previa y revisá los archivos relacionados: ' + state.lastErrors); });
+    window.addEventListener('message', event => { const frame = $('programmer-preview'); if (event.source !== frame?.contentWindow || event.data?.type !== 'cutreal-preview-error') return; state.lastErrors = String(event.data.message || 'Error desconocido') + (event.data.line ? ' · línea ' + event.data.line : ''); setStatus('Error detectado: ' + state.lastErrors, 'error'); });
     $('programmer-new-file')?.addEventListener('click', () => {
       const path = prompt('Nombre del nuevo archivo (por ejemplo: app.js)');
       if (!path || !safeFilePath(path) || state.files[path]) return;
