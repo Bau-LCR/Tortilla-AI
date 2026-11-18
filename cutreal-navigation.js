@@ -46,6 +46,8 @@
     window.CutRealNexus?.close?.();
     closeSandbox();
     closeWorkspace();
+    window.CutRealProgrammer?.close?.();
+    window.CutRealVoice?.close?.();
     el('agent-mode-panel')?.setAttribute('hidden', 'true');
     document.body.classList.remove('super-view-active', 'nexus-open', 'space-open', 'sandbox-open');
   }
@@ -55,6 +57,8 @@
     if (action === 'randar') return window.CutRealNexus?.open?.() || document.getElementById('nexus-nav-btn')?.click() || document.getElementById('nexus-open-btn')?.click() || showPanel('nexus-view', 'block');
     if (action === 'sandbox') return window.openSandbox();
     if (action === 'workspace') return openWorkspace();
+    if (action === 'programmer') { closeAll(); return window.CutRealProgrammer?.open?.() || false; }
+    if (action === 'voice-center') { closeAll(); return window.CutRealVoice?.open?.() || false; }
     if (action === 'admin') return document.getElementById('admin-btn')?.click() || showPanel('admin-overlay', 'flex');
     if (action === 'logout') return window.logout?.() || false;
     if (action === 'clear-chat') return window.resetChat?.() || false;
@@ -83,7 +87,7 @@
       const tool = event.target.closest('#tools-menu [data-tool-action]');
       if (tool) {
         const action = tool.dataset.toolAction;
-        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'admin', 'logout', 'clear-chat', 'chat', 'paint-ai', 'projects'].includes(action)) {
+        if (['space', 'super', 'randar', 'sandbox', 'workspace', 'programmer', 'voice-center', 'admin', 'logout', 'clear-chat', 'chat', 'paint-ai', 'projects'].includes(action)) {
           event.preventDefault();
           event.stopImmediatePropagation();
           open(action);
