@@ -274,6 +274,7 @@
             btn.setAttribute('aria-label', 'Toggle voz IA');
             btn.addEventListener('click', () => {
                 S.enabled = !S.enabled;
+                window.CutRealVoice?.setEnabled?.(S.enabled);
                 btn.innerHTML = S.enabled ? '🔊' : '🔇';
                 btn.classList.toggle('loquendo-muted', !S.enabled);
                 if (!S.enabled) window.LoquendoStop();
