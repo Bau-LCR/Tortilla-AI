@@ -5,14 +5,17 @@ const MAX_FILE_CHARS = 180000;
 const MAX_CONTEXT_CHARS = 30000;
 
 function parseJSON(text) {
-  const cleaned = String(text || "").replace(/^﻿/, "").replace(/^s*```(?:json)?s*/i, "").replace(/s*```s*$/i, "").trim();
+  let cleaned = String(text || "").replace("\uFEFF", "").trim();
+  if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7).trim();
+  else if (cleaned.startsWith("```")) cleaned = cleaned.slice(3).trim();
+  if (cleaned.endsWith("```")) cleaned = cleaned.slice(0, -3).trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start < 0 || end <= start) throw new Error("Gemini no devolvió el formato de proyecto esperado.");
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 function validPath(path) {
-  return typeof path === "string" && path.length <= 100 && !path.startsWith("/") && !path.includes("..") && /^[w./-]+$/.test(path);
+  return typeof path === "string" && path.length <= 100 && !path.startsWith("/") && !path.includes("..") && [...path].every(ch => "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./-".includes(ch));
 }
 
 export default async function handler(req, res) {
