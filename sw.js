@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cut-real-ai-v2';
+const CACHE_NAME = 'cut-real-ai-v3';
 
 // Archivos del app shell que se cachean al instalar
 const APP_SHELL = [

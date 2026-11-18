@@ -286,28 +286,51 @@ const formatearTexto = (texto) => {
     if (survey) return survey;
     const visualBlocks = prepararCuadrosVisuales(texto);
     texto = visualBlocks.text;
-    texto = texto.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-        `<pre><code class="lang-${lang || 'code'}">${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>`
+    const mathBlocks = [];
+    const holdMath = value => { mathBlocks.push(value); return \`@@CUTREAL_MATH_\${mathBlocks.length - 1}@@\`; };
+    texto = texto.replace(/\\\[[\s\S]*?\\\]/g, holdMath).replace(/\\\([\s\S]*?\\\)/g, holdMath);
+    texto = texto.replace(/\`\`\`(\w*)\n?([\s\S]*?)\`\`\`/g, (_, lang, code) =>
+        \`<pre><code class="lang-\${lang || 'code'}">\${escapeHtml(code.trim())}</code><button class="copy-code-btn" onclick="copyCode(this)">📋 Copiar</button></pre>\`
     );
-    texto = texto.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    texto = texto.replace(/\`([^\`\n]+)\`/g, (_, code) => \`<code>\${escapeHtml(code)}</code>\`);
     texto = texto.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-    texto = texto.replace(/^## (.+)$/gm,  "<h2>$1</h2>");
-    texto = texto.replace(/^# (.+)$/gm,   "<h1>$1</h1>");
+    texto = texto.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+    texto = texto.replace(/^# (.+)$/gm, "<h1>$1</h1>");
     texto = texto.replace(/\*\*\*(.+?)\*\*\*/g, "<b><em>$1</em></b>");
     texto = texto.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
     texto = texto.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-    texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    texto = texto.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, rawUrl) => {
+        const url = String(rawUrl).trim();
+        if (!/^(https?:\/\/|data:image\/(png|jpeg|jpg|gif|webp|avif);base64,)/i.test(url))
+            return \`<span class="chat-image-unavailable">[Imagen no disponible: \${escapeHtml(alt || 'adjunto')}]</span>\`;
+        return \`<img class="attached-image assistant-image" loading="lazy" src="\${escapeHtml(url)}" alt="\${escapeHtml(alt || 'Imagen adjunta')}" onclick="window.open(this.src,'_blank')">\`;
+    });
+    texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
     texto = texto.replace(/(^|[^"=>])(https?:\/\/[^\s<>"]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
     texto = texto.replace(/^[\-\*] (.+)$/gm, "<li>$1</li>");
-    texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, (m) => `<ul>${m}</ul>`);
+    texto = texto.replace(/((<li>.*<\/li>)\n?)+/g, m => \`<ul>\${m}</ul>\`);
     texto = texto.replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
     texto = texto.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid rgba(76,154,255,0.42);margin:12px 0;">');
     texto = texto.replace(/\n(?!<\/?(ul|ol|li|pre|code|h[123]|hr))/g, "<br>");
-    texto = texto.replace(/@@CUTREAL_VISUAL_(\d+)@@/g, (_, blockIndex) => visualBlocks.blocks[Number(blockIndex)] || '');
-    return texto;  // ← esta línea DEBE estar dentro de la función
+    texto = texto.replace(/@@CUTREAL_MATH_(\d+)@@/g, (_, index) => mathBlocks[Number(index)] || '');
+    texto = texto.replace(/@@CUTREAL_VISUAL_(\d+)@@/g, (_, index) => visualBlocks.blocks[Number(index)] || '');
+    return texto;
 };
 
     const scrollAbajo = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+    let mathTypesetTimer = null;
+    const typesetChatMath = () => {
+        clearTimeout(mathTypesetTimer);
+        mathTypesetTimer = setTimeout(async () => {
+            try {
+                if (!window.MathJax?.typesetPromise) return;
+                await window.MathJax.startup?.promise;
+                await window.MathJax.typesetPromise([chat]);
+            } catch (error) { console.warn('No se pudieron renderizar algunas fórmulas:', error); }
+        }, 80);
+    };
+    if (chat && 'MutationObserver' in window) new MutationObserver(typesetChatMath).observe(chat, { childList: true, subtree: true });
+    window.addEventListener('load', typesetChatMath, { once: true });
 
     // ===== TOAST NOTIFICATION =====
     const showToast = (msg, color = "#4488ff", icon = "") => {
