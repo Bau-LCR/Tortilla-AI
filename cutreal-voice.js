@@ -3,7 +3,7 @@
   'use strict';
   const STORAGE = 'cutreal_voice_settings_v2';
   const defaults = { provider: 'gemini', voice: 'Puck', languageCode: 'es-US', localFallback: true };
-  const state = { settings: { ...defaults }, context: null, source: null, abort: null, speaking: false, sequence: 0 };
+  const state = { settings: { ...defaults }, context: null, source: null, abort: null, speaking: false, enabled: true, sequence: 0 };
   const $ = id => document.getElementById(id);
   function load() { try { state.settings = { ...defaults, ...JSON.parse(localStorage.getItem(STORAGE) || '{}') }; } catch (_) {} }
   function save() { try { localStorage.setItem(STORAGE, JSON.stringify(state.settings)); } catch (_) {} }
@@ -61,6 +61,7 @@
     });
   }
   async function speak(text, onEnd) {
+    if (!state.enabled) { onEnd?.(); return; }
     const chunks = splitText(text).filter(Boolean);
     if (!chunks.length) { onEnd?.(); return; }
     stop();
@@ -94,6 +95,7 @@
     if (window.LoquendoStop) window.LoquendoStop();
   }
   function isSpeaking() { return state.speaking || !!window.LoquendoIsSpeaking?.(); }
+  function setEnabled(enabled) { state.enabled = Boolean(enabled); if (!state.enabled) stop(); return state.enabled; }
   function renderSettings() {
     const provider = $('voice-center-provider'); if (provider) provider.value = state.settings.provider;
     const voice = $('voice-center-voice'); if (voice) voice.value = state.settings.voice;
@@ -126,6 +128,6 @@
     $('voice-center-call')?.addEventListener('click', () => { close(); $('voice-call-btn')?.click(); });
   }
   load();
-  window.CutRealVoice = { speak, stop, unlock, isSpeaking, open, close, getSettings: () => ({ ...state.settings }) };
+  window.CutRealVoice = { speak, stop, unlock, isSpeaking, setEnabled, open, close, getSettings: () => ({ ...state.settings }) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true }); else bind();
 })();
