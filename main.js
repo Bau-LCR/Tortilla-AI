@@ -1349,6 +1349,7 @@ function needsWebSearchFrontend(msg) {
         if (!currentUser) return;
 
         // Detener cualquier habla anterior
+        window.CutRealVoice?.stop?.();
         if (window.LoquendoStop) window.LoquendoStop();
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
@@ -1640,6 +1641,7 @@ function needsWebSearchFrontend(msg) {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
             // Detener habla al borrar chat
+            window.CutRealVoice?.stop?.();
             if (window.LoquendoStop) window.LoquendoStop();
             historial=[systemPrompt]; lastAssistantResponse = ''; renderizarChat(); await guardarEnNube();
         }
