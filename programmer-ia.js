@@ -48,7 +48,7 @@
   function makePreviewDocument() {
     let html = state.files['index.html'] || '<!doctype html><html><body></body></html>';
     const css = '<style>' + (state.files['style.css'] || '') + '</style>';
-    const js = '<script>' + (state.files['script.js'] || '') + '<\\/script>';
+    const js = '<script>window.onerror=function(message,source,line){parent.postMessage({type:"cutreal-preview-error",message:String(message),line:line||0},"*")};window.onunhandledrejection=function(event){parent.postMessage({type:"cutreal-preview-error",message:String(event.reason||"Promise rechazada"),line:0},"*")};' + (state.files['script.js'] || '') + '</script>';
     if (/<\/head>/i.test(html)) html = html.replace(/<\/head>/i, css + '</head>');
     else html = css + html;
     if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, js + '</body>');
