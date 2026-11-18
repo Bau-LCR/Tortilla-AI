@@ -41,7 +41,7 @@
       label: 'Voz',
       features: ['gemini-tts', 'puck-default-voice', 'speech-recognition', 'voice-call-ui', 'voice-center', 'local-speech-fallback'],
       permissions: ['microphone'],
-      status: 'browser-dependent'
+      status: 'Gemini-route-with-browser-fallback'
     },
     randar: {
       label: 'RANDAR',
