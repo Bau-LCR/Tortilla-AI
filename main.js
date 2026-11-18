@@ -1227,7 +1227,7 @@ function createAiActionBtns(respuestaIA, intent) {
             }
         }
         voiceCallActive = true; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
-        if (window.CutRealVoice?.unlock && !(await window.CutRealVoice.unlock())) { setVoiceCallStatus('No se pudo inicializar el audio Gemini', true); voiceCallActive = false; return false; } else if (!window.CutRealVoice && window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
+        if (window.CutRealVoice?.unlock && !(await window.CutRealVoice.unlock()) && !(window.LoquendoUnlock && window.LoquendoUnlock())) { setVoiceCallStatus('No se pudo inicializar el audio Gemini ni la voz local', true); voiceCallActive = false; return false; } else if (!window.CutRealVoice && window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
         setVoiceCallTranscript('La conversación aparecerá aquí.');
         setVoiceCallModal(true);
         setVoiceCallStatus('Llamada activa · escuchando…', true);
