@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
         setTimeout(() => (splashScreen.style.display = "none"), 620);
     }, 1900);
 
-    const capabilityBrief = (() => { try { const identity = window.CutRealIdentity || {}; const registry = window.CutRealCapabilities?.listCapabilities?.() || []; return `IDENTIDAD CUT-REAL AI: ${identity.name || 'Cut-real AI'}. Estilo: ${identity.style || 'analítico y seguro'}. Reglas: ${(identity.rules || []).join(' | ')}. CAPACIDADES REGISTRADAS: ${JSON.stringify(registry)}. Conocé estas capacidades, pero nunca afirmes que una acción está disponible si el estado real de la interfaz, permisos o proveedor indica lo contrario. Explicá claramente qué módulo debe usar el usuario: Chat Normal, SUPER, Proyectos, Sandbox, RANDAR, SPACE, voz, archivos o Paint IA.`; } catch (_) { return 'IDENTIDAD CUT-REAL AI: asistente analítico y seguro. No inventar capacidades.'; } })();
+    const capabilityBrief = (() => { try { const identity = window.CutRealIdentity || {}; const registry = window.CutRealCapabilities?.listCapabilities?.() || []; return `IDENTIDAD CUT-REAL AI: ${identity.name || 'Cut-real AI'}. Estilo: ${identity.style || 'analítico y seguro'}. Reglas: ${(identity.rules || []).join(' | ')}. CAPACIDADES REGISTRADAS: ${JSON.stringify(registry)}. Conocé estas capacidades, pero nunca afirmes que una acción está disponible si el estado real de la interfaz, permisos o proveedor indica lo contrario. Explicá claramente qué módulo debe usar el usuario: Chat Normal, SUPER, Proyectos, Programador IA 2.0, Sandbox, RANDAR, SPACE, Centro de voz, archivos o Paint IA.`; } catch (_) { return 'IDENTIDAD CUT-REAL AI: asistente analítico y seguro. No inventar capacidades.'; } })();
     const platformBrief = (() => { try { return `REGISTRO COMPACTO DE CUT-REAL: ${JSON.stringify(window.CutRealPlatformContext || {})}. Para explicar el funcionamiento de la web, usá este registro y analizá solo archivos o fragmentos concretos si el usuario los solicita; no hagas una autoauditoría completa por defecto.`; } catch (_) { return ''; } })();
     const systemPrompt = { role: "system", content: `${capabilityBrief}\n${platformBrief}` };
     let currentUser = null;
@@ -1077,12 +1077,10 @@ function createAiActionBtns(respuestaIA, intent) {
      * @param {string} text  Texto completo de la respuesta de la IA
      */
     function speakResponse(text) {
-        if (!window.LoquendoSpeak) { if (voiceCallActive) { voiceRecognitionError = true; setVoiceCallStatus('Salida de voz no disponible · revisá que loquendo.js haya cargado', true); } return; }
+        const speak = window.CutRealVoice?.speak || window.LoquendoSpeak;
+        if (!speak) { if (voiceCallActive) { voiceRecognitionError = true; setVoiceCallStatus('Salida de voz no disponible', true); } return; }
         if (voiceCallActive) setVoiceCallTranscript(text);
-
-        // Mostrar orb si no está visible
         if (window.CutRealOrb && !window.CutRealOrb.isVisible()) window.CutRealOrb.show();
-
         voiceCallBusy = voiceCallActive;
         if (voiceCallActive && voiceSpeakerMuted) {
             voiceCallBusy = false;
@@ -1090,9 +1088,8 @@ function createAiActionBtns(respuestaIA, intent) {
             setTimeout(() => { if (voiceCallActive && !voiceCallMuted && !voiceSpeakerMuted) startVoiceListening(); }, 300);
             return;
         }
-        setVoiceCallStatus(voiceCallActive ? 'Hablando…' : 'Voz lista', voiceCallActive);
-        // Hablar con el perfil seleccionado en loquendo.js.
-        window.LoquendoSpeak(text, () => {
+        setVoiceCallStatus(voiceCallActive ? 'Hablando con Gemini · Puck…' : 'Gemini · Puck');
+        speak.call(window.CutRealVoice || window, text, () => {
             voiceCallBusy = false;
             if (voiceCallActive) { setVoiceCallStatus('Escuchando…', true); setTimeout(startVoiceListening, 420); }
         });
@@ -1197,13 +1194,13 @@ function createAiActionBtns(respuestaIA, intent) {
         };
         recognition.onend = () => {
             voiceRecognitionStarting = false;
-            if (voiceCallActive && !voiceCallMuted && !voiceRecognitionError && !voiceCallBusy && !window.LoquendoIsSpeaking?.()) setTimeout(startVoiceListening, voiceNoSpeechRetries ? 520 : 350);
+            if (voiceCallActive && !voiceCallMuted && !voiceRecognitionError && !voiceCallBusy && !(window.CutRealVoice?.isSpeaking?.() || window.LoquendoIsSpeaking?.())) setTimeout(startVoiceListening, voiceNoSpeechRetries ? 520 : 350);
         };
         return recognition;
     }
 
     function startVoiceListening() {
-        if (!voiceCallActive || voiceCallMuted || voiceRecognitionError || voiceCallBusy || window.LoquendoIsSpeaking?.()) return;
+        if (!voiceCallActive || voiceCallMuted || voiceRecognitionError || voiceCallBusy || window.CutRealVoice?.isSpeaking?.() || window.LoquendoIsSpeaking?.()) return;
         if (!voiceRecognition) voiceRecognition = buildVoiceRecognition();
         if (!voiceRecognition || voiceRecognitionStarting) {
             if (!voiceRecognition) setVoiceCallStatus('Micrófono no compatible en este navegador', true);
@@ -1230,7 +1227,7 @@ function createAiActionBtns(respuestaIA, intent) {
             }
         }
         voiceCallActive = true; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false; voiceCallMuted = false; voiceSpeakerMuted = false; voiceRecognition = buildVoiceRecognition();
-        if (window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
+        if (window.CutRealVoice?.unlock && !(await window.CutRealVoice.unlock()) && !(window.LoquendoUnlock && window.LoquendoUnlock())) { setVoiceCallStatus('No se pudo inicializar el audio Gemini ni la voz local', true); voiceCallActive = false; return false; } else if (!window.CutRealVoice && window.LoquendoUnlock && !window.LoquendoUnlock()) { setVoiceCallStatus('Salida de voz no disponible en este navegador', true); voiceCallActive = false; return false; }
         setVoiceCallTranscript('La conversación aparecerá aquí.');
         setVoiceCallModal(true);
         setVoiceCallStatus('Llamada activa · escuchando…', true);
@@ -1242,6 +1239,7 @@ function createAiActionBtns(respuestaIA, intent) {
         voiceCallActive = false; voiceCallBusy = false; voiceRecognitionHandled = false; voiceRecognitionStarting = false; voiceRecognitionError = false; voiceNoSpeechRetries = 0; voiceLanguageFallbackTried = false;
         try { voiceRecognition?.stop(); } catch (_) {}
         stopVoiceInputMeter();
+        window.CutRealVoice?.stop?.();
         if (window.LoquendoStop) window.LoquendoStop();
         setVoiceCallModal(false);
         setVoiceCallStatus('Voz lista', false);
@@ -1259,7 +1257,7 @@ function createAiActionBtns(respuestaIA, intent) {
     function toggleVoiceSpeaker() {
         if (!voiceCallActive) return;
         voiceSpeakerMuted = !voiceSpeakerMuted; syncVoiceCallActions();
-        if (voiceSpeakerMuted && window.LoquendoStop) window.LoquendoStop();
+        if (voiceSpeakerMuted) { window.CutRealVoice?.stop?.(); if (window.LoquendoStop) window.LoquendoStop(); }
         setVoiceCallStatus(voiceSpeakerMuted ? 'Altavoz apagado · micrófono activo' : 'Escuchando…', true);
         if (!voiceSpeakerMuted && !voiceCallBusy) startVoiceListening();
     }
@@ -1287,7 +1285,7 @@ function createAiActionBtns(respuestaIA, intent) {
     function openAgentMobileAudit() { const supported = Boolean(document.querySelector('.agent-mode-card') && document.querySelector('.agent-mode-actions')); const width = innerWidth; const issues = []; if (document.documentElement.scrollWidth > width + 1) issues.push('overflow horizontal detectado en el viewport actual'); if ([...document.querySelectorAll('.agent-mode-actions button')].some(button => button.getBoundingClientRect().height < 40)) issues.push('algún botón de acción mide menos de 40px en el viewport actual'); const body = `<p>Auditoría real del viewport actual: <b>${width}px</b>. No se inventan resultados para tamaños que no están abiertos.</p>${rowsForAgent([['Viewport', `${width}×${innerHeight}`],['DOM Agent', supported ? 'OK' : 'FAILED'],['Horizontal overflow', document.documentElement.scrollWidth > width + 1 ? 'FOUND' : 'none'],['Touch points', navigator.maxTouchPoints > 0 ? String(navigator.maxTouchPoints) : '0']])}<p class="${issues.length ? 'agent-warning' : 'agent-ok'}">${escapeHtml(issues.length ? issues.join(' · ') : 'No se detectaron problemas básicos en este viewport.')}</p>`; showAgentAdvanced('MOBILE AUDITOR', body); addAgentActivity(`Mobile audit ejecutado en ${width}px.`); }
     function rowsForAgent(items) { return items.map(item => `<div class="agent-data-row"><span>${escapeHtml(item[0])}</span><b>${escapeHtml(item[1])}</b></div>`).join(''); }
     function openAgentProjectMap() { showAgentAdvanced('PROJECT MAP', '<pre class="agent-project-map">CUT-REAL\n├── CHAT → /api/chat → Groq\n│   ├── MODELS / VOICE / FILES\n├── SANDBOX → /api/sandbox-agent → Gemini\n│   ├── ENGINE / OBJECTS / PLAYER / NEXUS\n├── AGENT → TASKS / TOOLS / MEMORY\n└── FIREBASE → AUTH / PERSISTENCE</pre>'); }
-    function openAgentExplain() { const text = document.getElementById('agent-task-input')?.value.trim().toLowerCase() || 'agent mode'; let explanation = 'Agent Mode crea un plan visible y ejecuta únicamente acciones registradas.'; if (text.includes('sandbox')) explanation = 'Sandbox usa Three.js, catálogo local, SceneManager, Firebase y un agente Gemini separado del chat Groq.'; else if (text.includes('voz') || text.includes('llamada')) explanation = 'La llamada usa SpeechRecognition para entrada y speechSynthesis/LoquendoSpeak para salida, con permiso del navegador.'; else if (text.includes('archivo')) explanation = 'El flujo de archivos depende de los formatos procesados por el frontend y de las rutas existentes; no se falsifica una extensión.'; showAgentAdvanced('EXPLAIN MODE', `<p>${escapeHtml(explanation)}</p>`); }
+    function openAgentExplain() { const text = document.getElementById('agent-task-input')?.value.trim().toLowerCase() || 'agent mode'; let explanation = 'Agent Mode crea un plan visible y ejecuta únicamente acciones registradas.'; if (text.includes('sandbox')) explanation = 'Sandbox usa Three.js, catálogo local, SceneManager, Firebase y un agente Gemini separado del chat Groq.'; else if (text.includes('voz') || text.includes('llamada')) explanation = 'La llamada usa reconocimiento de voz del navegador para entrada y Gemini TTS con voz Puck para salida, con respaldo local.'; else if (text.includes('archivo')) explanation = 'El flujo de archivos depende de los formatos procesados por el frontend y de las rutas existentes; no se falsifica una extensión.'; showAgentAdvanced('EXPLAIN MODE', `<p>${escapeHtml(explanation)}</p>`); }
     function runAgentRuntimeTests() { const checks = [['Agent panel', Boolean(document.getElementById('agent-mode-panel'))],['Task controls', Boolean(document.getElementById('agent-execute-btn') && document.getElementById('agent-stop-btn'))],['Chat route', typeof sendMessage === 'function'],['Voice input', Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)],['Voice output', Boolean(window.speechSynthesis)],['Sandbox entry', typeof window.openSandbox === 'function'],['SUPER entry', typeof window.CutRealSuper?.open === 'function'],['Responsive width', innerWidth > 0]]; const passed = checks.filter(item => item[1]).length; showAgentAdvanced('TEST AGENT', `<p><b>${passed} / ${checks.length} runtime checks passed</b> en ${innerWidth}px. Estos son checks del navegador actual, no sustituyen la suite de despliegue.</p>${rowsForAgent(checks.map(item => [item[0], item[1] ? 'PASS' : 'FAIL']))}`); addAgentActivity(`Test Agent: ${passed}/${checks.length} checks en runtime.`); }
     function createAgentSnapshot() { agentSnapshot = { at: Date.now(), task: document.getElementById('agent-task-input')?.value || '', queue: agentQueue.slice(), goalMode: agentGoalMode, lastResponse: lastAssistantResponse || '' }; try { localStorage.setItem('cutreal_agent_snapshot', JSON.stringify(agentSnapshot)); } catch (_) {} showAgentAdvanced('SNAPSHOT CREATED', '<p>Se guardó un snapshot local del estado del Agent Mode. El Sandbox mantiene snapshots propios en Firebase.</p>', '<button id="agent-restore-snapshot">RESTORE</button>'); addAgentActivity('Snapshot del Agent Mode creado.'); }
     function restoreAgentSnapshot() { try { agentSnapshot = agentSnapshot || JSON.parse(localStorage.getItem('cutreal_agent_snapshot') || 'null'); } catch (_) {} if (!agentSnapshot) return showToast('No hay snapshot del agente para restaurar', '#ff8844', '◇'); const field = document.getElementById('agent-task-input'); if (field) field.value = agentSnapshot.task || ''; agentQueue = Array.isArray(agentSnapshot.queue) ? agentSnapshot.queue : []; persistAgentQueue(); showAgentAdvanced('SNAPSHOT RESTORED', '<p>Estado local del Agent Mode restaurado. La escena 3D se recupera desde NEXUS.</p>'); addAgentActivity('Snapshot del Agent Mode restaurado.'); }
@@ -1308,7 +1306,7 @@ function createAiActionBtns(respuestaIA, intent) {
         if (/llamada|voz|hablar|escuchar|micr[oó]fono/.test(text)) steps.push({ label: 'Comprobar compatibilidad y permisos de llamada', run: () => startVoiceCall(), undo: () => stopVoiceCall() });
         if (/sandbox|escena|mundo 3d|nexus/.test(text)) steps.push({ label: 'Abrir el Sandbox existente', run: () => { if (!window.openSandbox) throw new Error('La interfaz Sandbox no está cargada.'); window.openSandbox(); }, undo: () => window.closeSandbox?.() });
         if (/avis|notific|asistencia/.test(text)) steps.push({ label: 'Solicitar permiso de notificaciones de asistencia', run: () => requestAssistantNotifications() });
-        if (/leer|voz alta|respuesta/.test(text) && lastAssistantResponse) steps.push({ label: 'Reproducir la última respuesta con el perfil de voz activo', run: () => speakResponse(lastAssistantResponse), undo: () => window.LoquendoStop?.() });
+        if (/leer|voz alta|respuesta/.test(text) && lastAssistantResponse) steps.push({ label: 'Reproducir la última respuesta con el perfil de voz activo', run: () => speakResponse(lastAssistantResponse), undo: () => { window.CutRealVoice?.stop?.(); window.LoquendoStop?.(); } });
         if (/b[aá]sico|basic/.test(text)) steps.push({ label: 'Seleccionar el modelo Básico de Groq', run: () => setModel('basic') });
         else if (/pro/.test(text)) steps.push({ label: 'Seleccionar el modelo Pro de Groq', run: () => setModel('pro') });
         if (/diagn[oó]stic|rendimiento|responsive|problema|revis/.test(text)) steps.push({ label: 'Medir estado real de la interfaz y conexión', run: () => { const result = `viewport=${innerWidth}×${innerHeight}, online=${navigator.onLine}, dpr=${window.devicePixelRatio || 1}, memoria=${performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : 'no expuesta'}`; addAgentActivity(`Diagnóstico real: ${result}`); const note = document.getElementById('agent-result-note'); if (note) note.textContent = `Diagnóstico: ${result}.`; return result; } });
@@ -1351,6 +1349,7 @@ function needsWebSearchFrontend(msg) {
         if (!currentUser) return;
 
         // Detener cualquier habla anterior
+        window.CutRealVoice?.stop?.();
         if (window.LoquendoStop) window.LoquendoStop();
 
         const intent = rawMsg ? detectIntent(rawMsg) : 'chat';
@@ -1642,6 +1641,7 @@ function needsWebSearchFrontend(msg) {
         if (!currentUser) return;
         if (confirm("¿Deseas borrar tu conversación?\nEsta acción no se puede deshacer.")) {
             // Detener habla al borrar chat
+            window.CutRealVoice?.stop?.();
             if (window.LoquendoStop) window.LoquendoStop();
             historial=[systemPrompt]; lastAssistantResponse = ''; renderizarChat(); await guardarEnNube();
         }
