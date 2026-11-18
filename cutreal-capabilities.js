@@ -25,6 +25,12 @@
       features: ['multi-model', 'process-timeline', 'neural-map', 'knowledge-map', 'model-status', 'attachments', 'workspace-bridge', 'sandbox-bridge', 'export-response'],
       status: 'available'
     },
+    programmer: {
+      label: 'Programador IA 2.0',
+      features: ['gemini-code-generation', 'multi-file-projects', 'code-editor', 'isolated-live-preview', 'runtime-error-capture', 'ai-error-repair', 'project-export'],
+      provider: 'Gemini via server-side route',
+      status: 'configuration-dependent'
+    },
     sandbox: {
       label: 'Sandbox',
       features: ['three-js-scene', 'low-poly-catalog', 'scene-editor', 'object-transform', 'object-color', 'object-duplicate', 'object-delete', 'workspace-files', 'firebase-persistence'],
@@ -33,7 +39,7 @@
     },
     voice: {
       label: 'Voz',
-      features: ['loquendo-profile', 'speech-synthesis', 'speech-recognition', 'voice-call-ui'],
+      features: ['gemini-tts', 'puck-default-voice', 'speech-recognition', 'voice-call-ui', 'voice-center', 'local-speech-fallback'],
       permissions: ['microphone'],
       status: 'browser-dependent'
     },
@@ -56,7 +62,7 @@
   };
 
   const registry = {
-    version: '2026.09.07',
+    version: '2026.11.18',
     product: 'CUT-REAL AI',
     definitions,
     listCapabilities(scope) {
